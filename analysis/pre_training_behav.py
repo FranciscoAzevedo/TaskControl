@@ -57,8 +57,10 @@ pretraining_sess = 3 # sessions with only instructed trials
 first_event = "GO_CUE_EVENT"
 second_event = "CHOICE_EVENT"
 samples = 10000 # 10s buffer: harp samples at 1khz, arduino at 100hz, LC controller has 1000 samples in buffer
-filter_pairs = [('has_choice', True), ('instructed_trial', False)] # filter all trials according to this(these) key(s)
+filter_pairs = ('instructed_trial', True) # filter all trials according to this(these) key(s)
 plot_lim = 5000 # limits of trajectories
+
+fig , axes = plt.subplots(figsize=[4, 3])
 
 for path in tqdm(paths[pretraining_sess:], position=0, leave=True, desc= 'Plotting trajectories'):
 
@@ -96,20 +98,20 @@ for path in tqdm(paths[pretraining_sess:], position=0, leave=True, desc= 'Plotti
     SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
     # Choose only trials according to filter pair
-    TrialDfs = bhv.filter_trials_by(SessionDf,TrialDfs, filter_pairs)
+    TrialDfs_Filt = bhv.filter_trials_by(SessionDf,TrialDfs, filter_pairs)
 
-    if type(TrialDfs) == list and len(TrialDfs) == 0:
+    if type(TrialDfs_Filt) == list and len(TrialDfs_Filt) == 0:
         continue # go onto next cycle
 
     # ACTUAL PLOTTING
-    axes = trajectories_with_marker(LoadCellDf, TrialDfs, SessionDf, first_event, second_event, plot_lim, animal_id)
-    axes.set_title('Trajectories of manipulandum and \n marker at time of choice ' + str(animal_id))
+    axes = trajectories_with_marker(LoadCellDf, TrialDfs_Filt, SessionDf, first_event, second_event, plot_lim, nickname, axes)
+    axes.set_title('Trajectories of manipulandum and \n marker at time of choice ' + str(nickname))
     axes.set_xlabel('Left/Right axis')
     axes.set_ylabel('Back/Front axis')
 
-    # Saving figure
-    match = re.search(r'\d{4}-\d{2}-\d{2}', str(path))
-    date = datetime.strptime(match.group(), '%Y-%m-%d').date()
-    plt.savefig(plot_dir / Path('trajectories_w_markers_' + str(filter_pairs) + "_" + str(date) + '.png'), dpi=300)
+# Saving figure
+match = re.search(r'\d{4}-\d{2}-\d{2}', str(path))
+date = datetime.strptime(match.group(), '%Y-%m-%d').date()
+plt.savefig(plot_dir / Path('trajectories_w_markers_' + str(filter_pairs) + "_" + str(date) + '.png'), dpi=600)
 
 # %%

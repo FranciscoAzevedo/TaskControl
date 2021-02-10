@@ -470,8 +470,8 @@ def log_reg(x, y, x_fit=None):
 
     return y_fit
 
-def tolerant_mean(arrs):
-    'A mean that is tolerant to different sized arrays'
+def tolerant_operation(arrs, func):
+    """ Pads arrays of different dimensions to a square matrix and applies input function """
 
     max_length = np.max([arr.shape[0] for arr in arrs]) # get largest array
 
@@ -484,5 +484,5 @@ def tolerant_mean(arrs):
 
     arrs=[np.pad(arr, (0, max_length-arr.shape[0]), mode='constant', constant_values=np.nan) for arr in arrs] # pad every array until max_length to obtain square matrix
 
-    return np.nanmean(arrs, axis = 0)
+    return func(arrays, axis = 0)
 

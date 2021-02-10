@@ -20,6 +20,7 @@ import seaborn as sns
 from tqdm import tqdm
 import os
 import utils
+import datetime
 
 from behavior_plotters import *
 
@@ -199,6 +200,7 @@ plt.legend(loc='upper right', frameon=False, fontsize = 8)
 plt.setp(axes, xticks=np.arange(0, int(t_max / (1000*60)), 5), xticklabels=np.arange(0, int(t_max / (1000*60)), 5))
 plt.setp(axes, yticks=np.arange(0, np.max(rew_rate), 5), yticklabels=np.arange(0, np.max(rew_rate), 5))
 
+
 # %%
 
 """
@@ -211,37 +213,50 @@ plt.setp(axes, yticks=np.arange(0, np.max(rew_rate), 5), yticklabels=np.arange(0
 ######## ######## ##     ## ##     ## ##    ##       ##     #######     ##         #######   ######  ##     ##
 """
 
+# Single session loading
+log_path = utils.get_file_dialog()
+
+# Multi session loading
 animal_folder = utils.get_folder_dialog()
-task_name = ['learn_to_push_cr','learn_to_push_vis_feedback']
+task_name = ['learn_to_push_v7','learn_to_push_v8']
 SessionsDf = utils.get_sessions(animal_folder)
 
 PushSessionsDf = pd.concat([SessionsDf.groupby('task').get_group(name) for name in task_name])
 
 log_paths = [Path(path)/'arduino_log.txt' for path in PushSessionsDf['path']]
 
-for log_path in tqdm(log_paths[3:]):
+for log_path in tqdm(log_paths):
 
+    path = log_path.parent 
     print('\n')
-    print(log_path)
+    print(path)
 
     # %% Preprocessing: LC syncing
-    animal_meta = pd.read_csv(log_path.parent.parent / 'animal_meta.csv')
+    animal_meta = pd.read_csv(path.parent / 'animal_meta.csv')
     animal_id = animal_meta[animal_meta['name'] == 'ID']['value'].values[0]
 
     plot_dir = log_path.parent / 'plots'
     os.makedirs(plot_dir, exist_ok=True)
 
-    LoadCellDf, harp_sync = bhv.parse_harp_csv(log_path.parent / "bonsai_harp_log.csv", save=True)
-    arduino_sync = bhv.get_arduino_sync(log_path, sync_event_name="TRIAL_ENTRY_EVENT")
+    # If it's the new parsing 
+    if os.path.isfile(path / "bonsai_LoadCellData.csv"):
 
-    t_harp = pd.read_csv(log_path.parent / "harp_sync.csv")['t'].values
-    t_arduino = pd.read_csv(log_path.parent / "arduino_sync.csv")['t'].values
+        LoadCellDf, t_harp = bhv.parse_bonsai_LoadCellData(path / "bonsai_LoadCellData.csv")
 
-    if t_harp.shape != t_arduino.shape:
-        t_arduino, t_harp = bhv.cut_timestamps(t_arduino, t_harp, verbose = True)
+        arduino_sync = bhv.get_arduino_sync(log_path, sync_event_name="TRIAL_ENTRY_EVENT")
+        t_harp = t_harp['t'].values
+        t_arduino = arduino_sync['t'].values
 
-    m, b = bhv.sync_clocks(t_harp, t_arduino, log_path)
-    LogDf = pd.read_csv(log_path.parent / "LogDf.csv")
+        if t_harp.shape != t_arduino.shape:
+            t_arduino, t_harp = bhv.cut_timestamps(t_arduino, t_harp, verbose = True)
+
+        m, b = bhv.sync_clocks(t_harp, t_arduino, log_path)
+
+    # If it's the old parsing but it was already performed, just read
+    else:
+        LoadCellDf = pd.read_csv(path / "loadcell_data.csv")
+
+    LogDf = pd.read_csv(path / "LogDf.csv")
 
     # %% median correction
     samples = 10000 # 10s buffer: harp samples at 1khz, arduino at 100hz, LC controller has 1000 samples in buffer
@@ -280,7 +295,7 @@ for log_path in tqdm(log_paths[3:]):
         for j, outcome in enumerate(outcomes):
             try:
                 # Only get filter pair combination
-                filter_pair = [('choice', choice),('outcome', outcome),('instructed_trial', False)]
+                filter_pair = [('choice', choice),('outcome', outcome)]
                 TrialDfs_filt = bhv.filter_trials_by(SessionDf,TrialDfs, filter_pair)
             except:
                 continue
@@ -302,7 +317,7 @@ for log_path in tqdm(log_paths[3:]):
     pre, post = 500, 5000
     force_thresh = 3000
     align_event = "GO_CUE_EVENT"
-
+    
     plot_forces_heatmaps(LoadCellDf, SessionDf, TrialDfs, align_event, pre, post, force_thresh, animal_id)
     plt.savefig(plot_dir / ('forces_heatmap.png'), dpi=300)
 
@@ -475,10 +490,6 @@ axes[0].set_title('premature')
 axes[1].set_title('incorrect')
 axes[2].set_title('correct')
 
-# axes[0].plot(bhv.tolerant_mean(Fmags),'k',lw=2,alpha=0.8)
-
-
-
 sns.despine(fig)
 fig.suptitle('forces after first timing cue')
 fig.tight_layout()
@@ -644,7 +655,7 @@ for ax in axes:
     ax.set_ylabel('p')
 
 sns.despine(fig)
-fig.suptitle(animal_id+' '+nickname+'\nlick psth to cues',fontsize='small')
+fig.suptitle(+nickname+'\nlick psth to cues',fontsize='small')
 fig.tight_layout()
 plt.savefig(plot_dir / 'lick_to_cues_psth_across_days.png', dpi=300)
 
@@ -652,7 +663,7 @@ axes[0].hist(times,bins=bins,density=True)
 
 # %% 
 "Learn to PUSH inspections"
-task_name = ['learn_to_push_vis_feedback']
+task_name = ['learn_to_push_v7', 'learn_to_push_v8']
 SessionsDf = utils.get_sessions(animal_folder)
 
 PushSessionsDf = pd.concat([SessionsDf.groupby('task').get_group(name) for name in task_name])
@@ -670,9 +681,30 @@ colors = sns.color_palette(palette='turbo',n_colors=len(LogDfs))
 
 # %%
 " General functions"
+fig , axes = plt.subplots()
+perc_in_corr_loop = []
+# Time in correction loops
+for LogDf in LogDfs:
+
+    # %% make SessionDf - slice into trials
+    TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_ENTRY_STATE", "ITI_STATE")
+
+    TrialDfs = []
+    for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
+        TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
+
+    metrics = (bhv.get_start, bhv.get_stop, bhv.has_choice, bhv.get_choice, bhv.get_in_corr_loop, bhv.is_successful, bhv.get_outcome)
+    SessionDf = bhv.parse_trials(TrialDfs, metrics)
+
+    perc_in_corr_loop.append((sum(SessionDf['in_corr_loop']==True))/(len(SessionDf)))
+axes.plot(perc_in_corr_loop)
+axes.set_xlabel('Session number')
+axes.set_ylim([0,1])
+axes.set_ylabel('Time in corr. loop (%)')
+plt.savefig(plot_dir / 'time_in_corr_loops_across_sessions.png', dpi=300)
 
 # Sessions overview
-plot_sessions_overview(LogDfs, paths, task_name[0], animal_id)
+plot_sessions_overview(LogDfs, paths, task_name[0], nickname)
 plt.savefig(plot_dir / 'learn_to_push_overview.png', dpi=300)
 
 #  Reward collection across sessions
@@ -684,41 +716,98 @@ x_y_tresh_bias_across_sessions(LogDfs, paths)
 plt.savefig(plot_dir / 'learn_to_push_x_y_thresh_bias_across_sessions.png', dpi=300)
 
 # Choice RT's distribution 
-bin_width = 250 #ms
+bin_width = 150 #ms
 choice_interval = 5000
 percentile = 75 # Choice RTs compromise X% of data
-choice_rt_across_sessions(LogDfs, bin_width, choice_interval, percentile, animal_id)
-plt.savefig(plot_dir / 'learn_to_push_choice_rt_distro.png', dpi=300)
+choice_rt_across_sessions(LogDfs, bin_width, choice_interval, percentile, nickname)
+plt.savefig(plot_dir / 'learn_to_push_choice_rt_distro.png', dpi=600)
 
 # %% Get Fx and Fy forces for all sessons in a 2D Contour plot
 trials_only = False
-axes = force_2D_contour_across_sessions(paths, task_name[0], animal_id, trials_only)
+axes = force_2D_contour_across_sessions(paths, task_name[0], nickname, trials_only)
 
 plt.savefig(plot_dir / ('learn_to_push_2D_Contour_' + str(trials_only) + '.png'), dpi=300)
 
-# %% Force mag to go cue across sessions
+# %% Force mag aligned to any event across sessions
 fig, axes = plt.subplots()
 
 align_event = "GO_CUE_EVENT"
-pre, post = 1000,2000
+pre, post = 500,1500
+pretraining_sess = 0
 
-for i,path in enumerate(paths):
+colors = sns.color_palette(palette='turbo',n_colors=len(paths[pretraining_sess:]))
 
-    LoadCellDf = pd.read_csv(path / "loadcell_data.csv")
+for i,path in enumerate(tqdm(paths[pretraining_sess:])):
 
-    TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_AVAILABLE_STATE", "ITI_STATE")
-    if TrialSpans.empty:
-        TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_ENTRY_STATE", "ITI_STATE")
+    log_path = path.joinpath('arduino_log.txt')
+
+    # If it's the new parsing 
+    if os.path.isfile(path / "bonsai_LoadCellData.csv"):
+
+        LoadCellDf, t_harp = bhv.parse_bonsai_LoadCellData(log_path.parent / "bonsai_LoadCellData.csv")
+
+        arduino_sync = bhv.get_arduino_sync(log_path, sync_event_name="TRIAL_ENTRY_EVENT")
+        t_harp = t_harp['t'].values
+        t_arduino = arduino_sync['t'].values
+        # pd.read_csv(log_path.parent / "arduino_sync.csv")['t'].values
+
+        if t_harp.shape != t_arduino.shape:
+            t_arduino, t_harp = bhv.cut_timestamps(t_arduino, t_harp, verbose = True)
+
+        m, b = bhv.sync_clocks(t_harp, t_arduino, log_path)
+
+    # If it's the old parsing that takes longer (harp log bin needs to already have been converted)
+    elif not os.path.isfile(path / "loadcell_data.csv") and os.path.isfile(path / "bonsai_harp_log.csv"):
+
+        LoadCellDf, harp_sync = bhv.parse_harp_csv(path / "bonsai_harp_log.csv", save=True)
+        arduino_sync = bhv.get_arduino_sync(log_path, sync_event_name="TRIAL_ENTRY_EVENT")
+
+        t_harp = pd.read_csv(path / "harp_sync.csv")['t'].values
+        t_arduino = pd.read_csv(path / "arduino_sync.csv")['t'].values
+
+        if t_harp.shape != t_arduino.shape:
+            try: 
+                t_arduino, t_harp = bhv.cut_timestamps(t_arduino, t_harp, verbose = True)
+            except:
+                continue
+
+        m, b = bhv.sync_clocks(t_harp, t_arduino, log_path)
+    
+    # If it's the old parsing but it was already performed, just read
+    else:
+        LoadCellDf = pd.read_csv(path / "loadcell_data.csv")
+
+    LogDf = pd.read_csv(path / "LogDf.csv")
+    LogDf = LogDf.loc[LogDf['t'] < LoadCellDf.iloc[-1]['t']]
+
+    # median correction
+    samples = 10000 
+    LoadCellDf['x'] = LoadCellDf['x'] - LoadCellDf['x'].rolling(samples).median()
+    LoadCellDf['y'] = LoadCellDf['y'] - LoadCellDf['y'].rolling(samples).median()
+
+    TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_ENTRY_STATE", "ITI_STATE")
 
     TrialDfs = []
-    for j, row in TrialSpans.iterrows():
+    for _, row in TrialSpans.iterrows():
         TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
 
-    _,_,Fmag = bhv.get_FxFy_window_aligned_on_event(LoadCellDf, TrialDfs, align_event, pre, post)
+    metrics = (bhv.get_start, bhv.get_stop, bhv.has_choice, bhv.get_choice, bhv.choice_RT, bhv.is_successful, bhv.get_outcome, bhv.get_instructed)
+    SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
-    F_mean = np.mean(Fmag)
-    axes.plot(F_mean, label = i)
-    plt.legend(loc='upper right', frameon=False)
+    filter_pair = ('has_choice', True)
+    TrialDfs_filt = bhv.filter_trials_by(SessionDf,TrialDfs, filter_pair)
+
+    _,_,Fmag = bhv.get_FxFy_window_aligned_on_event(LoadCellDf, TrialDfs_filt, align_event, pre, post)
+
+    F_mean = np.mean(Fmag, axis = 1)
+    axes.plot(F_mean, label = 'Session #' + str(i), color = colors[i], zorder = 100-i)
+
+#plt.legend(loc='upper right', frameon=False)
+axes.set_xlabel('Time (s)')
+axes.set_ylabel('Force (a.u.)')
+plt.setp(axes, xticks=np.arange(0, post+pre+0.1, 500), xticklabels=np.arange(-pre/1000, (post+0.1)/1000, 0.5))
+plt.title('Force Mag. across sessions aligned to ' + str(align_event))
+plt.savefig(plot_dir / ('force_mag_across_sessions_aligned_on_' + str(align_event) + '.png'), dpi=600)
 
 
 """
@@ -731,10 +820,126 @@ for i,path in enumerate(paths):
  ######   ##     ##  #######   #######  ##           ######## ########    ###    ######## ########
 """
 
+# %% Loading for group level - commented stuff is a workaround for missing sessions using dates as index to plot
+batch_folder = utils.get_folder_dialog()
+plot_dir = batch_folder / 'plots'
+os.makedirs(plot_dir, exist_ok=True)
+
+task_name = ['learn_to_push_v7','learn_to_push_v8']
+
+animal_fds = os.listdir(batch_folder)
+animal_fds.remove('plots')
+
+colors = sns.color_palette(palette='turbo', n_colors=len(animal_fds))
+
+fig , axes = plt.subplots(figsize=(6, 4))
+
+sucess_rates ,missed_rate, premature_rate = [],[],[]
+dates = set()
+
+# Go through all animals
+for animal_number, animal_fd in enumerate(animal_fds):
+    animal_fd = batch_folder / animal_fd
+
+    animal_meta = pd.read_csv(animal_fd / 'animal_meta.csv')
+    nickname = animal_meta[animal_meta['name'] == 'Nickname']['value'].values[0]
+
+    SessionsDf = utils.get_sessions(animal_fd)
+
+    
+    # Filtering only the sessions of learn to push according to task_name
+    PushSessionsDf = pd.DataFrame()
+    for name in task_name:
+        try:
+            Df = SessionsDf.groupby('task').get_group(name)
+            PushSessionsDf = pd.concat([PushSessionsDf,Df])
+        except:
+            pass
+
+    sessions_paths = [Path(path) for path in PushSessionsDf['path']]
+
+    LogDfs , date= [], []
+    for path in tqdm(sessions_paths, position=0, leave=True):
+        log_path = path / 'arduino_log.txt'
+        #try:
+        LogDf = bhv.get_LogDf_from_path(log_path)
+        LogDf = bhv.filter_bad_licks(LogDf)
+        LogDfs.append(LogDf)
+        #except:
+            #LogDfs.append(pd.DataFrame()) # if there is no session, create empty LogDf to create gap in plot
+
+        # Correct date format
+        #folder_name = os.path.basename(path)
+        #complete_date = folder_name.split('_')[0]
+        #date.append(datetime.datetime.strptime(complete_date,'%Y-%m-%d').date())
+        #dates.add(date[-1]) # compile all dates
+    
+
+    # Go through all sessions per animal
+    ts_performed, ts_correct, ts_missed, ts_premature = [],[],[],[]
+    for LogDf in LogDfs:
+
+        # Missed trials
+        missed_choiceDf = bhv.get_events_from_name(LogDf,"CHOICE_MISSED_EVENT")
+        ts_missed.append(len(missed_choiceDf))
+
+        # Success rate across animals
+        event_times = bhv.get_events_from_name(LogDf,"TRIAL_ENTRY_STATE")
+        ts_performed.append(len(event_times))
+        correct_choiceDf = bhv.get_events_from_name(LogDf,'CHOICE_CORRECT_EVENT')
+        ts_correct.append(len(correct_choiceDf))
+
+        # Premature trials
+        try:
+            premature_choiceDf = bhv.get_events_from_name(LogDf,"PREMATURE_CHOICE_EVENT")
+            ts_premature.append(len(premature_choiceDf))
+        except:
+            ts_premature.append(None)
+
+    perc_missed = np.multiply(np.divide(ts_missed,ts_performed),100)
+    perc_premature = np.multiply(np.divide(ts_premature,ts_performed),100)
+
+    missed_rate.append(perc_missed)
+    premature_rate.append(perc_premature)
+
+    success_rate = np.multiply(np.divide(ts_correct,ts_performed),100) # VALID TRIALS ONLY
+    sucess_rates.append(success_rate)
+
+    axes.plot(success_rate, color=colors[animal_number], alpha=0.5, label=nickname)
+
+#dates_list = list(dates)
+#dates_list.sort()
+
+# Mean across group
+# missed_rate_mean = bhv.tolerant_operation(np.array(missed_rate), np.nanmean)
+# premature_rate_mean = bhv.tolerant_operation(np.array(premature_rate),np.nanmean)
+
+# missed_rate_std = bhv.tolerant_operation(np.array(missed_rate), np.nanstd)
+# premature_rate_std = bhv.tolerant_operation(np.array(premature_rate), np.nanstd)
+
+# x_miss = np.arange(len(missed_rate_mean))
+# x_pre = np.arange(len(premature_rate_mean))
+
+# axes.errorbar(x_miss, missed_rate_mean, yerr = missed_rate_std, color= 'gray', linewidth = 2, label='Missed', zorder = 0)
+# axes.errorbar(x_pre, premature_rate_mean, yerr=premature_rate_std, color= 'pink', linewidth = 2, label='Premature', zorder = 1)
+
+sucess_rates_mean = bhv.tolerant_operation(np.array(sucess_rates), np.nanmean)
+axes.plot(sucess_rates_mean , color= 'k', linewidth = 2, label='Mean')
+
+# Formatting
+axes.set_ylabel('Success rate (%)')
+axes.set_xlabel('Session number')
+axes.legend(loc='upper right', frameon=False)
+axes.axhline(50, linestyle = ':', color = "r", alpha = 0.5) 
+plt.setp(axes, yticks=np.arange(0,100+1,10), yticklabels=np.arange(0,100+1,10))
+plt.setp(axes, xticks=np.arange(0,len(sucess_rates_mean)), xticklabels=np.arange(0,len(sucess_rates_mean)))
+plt.xticks(rotation=90)
+plt.savefig(plot_dir / ('success_rate_group.png'), dpi=600)
+
 # %% Loading
 group_plot_dir = Path('D:\TaskControl\Animals\group_plots')
 old_animal_tags = ['JJP-00885','JJP-00886','JJP-00888','JJP-00889','JJP-00891']
-new_animal_tags = ['JJP-01151','JJP-01152','JJP-01153']
+new_animal_tags = ['JJP-01151','JJP-01152','JJP-01154','JJP-01155']
 animal_tags = old_animal_tags + new_animal_tags
 
 old_animal_fd_path = [Path("D:\DoneAnimals")]*len(old_animal_tags)
@@ -829,7 +1034,7 @@ for i, (animal_tag,animal_fd_path) in enumerate(zip(new_animal_tags, new_animal_
         LogDf = bhv.get_LogDf_from_path(log_path)
         LogDfs.append(LogDf)
     
-    weight,sucess_rate,missed_rate = [],[],[]
+    weight,success_rate,missed_rate = [],[],[]
 
     for (path,LogDf) in zip(paths,LogDfs):
         
@@ -840,13 +1045,13 @@ for i, (animal_tag,animal_fd_path) in enumerate(zip(new_animal_tags, new_animal_
         no_correct = len(bhv.get_events_from_name(LogDf,'CHOICE_CORRECT_EVENT'))
         no_missed = len(bhv.get_events_from_name(LogDf,'CHOICE_MISSED_EVENT'))
 
-        sucess_rate.append((no_correct/no_trials)*100)
+        success_rate.append((no_correct/no_trials)*100)
         missed_rate.append((no_missed/no_trials)*100)
 
     weight = np.array(weight)
 
-    axes[0].scatter(weight, sucess_rate, color=colors[i], alpha=0.25, label = animal_tag)
-    slope, intercept, r_value, p_value, std_err = sp.stats.linregress(weight, sucess_rate)
+    axes[0].scatter(weight, success_rate, color=colors[i], alpha=0.25, label = animal_tag)
+    slope, intercept, r_value, p_value, std_err = sp.stats.linregress(weight, success_rate)
     axes[0].plot(weight, intercept + slope*weight, color=colors[i], alpha=0.75)
     print("Sucess Rate -> r_value:" + str(round(r_value,3)) + " | p_value = " + str(round(p_value,3)))
 
