@@ -1098,35 +1098,3 @@ group = LogDf.groupby('name').get_group("GO_CUE_EVENT")
 plt.vlines(group['t'].values,1000,-1000,color='b',lw=2)
 
 plt.title('Raw forces timecourse with L/R choice and go_cue timestamps ')
-
-
-
-
-"""
- #######  ##       ########        ###    ##    ## ########     ##     ## ##    ## ##     ##  ######  ######## ########
-##     ## ##       ##     ##      ## ##   ###   ## ##     ##    ##     ## ###   ## ##     ## ##    ## ##       ##     ##
-##     ## ##       ##     ##     ##   ##  ####  ## ##     ##    ##     ## ####  ## ##     ## ##       ##       ##     ##
-##     ## ##       ##     ##    ##     ## ## ## ## ##     ##    ##     ## ## ## ## ##     ##  ######  ######   ##     ##
-##     ## ##       ##     ##    ######### ##  #### ##     ##    ##     ## ##  #### ##     ##       ## ##       ##     ##
-##     ## ##       ##     ##    ##     ## ##   ### ##     ##    ##     ## ##   ### ##     ## ##    ## ##       ##     ##
- #######  ######## ########     ##     ## ##    ## ########      #######  ##    ##  #######   ######  ######## ########
-"""
-
-# # %% syncing
-# LoadCellDf, harp_sync = bhv.parse_harp_csv(log_path.parent / "bonsai_harp_log.csv", save=True)
-# arduino_sync = bhv.get_arduino_sync(log_path, sync_event_name="TRIAL_ENTRY_EVENT")
-
-# # %% - checking if the triggering worked
-# t_harp = harp_sync['t'].values
-# t_arduino = arduino_sync['t'].values
-
-# plt.plot(sp.diff(t_harp), label='harp')
-# plt.plot(sp.diff(t_arduino), label='arduino')
-# plt.legend()
-
-# # %%
-# t_harp = pd.read_csv(log_path.parent / "harp_sync.csv")['t'].values
-# t_arduino = pd.read_csv(log_path.parent / "arduino_sync.csv")['t'].values
-
-# m, b = bhv.sync_clocks(t_harp, t_arduino, log_path)
-# LogDf = pd.read_csv(log_path.parent / "LogDf.csv")
