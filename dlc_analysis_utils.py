@@ -5,8 +5,10 @@ import numpy as np
 import pandas as pd
 import cv2
 from pathlib import Path
-import behavior_analysis_utils as bhv
 from copy import copy
+
+# Custom
+import behavior_analysis_utils as bhv
 
 """
  
@@ -174,6 +176,117 @@ def plot_trajectories(DlcDf, bodyparts, axes=None, p=0.99, **line_kwargs):
 
     return axes
 
+
+"""
+########  ##        #######  ########    ##     ## ######## ##       ########  ######## ########   ######
+##     ## ##       ##     ##    ##       ##     ## ##       ##       ##     ## ##       ##     ## ##    ##
+##     ## ##       ##     ##    ##       ##     ## ##       ##       ##     ## ##       ##     ## ##
+########  ##       ##     ##    ##       ######### ######   ##       ########  ######   ########   ######
+##        ##       ##     ##    ##       ##     ## ##       ##       ##        ##       ##   ##         ##
+##        ##       ##     ##    ##       ##     ## ##       ##       ##        ##       ##    ##  ##    ##
+##        ########  #######     ##       ##     ## ######## ######## ##        ######## ##     ##  ######
+"""
+
+
+def get_window_aligned_on_event(LoadCellDf, TrialDfs, align_event, pre, post):
+    """
+        Returns NUMPY ND.ARRAY for all trials aligned to an event in a window defined by [align-pre, align+post]"
+        Don't forget: we are using nd.arrays so, implicitly, we use advanced slicing which means [row, col] instead of [row][col]
+    """
+    Fx, Fy, Fmag = [],[],[]
+    for TrialDf in TrialDfs:
+        t_align = TrialDf.loc[TrialDf['name'] == align_event, 't'].values[0]
+        LCDf = bhv.time_slice(LoadCellDf, t_align-pre, t_align+post)
+
+        Fx.append(LCDf['x'].values)
+        Fy.append(LCDf['y'].values)
+        Fmag.append(np.sqrt(LCDf['x']**2 + LCDf['y']**2))
+
+    Fx = np.array(Fx).T
+    Fy = np.array(Fy).T
+    Fmag = np.array(Fmag).T
+
+    return Fx,Fy,Fmag
+
+def get_FxFy_window_between_events(LoadCellDf, TrialDfs, first_event, second_event, pad_with = None):
+    """
+        Returns Fx/Fy/Fmag NUMPY ND.ARRAY with dimensions (trials, max_array_len) for all trials in a window between any two sequential(!) events
+        Don't forget: we are using nd.arrays so, implicitly, we use advanced slicing which means [row, col] instead of [row][col]
+    """
+
+    Fx, Fy, Fmag = [],[],[] 
+    for i, TrialDf in enumerate(TrialDfs):
+        if not TrialDf.empty:
+            if first_event == 'first': # From start of trial
+                time_1st = float(TrialDf['t'].iloc[0])
+            else:
+                time_1st = float(TrialDf[TrialDf.name == first_event]['t'])
+
+            if second_event == 'last': # Until end of trial
+                time_2nd = float(TrialDf['t'].iloc[-1])
+            else:
+                time_2nd = float(TrialDf[TrialDf.name == second_event]['t'])
+
+            LCDf = bhv.time_slice(LoadCellDf, time_1st, time_2nd)
+            Fx.append(LCDf['x'].values)
+            Fy.append(LCDf['y'].values)
+            Fmag.append(np.sqrt(LCDf['x']**2 + LCDf['y']**2))
+
+    # Make sure we have numpy arrays with same length, pad with given input pad_with
+    Fx = bhv.truncate_pad_vector(Fx,pad_with)
+    Fy = bhv.truncate_pad_vector(Fy,pad_with)
+    Fmag = bhv.truncate_pad_vector(Fmag,pad_with)
+
+    return Fx,Fy,Fmag
+
+def filter_trials_by(SessionDf, TrialDfs, filter_pairs):
+    """
+        This function filters input TrialDfs given filter_pair tuple (or list of tuples)
+        Example: given filter_pairs [(outcome,correct) , (choice,left)] it will only output trials which are correct to left side 
+    """
+
+    if type(filter_pairs) is list: # in case its more than one pair
+        groupby_keys = [filter_pair[0] for filter_pair in filter_pairs]
+        getgroup_keys = tuple([filter_pair[1] for filter_pair in filter_pairs])
+    else:
+        groupby_keys = filter_pairs[0]
+        getgroup_keys = filter_pairs[1]
+
+    try:
+        SDf = SessionDf.groupby(groupby_keys).get_group(getgroup_keys)
+    except:
+        print('There are no trials with given input filter_pair combination')
+        raise KeyError
+
+    TrialDfs_filt = np.array(TrialDfs)[SDf.index.values.astype(int)]
+
+    return TrialDfs_filt
+
+def truncate_pad_vector(arrs, pad_with = None, max_len = None):
+    " Truncate and pad an array with rows of different dimensions to max_len (defined either by user or input arrs)"
+    
+    # In case length is not defined by user
+    if max_len == None:
+        list_len = [len(arr) for arr in arrs]
+        max_len = max(list_len)
+
+    if pad_with == None:
+        pad_with = np.NaN
+    
+    trunc_pad_arr = np.empty((len(arrs), max_len)) 
+    trunc_pad_arr[:] = np.NaN
+
+    for i, arr in enumerate(arrs):
+        if len(arr) < max_len:
+            trunc_pad_arr[i,:] = np.pad(arr, (0, max_len-arr.shape[0]), mode='constant',constant_values=(pad_with,))
+        elif len(arr) > max_len:
+            trunc_pad_arr[i,:] = np.array(arr[:max_len])
+        elif len(arr) == max_len:
+            trunc_pad_arr[i,:] = arr
+
+    return trunc_pad_arr
+
+
 """
  
     ###    ##    ##    ###    ##       ##    ##  ######  ####  ######  
@@ -297,3 +410,111 @@ def get_speed(DlcDf, bp, p=0.99, filter=False):
         V[~good_ix] = sp.nan
         return V
 
+
+# Work only on Trial-level
+
+def get_correct_side(TrialDf):
+    var_name = "correct_side"
+
+    try:
+        Df = TrialDf.groupby('var').get_group(var_name)
+        var = Df.iloc[0]['value']
+
+        if var == 4 :
+            var = 'left'
+        elif var == 6:
+            var = 'right'        
+    
+    except KeyError:
+        var = np.NaN
+
+    return pd.Series(var, name=var_name)
+
+def get_choice(TrialDf):
+    var_name = 'choice'
+
+    # Is there a reach for this trial?
+    if has_reach_left(TrialDf).values or has_reach_right(TrialDf).values:
+
+        left_reaches_idx = TrialDf['name'] == 'REACH_LEFT_ON'
+        right_reaches_idx = TrialDf['name'] == 'REACH_RIGHT_ON'
+
+        reaches_idx_union = left_reaches_idx | right_reaches_idx
+
+        first_reach_idx = np.argmax(reaches_idx_union)
+
+        # Check which side the first reach is
+        if TrialDf.iloc[first_reach_idx]['name'] == 'REACH_LEFT_ON':
+            var = 'left'
+        elif TrialDf.iloc[first_reach_idx]['name'] == 'REACH_RIGHT_ON':
+            var = 'right'
+
+    else: 
+        var = np.NaN
+
+    return pd.Series(var, name=var_name)
+
+def get_outcome(TrialDf):
+    var_name = "outcome"
+
+    # Missed
+    if not has_reach_left(TrialDf).values and not has_reach_right(TrialDf).values:
+        var = 'missed'
+
+    # Correct
+    elif get_choice(TrialDf).values == get_correct_side(TrialDf).values:
+        var = 'correct'
+
+    # Incorrect
+    elif get_choice(TrialDf).values != get_correct_side(TrialDf).values:
+        var = 'incorrect'
+
+    return pd.Series(var, name=var_name)    
+
+def has_reach_left(TrialDf):
+    var_name = 'has_reach_left'
+
+    if "REACH_LEFT_ON" in TrialDf['name'].values:
+        var = True
+    else:
+        var = False    
+ 
+    return pd.Series(var, name=var_name)
+
+def has_reach_right(TrialDf):
+    var_name = 'has_reach_right'
+
+    if "REACH_RIGHT_ON" in TrialDf['name'].values:
+        var = True
+    else:
+        var = False    
+ 
+    return pd.Series(var, name=var_name)
+
+def choice_rt_left(TrialDf):
+    var_name = 'choice_rt_left'
+
+    if has_reach_left(TrialDf).values:
+
+        cue_time = TrialDf.groupby('name').get_group("PRESENT_CUE_STATE").iloc[-1]['t']
+        reach_time = TrialDf.groupby('name').get_group("REACH_LEFT_ON").iloc[0]['t'] # Only first reach
+
+        var = reach_time - cue_time
+    else:
+        var = np.NaN    
+ 
+    return pd.Series(var, name=var_name)
+
+def choice_rt_right(TrialDf):
+    var_name = 'choice_rt_right'
+
+    if has_reach_right(TrialDf).values:
+
+        cue_time = TrialDf.groupby('name').get_group("PRESENT_CUE_STATE").iloc[-1]['t']
+        reach_time = TrialDf.groupby('name').get_group("REACH_RIGHT_ON").iloc[0]['t'] # Only first reach
+
+        var = reach_time - cue_time
+    else:
+        var = np.NaN    
+ 
+    return pd.Series(var, name=var_name)

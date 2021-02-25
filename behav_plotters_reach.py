@@ -26,6 +26,8 @@ import behavior_analysis_utils as bhv
 
 """
  
+
+# Only uses LogDf
 def plot_session_overview(LogDf, SessionDf, history, axes=None):
     "Plots trials split by Missed, Aborted, Incorrect and Correct, Fig5C of Gallinares"
 
@@ -38,8 +40,7 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
 
     fig, axes = plt.subplots(nrows=2,gridspec_kw=dict(height_ratios=(0.1,1)))
 
-    colors = dict(success="#72E043", reward="#3CE1FA", correct="#72E043", incorrect="#F56057", 
-                premature="#9D5DF0", missed="#F7D379")
+    colors = dict(correct="#72E043", incorrect="#F56057", missed="#F7D379")
 
     # bars
     for i, row in SessionDf.iterrows():
@@ -59,9 +60,9 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
     line_width = 0.04
 
     # L/R trial types
-    left_trials = SessionDf.loc[SessionDf['correct_zone'] == 4].index + 1
+    left_trials = SessionDf.loc[SessionDf['correct_side'] == 'left'].index + 1
     y_left_trials = np.zeros(left_trials.shape[0]) - line_width
-    right_trials = SessionDf.loc[SessionDf['correct_zone'] == 6].index + 1
+    right_trials = SessionDf.loc[SessionDf['correct_side'] == 'right'].index + 1
     y_right_trials = np.zeros(right_trials.shape[0]) + 1 + line_width
 
     # L/R trial choices
@@ -78,27 +79,19 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
         y_right_choices = np.zeros(right_choices.shape[0]) + 1
     except:
         pass
-    
-    try:
-        # If in correction loops
-        in_corr_loop = SessionDf.loc[SessionDf['in_corr_loop'] == True].index + 1
-        y_in_corr_loop = np.zeros(in_corr_loop.shape[0]) + 1 + 2*line_width
-    except:
-        pass
 
     # Grand average rate
-    y = np.cumsum(SessionDf['successful'].values) / (SessionDf.index.values+1)
+    y = np.cumsum(SessionDf['outcome'] == 'correct') / (SessionDf.index.values+1)
 
     # Plotting in the same order as computed
     axes[1].plot(left_trials, y_left_trials, '|', color='k')
     axes[1].plot(right_trials, y_right_trials, '|', color='k')
     axes[1].plot(left_choices, y_left_choices, '|', color='m', label = 'left choice')
     axes[1].plot(right_choices, y_right_choices, '|', color='green', label = 'right choice')
-    axes[1].plot(in_corr_loop, y_in_corr_loop, '|', color='r', label = 'corr. loops')
     axes[1].plot(x,y, color='C0', label = 'grand average')
 
     if history is not None:
-        y_filt = SessionDf['successful'].rolling(history).mean()
+        y_filt = (SessionDf['outcome'] == 'correct').rolling(history).mean()
         axes[1].plot(x,y_filt, color='C0',alpha=0.3, label = 'rolling mean')
     
     axes[1].set_ylabel('Success rate')
@@ -130,12 +123,17 @@ def plot_choice_RT_hist(SessionDf, choice_interval, bin_width):
             
             ax = axes[j, i]
 
-            choice_rts = SessionDf['choice_rt'].values
+            # Merge the two Dfs because either way SDf already has only the trials of interest
+            rt_leftDf = SDf['choice_rt_left']
+            rt_rightDf = SDf['choice_rt_right']
+            df = pd.concat([rt_leftDf, rt_rightDf]).groupby(level=0).min()
+
+            choice_rts = df.values
             ax.hist(choice_rts, **kwargs, label = str([choice, outcome]))
             ax.legend(loc='upper right', frameon=False, fontsize = 8, handletextpad = 0.3, handlelength = 0.5)
         
     # Formatting
-    plt.setp(axes, xticks=np.arange(0, choice_interval+1, 500), xticklabels=np.arange(0, (choice_interval/1000)+0.1, 0.5))
+    plt.setp(axes, xticks=np.arange(0, choice_interval+1, 1000), xticklabels=np.arange(0, (choice_interval/1000)+0.1, 1))
     fig.suptitle('Choice RTs Histogram')
     axes[0, 0].set_title('left')
     axes[0, 1].set_title('right')
@@ -148,9 +146,57 @@ def plot_choice_RT_hist(SessionDf, choice_interval, bin_width):
 
     return axes  
 
-# Need to agree on coordinate system for the trajectories
+def plot_psychometric(SessionDf, axes=None):
+    " Timing task classic psychometric fit to data"
 
-def trajectories_with_marker(LogDf, SessionDf, labelsDf, align_event, pre, post, animal_id, axes=None):
+    if axes is None:
+        axes = plt.gca()
+
+    # get only the subset with choices
+    SDf = SessionDf.groupby('has_choice').get_group(True)
+    y = SDf['choice'].values == 'right'
+    x = SDf['this_interval'].values
+
+    # plot choices
+    axes.plot(x,y,'.',color='k',alpha=0.5)
+    axes.set_yticks([0,1])
+    axes.set_yticklabels(['short','long'])
+    axes.set_ylabel('choice')
+    axes.axvline(1500,linestyle=':',alpha=0.5,lw=1,color='k')
+
+    x_fit = np.linspace(0,3000,100)
+    line, = plt.plot([],color='red', linewidth=2,alpha=0.75)
+    line.set_data(x_fit, bhv.log_reg(x, y, x_fit))
+    
+    try:
+        # %% random margin - with animal bias
+        t = SDf['this_interval'].values
+        bias = (SessionDf['choice'] == 'right').sum() / SessionDf.shape[0] # This includes premature choices now!
+        R = []
+        for i in range(100):
+            rand_choices = np.rand(t.shape[0]) < bias # can break here if bias value is too low
+            R.append(bhv.log_reg(x, rand_choices,x_fit))
+        R = np.array(R)
+
+        # Several statistical boundaries (?)
+        alphas = [5, 0.5, 0.05]
+        opacities = [0.5, 0.4, 0.3]
+        for alpha, a in zip(alphas, opacities):
+            R_pc = sp.percentile(R, (alpha, 100-alpha), 0)
+            # plt.plot(x_fit, R_pc[0], color='blue', alpha=a)
+            # plt.plot(x_fit, R_pc[1], color='blue', alpha=a)
+            plt.fill_between(x_fit, R_pc[0], R_pc[1], color='blue', alpha=a)
+        plt.set_cmap
+    except KeyError:
+        print('Bias too high')
+
+    plt.setp(axes, xticks=np.arange(0, 3000+1, 500), xticklabels=np.arange(0, 3000//1000 +0.1, 0.5))
+    axes.set_xlabel('Time (s)')
+
+    return axes
+
+# Uses DLC data
+def plot_trajectories_with_marker(LogDf, SessionDf, labelsDf, align_event, pre, post, animal_id, axes=None):
 
     if axes is None:
         _ , axes = plt.subplots()
@@ -269,55 +315,6 @@ def plot_split_forces_magnitude(SessionDf, LoadCellDf, TrialDfs, align_event, pr
 
     return axes
 
-def plot_psychometric(SessionDf, axes=None):
-    " Timing task classic psychometric fit to data"
-
-    if axes is None:
-        axes = plt.gca()
-
-    # get only the subset with choices
-    SDf = SessionDf.groupby('has_choice').get_group(True)
-    y = SDf['choice'].values == 'right'
-    x = SDf['this_interval'].values
-
-    # plot choices
-    axes.plot(x,y,'.',color='k',alpha=0.5)
-    axes.set_yticks([0,1])
-    axes.set_yticklabels(['short','long'])
-    axes.set_ylabel('choice')
-    axes.axvline(1500,linestyle=':',alpha=0.5,lw=1,color='k')
-
-    x_fit = np.linspace(0,3000,100)
-    line, = plt.plot([],color='red', linewidth=2,alpha=0.75)
-    line.set_data(x_fit, bhv.log_reg(x, y, x_fit))
-    
-    try:
-        # %% random margin - with animal bias
-        t = SDf['this_interval'].values
-        bias = (SessionDf['choice'] == 'right').sum() / SessionDf.shape[0] # This includes premature choices now!
-        R = []
-        for i in range(100):
-            rand_choices = np.rand(t.shape[0]) < bias # can break here if bias value is too low
-            R.append(bhv.log_reg(x, rand_choices,x_fit))
-        R = np.array(R)
-
-        # Several statistical boundaries (?)
-        alphas = [5, 0.5, 0.05]
-        opacities = [0.5, 0.4, 0.3]
-        for alpha, a in zip(alphas, opacities):
-            R_pc = sp.percentile(R, (alpha, 100-alpha), 0)
-            # plt.plot(x_fit, R_pc[0], color='blue', alpha=a)
-            # plt.plot(x_fit, R_pc[1], color='blue', alpha=a)
-            plt.fill_between(x_fit, R_pc[0], R_pc[1], color='blue', alpha=a)
-        plt.set_cmap
-    except KeyError:
-        print('Bias too high')
-
-    plt.setp(axes, xticks=np.arange(0, 3000+1, 500), xticklabels=np.arange(0, 3000//1000 +0.1, 0.5))
-    axes.set_xlabel('Time (s)')
-
-    return axes
-
 def plot_timing_overview(LogDf, LoadCellDf, TrialDfs, axes=None): 
     """
         Heatmap aligned to 1st cue with 2nd (timing) cue and choice RT markers, split by trial outcome and trial type
@@ -414,6 +411,8 @@ def plot_timing_overview(LogDf, LoadCellDf, TrialDfs, axes=None):
 
     return axes
 
+# Uses Video
+
 """
     #    #     # ### #     #    #    #
    # #   ##    #  #  ##   ##   # #   #
@@ -425,8 +424,6 @@ def plot_timing_overview(LogDf, LoadCellDf, TrialDfs, axes=None):
 
 """
 
-# Must include these on the sessions_overview function (From Fig.1D Gallinares)
-# Number of responded trials per min
 # Number of responded trials (%)
 
 def plot_sessions_overview(LogDfs, paths, task_name, animal_id, axes = None):
@@ -526,6 +523,8 @@ def water_to_spout_distance_across_sessions(LogDfs, paths, task_name, animal_id,
         Plots the evolution of the distance between the spout and water tips across sessions
         Fig.1D Gallinares
     """
+
+
 
     return
 

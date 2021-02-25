@@ -9,18 +9,32 @@ import scipy as sp
 import numpy as np
 import pandas as pd
 import cv2
+import utils
+import calendar
+
+from tqdm import tqdm
 from pathlib import Path
+
+# Custom
 import behavior_analysis_utils as bhv
 from dlc_analysis_utils import *
-from tqdm import tqdm
+import behav_plotters_reach as bhv_plt_reach
+
+"""
+ #       #######    #    ######  ### #     #  #####
+ #       #     #   # #   #     #  #  ##    # #     #
+ #       #     #  #   #  #     #  #  # #   # #
+ #       #     # #     # #     #  #  #  #  # #  ####
+ #       #     # ####### #     #  #  #   # # #     #
+ #       #     # #     # #     #  #  #    ## #     #
+ ####### ####### #     # ######  ### #     #  #####
+
+"""
 
 # %% read all three data sources
 
 # DeepLabCut data
-h5_path = Path("/media/georg/data/reaching_dlc/2021-02-12_17-10-48_learn_to_reach/bonsai_videoDLC_resnet_50_second_testFeb15shuffle1_650000.h5")
-h5_path = Path("/media/georg/data/reaching_dlc/JJP-01641/2021-02-19_20-49-38_learn_to_reach/bonsai_videoDLC_resnet_50_second_testFeb15shuffle1_650000.h5")
-h5_path = Path("/media/georg/htcondor/shared-paton/georg/Animals_reaching/JJP-01642/2021-02-18_16-33-23_learn_to_reach/bonsai_videoDLC_resnet_50_second_testFeb15shuffle1_650000.h5")
-
+h5_path = utils.get_file_dialog()
 DlcDf = read_dlc_h5(h5_path)
 
 # all body parts
@@ -32,6 +46,25 @@ Vid = read_video(str(video_path))
 
 log_path = video_path.parent / 'arduino_log.txt'
 LogDf = bhv.get_LogDf_from_path(log_path)
+
+# %% Create SessionDf
+TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_ENTRY_STATE", "ITI_STATE")
+
+TrialDfs = []
+for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
+    TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
+
+metrics = (bhv.get_start, bhv.get_stop, get_correct_side, get_outcome, get_choice, has_reach_left, has_reach_right, \
+            choice_rt_left, choice_rt_right)
+
+SessionDf = bhv.parse_trials(TrialDfs, metrics)
+
+# %% Plots dir and animal info
+animal_meta = pd.read_csv(log_path.parent.parent / 'animal_meta.csv')
+nickname = animal_meta[animal_meta['name'] == 'Nickname']['value'].values[0]
+
+plot_dir = log_path.parent / 'plots'
+os.makedirs(plot_dir, exist_ok=True)
 
 # %% sync
 video_sync_path = video_path.parent / 'bonsai_frame_stamps.csv'
@@ -48,6 +81,18 @@ Skeleton   = (('D1L','J1L'),('D2L','J2L'),('D3L','J3L'),('D4L','J4L'),('D5L','J5
 
 paws = ['PL','PR']
 
+
+"""
+  #####  #######  #####   #####  ### ####### #     #
+ #     # #       #     # #     #  #  #     # ##    #
+ #       #       #       #        #  #     # # #   #
+  #####  #####    #####   #####   #  #     # #  #  #
+       # #             #       #  #  #     # #   # #
+ #     # #       #     # #     #  #  #     # #    ##
+  #####  #######  #####   #####  ### ####### #     #
+
+"""
+
 # %% plot all trajectories
 fig, axes = plt.subplots()
 
@@ -56,7 +101,6 @@ Frame = get_frame(Vid, i)
 axes = plot_frame(Frame, axes=axes)
 axes = plot_trajectories(DlcDf, paws, axes=axes,lw=0.025)
 
-
 # %% plot a single frame with DLC markers and Skeleton
 fig, axes = plt.subplots()
 i = 8000 # frame index
@@ -64,7 +108,6 @@ Frame = get_frame(Vid, i)
 axes = plot_frame(Frame, axes=axes)
 axes = plot_bodyparts(bodyparts, DlcDf, i, axes=axes)
 axes, lines = plot_Skeleton(Skeleton, DlcDf, i , axes=axes)
-
 
 # %% identify reaches
 fig, axes = plt.subplots()
@@ -103,7 +146,6 @@ for i, row in tqdm(SpansDf.iterrows()):
     axes.plot(df.x,df.y,lw=2.0,alpha=0.5)
 
 # %% distance / speed over time
-
 fig, axes = plt.subplots(nrows=2,sharex=True)
 
 bps = ['PR','PL']
@@ -121,46 +163,171 @@ for i, bp in enumerate(bps):
 
 axes[0].legend()
 
-# %% 
+# %% Success rate
+bhv_plt_reach.plot_success_rate(LogDf, SessionDf, 10, axes=None)
+plt.savefig(plot_dir / ('success_rate.png'), dpi=600)
+
+# %% Session overview
+bhv_plt_reach.plot_session_overview(LogDf, SessionDf, 10, axes=None)
+plt.savefig(plot_dir / ('session_overview.png'), dpi=600)
+
+# %% Session Heatmap aligned to go cue split by side
+pre,post = 2000,6000
+align_event = 'PRESENT_CUE_STATE'
+
+fig, axes = plt.subplots(ncols=2,sharex=True)
+
+TrialDfs_left = filter_trials_by(SessionDf, TrialDfs, ('correct_side', 'left'))
+TrialDfs_right = filter_trials_by(SessionDf, TrialDfs, ('correct_side', 'right'))
+
+d_to_left, d_to_right = [],[]
+
+for TrialDf in TrialDfs_left:
+    t_align = TrialDf.loc[TrialDf['name'] == align_event, 't'].values[0]
+    Dlc_TrialDf = bhv.time_slice(DlcDf, t_align-pre, t_align+post)
+ 
+    d_to_left.append(calc_dist_bp_point(Dlc_TrialDf,'PR', left_spout, filter=True))
+
+# Fix the fact that some arrays have different lengths (due to frame rate fluctuations)
+d_to_left = truncate_pad_vector(d_to_left)
+d_to_left = np.array(d_to_left)
+
+for TrialDf in TrialDfs_right:
+    t_align = TrialDf.loc[TrialDf['name'] == align_event, 't'].values[0]
+    Dlc_TrialDf = bhv.time_slice(DlcDf, t_align-pre, t_align+post)
+ 
+    d_to_right.append(calc_dist_bp_point(Dlc_TrialDf,'PR', right_spout, filter=True))
+
+# Fix the fact that some arrays have different lengths (due to frame rate fluctuations)
+d_to_right = truncate_pad_vector(d_to_right)
+d_to_right = np.array(d_to_right)
+
+heat1 = axes[0].matshow(d_to_left, vmin=0, vmax=200, cmap='viridis_r')
+heat2 = axes[1].matshow(d_to_right, vmin=0, vmax=150, cmap='viridis_r')
+
+cbar1 = plt.colorbar(heat1, ax=axes[0], orientation='horizontal', aspect = 30)
+cbar2 = plt.colorbar(heat2, ax=axes[1], orientation='horizontal', aspect = 30)
+
+cbar1.ax.set_xlabel('Euclid. Distance (a.u.)')
+cbar2.ax.set_xlabel('Euclid. Distance (a.u.)')
+
+axes[0].set_title('Left side')
+axes[0].set_ylabel('Trials')
+axes[1].set_title('Right side')
+
+time_interval = 1 # sec
+frame_interval = time_interval*200
+
+for ax in axes.flatten():
+    ax.set_xlabel('Time (s)')
+    ax.set_aspect('auto')
+
+for ax in axes:
+    ax.axvline(x=time2frame(pre,m,b,m2,b2), ymin=0, ymax=1, color = 'red', alpha = 0.5)
+    plt.setp(ax, xticks=np.arange(0, d_to_left.shape[1], frame_interval), xticklabels=np.arange(-pre/1000, post/1000+0.1, time_interval))
+    ax.xaxis.set_ticks_position('bottom')
+
+plt.savefig(plot_dir / ('heatmap_reaches_aligned_' + str(align_event) + '.png'), dpi=600)
+
+# %% Reaches in a window around cue input event 
+pre,post = 3000,6000    
+align_event = 'REWARD_LEFT_AVAILABLE_STATE'
+t_aligns = bhv.get_events_from_name(LogDf, align_event)
+
 fig, axes = plt.subplots()
-i = 7000 # frame index
-Frame = get_frame(Vid, i)
-axes = plot_frame(Frame, axes=axes)
-coords = [201,381] # spout right
-#  = [385, 375] # spout left
-p = 0.90
 
-w = 60 # box size
-rect = box2rect(coords, w)
+right_reaches, left_reaches = [],[]
+for i, t_align in t_aligns.iterrows():
+    Df = bhv.time_slice(LogDf, t_align.values-pre, t_align.values+post)
+    right_reaches.append(bhv.get_events_from_name(Df, 'REACH_RIGHT_ON').values - t_align.values)
+    left_reaches.append(bhv.get_events_from_name(Df, 'REACH_LEFT_ON').values -t_align.values)
 
-R = Rectangle(*rect2cart(rect),lw=1,facecolor='none',edgecolor='r')
-axes.add_patch(R)
+flat_ipsi_reaches = [item for sublist in right_reaches for item in sublist]
+flat_contra_reaches = [item for sublist in left_reaches for item in sublist]
+no_bins = np.linspace(-pre,post, 40) 
 
-bp = 'PR'
-SpansDf = in_box_span(DlcDf, bp, rect, min_dur=5, p=p)
+axes.hist(np.array(flat_ipsi_reaches), bins = no_bins , alpha=0.5, label = 'Right reaches')
+axes.hist(np.array(flat_contra_reaches), bins = no_bins, alpha=0.5, label = 'Left reaches')
+plt.setp(axes, xticks=np.arange(-pre, post+1, 1000), xticklabels=np.arange(-pre/1000, post/1000+0.1, 1))
+axes.axvline(x=0, c='black')
+axes.set_xlabel('Time (s)')
+axes.set_title('Reaches for all trials aligned to \n  %s' %align_event)
+axes.legend()
 
-# convert frames to times in a DF - utils function?
-SpansDf = pd.DataFrame(frame2time(SpansDf.values,m,b,m2,b2),columns=SpansDf.columns)
+plt.savefig(plot_dir / ('choice_RTs_aligned_' + str(align_event) + '.png'), dpi=600)
 
-pre, post = -500, 500
-inds = []
-for i, row in SpansDf.iterrows():
-    df = bhv.time_slice(DlcDf, row.t_on+pre, row.t_on+post)
-    inds.append(df.index)
+# %% Session Heatmap aligned to valve opening irrespective of being inside of a trial
 
-# %% from event
-pre, post = -500, 500
 
-event = 'REWARD_RIGHT_AVAILABLE_EVENT'
-Event = bhv.get_events_from_name(LogDf, event)
-inds = []
-for t in Event.t:
-    df = bhv.time_slice(DlcDf, t+pre, t+post)
-    inds.append(df.index)
 
-# %% 
-D = sp.zeros((np.max([ix.shape[0] for ix in inds]),len(inds)))
-D[:] = sp.nan
+"""
+    #     #####  ######  #######  #####   #####      #####  #######  #####   #####  ### ####### #     #  #####
+   # #   #     # #     # #     # #     # #     #    #     # #       #     # #     #  #  #     # ##    # #     #
+  #   #  #       #     # #     # #       #          #       #       #       #        #  #     # # #   # #
+ #     # #       ######  #     #  #####   #####      #####  #####    #####   #####   #  #     # #  #  #  #####
+ ####### #       #   #   #     #       #       #          # #             #       #  #  #     # #   # #       #
+ #     # #     # #    #  #     # #     # #     #    #     # #       #     # #     #  #  #     # #    ## #     #
+ #     #  #####  #     # #######  #####   #####      #####  #######  #####   #####  ### ####### #     #  #####
+
+"""
+
+# %% Evolution of trial outcome 
+
+# Obtain log_paths and plot dirs
+animal_folder = utils.get_folder_dialog()
+across_session_plot_dir = animal_folder / 'plots'
+animal_meta = pd.read_csv(animal_folder / 'animal_meta.csv')
+nickname = animal_meta[animal_meta['name'] == 'Nickname']['value'].values[0]
+os.makedirs(plot_dir, exist_ok=True)
+
+task_name = ['learn_to_reach']
+SessionsDf = utils.get_sessions(animal_folder)
+log_paths = [Path(path)/'arduino_log.txt' for path in SessionsDf['path']]
+
+# Obtain the perc of reaches, correct and incorrect trials
+perc_reach, perc_correct, date = [],[],[]
+
+for log_path in tqdm(log_paths[-2:]):
+    
+    path = log_path.parent 
+    LogDf = bhv.get_LogDf_from_path(log_path)
+
+    # Correct date format
+    folder_name = os.path.basename(path)
+    complete_date = folder_name.split('_')[0]
+    month = calendar.month_abbr[int(complete_date.split('-')[1])]
+    day = complete_date.split('-')[2]
+    date.append(month+'-'+day)
+
+    TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_ENTRY_STATE", "ITI_STATE")
+
+    TrialDfs = []
+    for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
+        TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
+
+    metrics = (bhv.get_start, bhv.get_stop, get_correct_side, get_outcome, get_choice, has_reach_left, has_reach_right)
+    SessionDf = bhv.parse_trials(TrialDfs, metrics)
+
+    any_reach = SessionDf.has_reach_left | SessionDf.has_reach_right
+
+    # Two metrics of evolution
+    perc_reach.append(sum(any_reach)/len(SessionDf)*100)
+    perc_correct.append(sum(SessionDf.outcome == 'correct')/len(SessionDf)*100)
+
+fig , axes = plt.subplots()
+
+axes.plot(perc_reach, color = 'black', label = 'Reached (%)')
+axes.plot(perc_correct, color = 'green', label = 'Correct (%)')
+
+axes.set_ylabel('Trial outcome (%)')
+axes.set_xlabel('Session date')
+axes.legend(loc='upper left', frameon=False) 
+
+plt.setp(axes, xticks=np.arange(0, len(date), 1), xticklabels=date)
+plt.setp(axes, yticks=np.arange(0, 100, 10), yticklabels=np.arange(0, 100, 10))
+plt.xticks(rotation=45)
+plt.savefig(across_session_plot_dir / ('sessions_overview.png'), dpi=600)
+
 
 # %%
 dists = calc_dist_bp_point(DlcDf, bp, coords, p=0.1, filter=True)
@@ -252,9 +419,7 @@ t = bhv.get_events_from_name(LogDf, "REWARD_LEFT_VALVE_ON").iloc[20].values[0]
 # %% play frames
 from matplotlib.animation import FuncAnimation
 # ix = list(range(30100,30200))
-frame = time2frame(t,m,b,m2,b2)
-# ix = list(range(frame-100,frame+100))
-ix = list(range(frame-50,frame))
+ix = list(range(572,579))
 
 fig, ax = plt.subplots()
 ax.set_aspect('equal')
