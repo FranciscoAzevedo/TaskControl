@@ -28,10 +28,63 @@ import behavior_analysis_utils as bhv
  
 
 # Only uses LogDf
-def plot_session_overview(LogDf, SessionDf, history, axes=None):
-    "Plots trials split by Missed, Aborted, Incorrect and Correct, Fig5C of Gallinares"
+def plot_session_overview(LogDf, align_event, pre, post, how='bars', axes=None):
+    "Plots trials Fig5C of Gallinares"
 
+    if axes is None:
+        fig, axes = plt.subplots()
 
+    # Key Events and Spans
+    key_list = ['REACH_LEFT_ON', 'REACH_RIGHT_ON', 'REWARD_LEFT_AVAILABLE_STATE', 'REWARD_RIGHT_AVAILABLE_STATE']
+
+    colors = sns.color_palette('hls', n_colors=len(key_list))
+    cdict = dict(zip(key_list,colors))
+
+    t_ref = bhv.get_events_from_name(LogDf, align_event).values
+
+    for i,t in enumerate(t_ref):
+
+        Df = bhv.time_slice(LogDf,t-pre,t+post,'t')
+
+        for name in cdict:
+            # plot events
+            if name.endswith("_EVENT") or name.endswith("_STATE"):
+                event_name = name
+                times = bhv.get_events_from_name(Df, name).values - t
+                
+                if how == 'dots':
+                    axes.plot(times, [i]*len(times), '.', color=cdict[event_name], alpha=0.75) # a bar
+                
+                if how == 'bars':
+                    for time in times:
+                        axes.plot([time,time],[i-0.5,i+0.5],lw=2,color=cdict[event_name], alpha=0.75) # a bar
+            
+            # plot spans
+            if name.endswith("_ON"):
+                span_name = name.split("_ON")[0]
+                on_name = span_name + '_ON'
+                off_name = span_name + '_OFF'
+
+                SpansDf = bhv.get_spans_from_names(Df, on_name, off_name)
+
+                for j, row_s in SpansDf.iterrows():
+                    time = row_s['t_on'] - t
+                    dur = row_s['dt']
+                    rect = plt.Rectangle((time,i-0.5), dur, 1, facecolor=cdict[on_name], linewidth=2)
+                    axes.add_patch(rect)
+
+    for key in cdict.keys():
+        axes.plot([0],[0],color=cdict[key],label=key,lw=4)
+
+    # Formatting
+    axes.legend(loc="center", bbox_to_anchor=(0.5, -0.2), prop={'size': 6}, ncol=len(key_list)) 
+    axes.set_title('Trials aligned to ' + str(align_event))
+    axes.set_ylim([0, len(t_ref)])
+    axes.invert_yaxis() # Needs to be after set_ylim
+    axes.set_xlabel('Time (ms)')
+    axes.set_ylabel('Trials')
+
+    fig.tight_layout()
 
     return axes
 
@@ -80,15 +133,17 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
     except:
         pass
 
-    # Grand average rate
-    y = np.cumsum(SessionDf['outcome'] == 'correct') / (SessionDf.index.values+1)
+    # Grand average rate success rate
+    y_sucess_rate = np.cumsum(SessionDf['outcome'] == 'correct') / (SessionDf.index.values+1)
+    y_trial_prob = (SessionDf['correct_side'] == 'right').rolling(10).mean()
 
     # Plotting in the same order as computed
     axes[1].plot(left_trials, y_left_trials, '|', color='k')
     axes[1].plot(right_trials, y_right_trials, '|', color='k')
     axes[1].plot(left_choices, y_left_choices, '|', color='m', label = 'left choice')
     axes[1].plot(right_choices, y_right_choices, '|', color='green', label = 'right choice')
-    axes[1].plot(x,y, color='C0', label = 'grand average')
+    axes[1].plot(x,y_sucess_rate, color='C0', label = 'grand average')
+    axes[1].plot(x,y_trial_prob, color='k',alpha=0.3, label = 'right side prob (%)')
 
     if history is not None:
         y_filt = (SessionDf['outcome'] == 'correct').rolling(history).mean()
@@ -96,8 +151,9 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
     
     axes[1].set_ylabel('Success rate')
     axes[1].set_xlabel('trial #')
-    axes[1].legend(bbox_to_anchor=(0., 1, 0.95, .102), loc="upper center", handletextpad = 0.3, \
-                frameon=False, mode = "expand", ncol = 6, borderaxespad=0., handlelength = 0.5)
+    axes[1].set_xlim([0, len(SessionDf)])
+    axes[1].legend(bbox_to_anchor=(0., 1, 0.95, .102), loc="upper center", handletextpad = 0.1, \
+                frameon=False, mode = "expand", ncol = 5, borderaxespad=0., handlelength = 0.5, labelspacing = 0.8)
 
     return axes
 
@@ -196,6 +252,8 @@ def plot_psychometric(SessionDf, axes=None):
     return axes
 
 # Uses DLC data
+
+
 def plot_trajectories_with_marker(LogDf, SessionDf, labelsDf, align_event, pre, post, animal_id, axes=None):
 
     if axes is None:
@@ -521,7 +579,7 @@ def plot_sessions_overview(LogDfs, paths, task_name, animal_id, axes = None):
 def water_to_spout_distance_across_sessions(LogDfs, paths, task_name, animal_id, axes = None):
     """ 
         Plots the evolution of the distance between the spout and water tips across sessions
-        Fig.1D Gallinares
+        Fig.1D Galinanes
     """
 
 
@@ -529,6 +587,6 @@ def water_to_spout_distance_across_sessions(LogDfs, paths, task_name, animal_id,
     return
 
 def trial_phases_across_sessions(LogDfs, paths, task_name, animal_id, axes = None):
-    " Plots the phase of the trial averaged for all trials across sessions Fig.1F Gallinares"
+    " Plots the phase of the trial averaged for all trials across sessions Fig.1F Galinanes"
 
     return axes

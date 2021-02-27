@@ -187,36 +187,37 @@ def plot_trajectories(DlcDf, bodyparts, axes=None, p=0.99, **line_kwargs):
 ##        ########  #######     ##       ##     ## ######## ######## ##        ######## ##     ##  ######
 """
 
+def get_dist_aligned_on_event(DlcDf, TrialDfs, align_event, pre, post, func, f_arg1, f_arg2):
+    """
+        Returns dist for func and args for all trials aligned to an event in a window defined by [align-pre, align+post]
+        NOTE: we are returning NP nd.arrays so we use advanced slicing, meaning [row, col] instead of [row][col]
+    """
 
-def get_window_aligned_on_event(LoadCellDf, TrialDfs, align_event, pre, post):
-    """
-        Returns NUMPY ND.ARRAY for all trials aligned to an event in a window defined by [align-pre, align+post]"
-        Don't forget: we are using nd.arrays so, implicitly, we use advanced slicing which means [row, col] instead of [row][col]
-    """
-    Fx, Fy, Fmag = [],[],[]
+    dist = []
+    
     for TrialDf in TrialDfs:
+        # Get time point of align_event
         t_align = TrialDf.loc[TrialDf['name'] == align_event, 't'].values[0]
-        LCDf = bhv.time_slice(LoadCellDf, t_align-pre, t_align+post)
 
-        Fx.append(LCDf['x'].values)
-        Fy.append(LCDf['y'].values)
-        Fmag.append(np.sqrt(LCDf['x']**2 + LCDf['y']**2))
+        # Slice DlcDf and compute distance according to input func and args
+        Dlc_TrialDf = bhv.time_slice(DlcDf, t_align-pre, t_align+post)
+        dist.append(func(Dlc_TrialDf,f_arg1, f_arg2, filter=True))
 
-    Fx = np.array(Fx).T
-    Fy = np.array(Fy).T
-    Fmag = np.array(Fmag).T
+    # Fix the fact that some arrays have different lengths (due to frame rate fluctuations)
+    dist = truncate_pad_vector(dist)
 
-    return Fx,Fy,Fmag
+    return dist
 
-def get_FxFy_window_between_events(LoadCellDf, TrialDfs, first_event, second_event, pad_with = None):
+def get_dist_between_events(DlcDf, TrialDfs, first_event, second_event, func, f_arg1, f_arg2, pad_with = None):
     """
-        Returns Fx/Fy/Fmag NUMPY ND.ARRAY with dimensions (trials, max_array_len) for all trials in a window between any two sequential(!) events
-        Don't forget: we are using nd.arrays so, implicitly, we use advanced slicing which means [row, col] instead of [row][col]
+        Returns Fx/Fy/Fmag NUMPY ND.ARRAY with dimensions (trials, max_array_len) for all trials 
+        NOTE: we are returning NP nd.arrays so we use advanced slicing, meaning [row, col] instead of [row][col]
     """
 
-    Fx, Fy, Fmag = [],[],[] 
+    dist = []
     for i, TrialDf in enumerate(TrialDfs):
         if not TrialDf.empty:
+
             if first_event == 'first': # From start of trial
                 time_1st = float(TrialDf['t'].iloc[0])
             else:
@@ -227,17 +228,14 @@ def get_FxFy_window_between_events(LoadCellDf, TrialDfs, first_event, second_eve
             else:
                 time_2nd = float(TrialDf[TrialDf.name == second_event]['t'])
 
-            LCDf = bhv.time_slice(LoadCellDf, time_1st, time_2nd)
-            Fx.append(LCDf['x'].values)
-            Fy.append(LCDf['y'].values)
-            Fmag.append(np.sqrt(LCDf['x']**2 + LCDf['y']**2))
+            # Slice DlcDf and compute distance according to input func and args
+            Dlc_TrialDf = bhv.time_slice(DlcDf, time_1st, time_2nd)
+            dist.append(func(Dlc_TrialDf,f_arg1, f_arg2, filter=True))
 
-    # Make sure we have numpy arrays with same length, pad with given input pad_with
-    Fx = bhv.truncate_pad_vector(Fx,pad_with)
-    Fy = bhv.truncate_pad_vector(Fy,pad_with)
-    Fmag = bhv.truncate_pad_vector(Fmag,pad_with)
+    # Make sure we have numpy arrays with same length, pad/truncate with given input pad_with
+    dist = bhv.truncate_pad_vector(dist, pad_with)
 
-    return Fx,Fy,Fmag
+    return dist
 
 def filter_trials_by(SessionDf, TrialDfs, filter_pairs):
     """
@@ -274,7 +272,7 @@ def truncate_pad_vector(arrs, pad_with = None, max_len = None):
         pad_with = np.NaN
     
     trunc_pad_arr = np.empty((len(arrs), max_len)) 
-    trunc_pad_arr[:] = np.NaN
+    trunc_pad_arr[:] = np.NaN # Initialize with all Nans
 
     for i, arr in enumerate(arrs):
         if len(arr) < max_len:
@@ -282,7 +280,7 @@ def truncate_pad_vector(arrs, pad_with = None, max_len = None):
         elif len(arr) > max_len:
             trunc_pad_arr[i,:] = np.array(arr[:max_len])
         elif len(arr) == max_len:
-            trunc_pad_arr[i,:] = arr
+            trunc_pad_arr[i,:] = np.array(arr)
 
     return trunc_pad_arr
 

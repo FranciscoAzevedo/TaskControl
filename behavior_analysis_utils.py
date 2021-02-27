@@ -425,6 +425,11 @@ def cut_timestamps(t_arduino, t_harp, verbose=False, return_offset=False):
     else:
         return t_arduino, t_harp
 
+    if return_offset:
+        return t_arduino, t_harp, offset
+    else:
+        return t_arduino, t_harp
+
 def sync_clocks(t_harp, t_arduino, log_path=None):
     """ linregress between two clocks - master clock is harp
     if LogDf is given, save the corrected clock to it"""

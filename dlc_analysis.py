@@ -5,6 +5,7 @@
 %autoreload 2
 
 import matplotlib.pyplot as plt
+from matplotlib import cm
 import scipy as sp
 import numpy as np
 import pandas as pd
@@ -19,6 +20,14 @@ from pathlib import Path
 import behavior_analysis_utils as bhv
 from dlc_analysis_utils import *
 import behav_plotters_reach as bhv_plt_reach
+
+# Settings
+# Plotting Defaults
+plt.rcParams["xtick.direction"] = "in"
+plt.rcParams["ytick.direction"] = "in"
+plt.rcParams["xtick.major.size"] = 1.5
+plt.rcParams["ytick.major.size"] = 1.5
+plt.rcParams['figure.dpi'] = 166
 
 """
  #       #######    #    ######  ### #     #  #####
@@ -168,10 +177,12 @@ bhv_plt_reach.plot_success_rate(LogDf, SessionDf, 10, axes=None)
 plt.savefig(plot_dir / ('success_rate.png'), dpi=600)
 
 # %% Session overview
-bhv_plt_reach.plot_session_overview(LogDf, SessionDf, 10, axes=None)
+pre,post = 1000,6000
+align_event = 'PRESENT_CUE_STATE'
+bhv_plt_reach.plot_session_overview(LogDf, align_event, pre, post)
 plt.savefig(plot_dir / ('session_overview.png'), dpi=600)
 
-# %% Session Heatmap aligned to go cue split by side
+# %% Session Heatmap aligned to align_event split by side
 pre,post = 2000,6000
 align_event = 'PRESENT_CUE_STATE'
 
@@ -180,27 +191,10 @@ fig, axes = plt.subplots(ncols=2,sharex=True)
 TrialDfs_left = filter_trials_by(SessionDf, TrialDfs, ('correct_side', 'left'))
 TrialDfs_right = filter_trials_by(SessionDf, TrialDfs, ('correct_side', 'right'))
 
-d_to_left, d_to_right = [],[]
+func = calc_dist_bp_point
 
-for TrialDf in TrialDfs_left:
-    t_align = TrialDf.loc[TrialDf['name'] == align_event, 't'].values[0]
-    Dlc_TrialDf = bhv.time_slice(DlcDf, t_align-pre, t_align+post)
- 
-    d_to_left.append(calc_dist_bp_point(Dlc_TrialDf,'PR', left_spout, filter=True))
-
-# Fix the fact that some arrays have different lengths (due to frame rate fluctuations)
-d_to_left = truncate_pad_vector(d_to_left)
-d_to_left = np.array(d_to_left)
-
-for TrialDf in TrialDfs_right:
-    t_align = TrialDf.loc[TrialDf['name'] == align_event, 't'].values[0]
-    Dlc_TrialDf = bhv.time_slice(DlcDf, t_align-pre, t_align+post)
- 
-    d_to_right.append(calc_dist_bp_point(Dlc_TrialDf,'PR', right_spout, filter=True))
-
-# Fix the fact that some arrays have different lengths (due to frame rate fluctuations)
-d_to_right = truncate_pad_vector(d_to_right)
-d_to_right = np.array(d_to_right)
+d_to_left = get_dist_aligned_on_event(DlcDf, TrialDfs_left, align_event, pre, post, func, 'PR', left_spout)
+d_to_right = get_dist_aligned_on_event(DlcDf, TrialDfs_right, align_event, pre, post, func, 'PR', right_spout)
 
 heat1 = axes[0].matshow(d_to_left, vmin=0, vmax=200, cmap='viridis_r')
 heat2 = axes[1].matshow(d_to_right, vmin=0, vmax=150, cmap='viridis_r')
@@ -229,9 +223,9 @@ for ax in axes:
 
 plt.savefig(plot_dir / ('heatmap_reaches_aligned_' + str(align_event) + '.png'), dpi=600)
 
-# %% Reaches in a window around cue input event 
+# %% Reaches in a window around align_event
 pre,post = 3000,6000    
-align_event = 'REWARD_LEFT_AVAILABLE_STATE'
+align_event = 'REWARD_RIGHT_AVAILABLE_STATE'
 t_aligns = bhv.get_events_from_name(LogDf, align_event)
 
 fig, axes = plt.subplots()
@@ -278,7 +272,7 @@ animal_folder = utils.get_folder_dialog()
 across_session_plot_dir = animal_folder / 'plots'
 animal_meta = pd.read_csv(animal_folder / 'animal_meta.csv')
 nickname = animal_meta[animal_meta['name'] == 'Nickname']['value'].values[0]
-os.makedirs(plot_dir, exist_ok=True)
+os.makedirs(across_session_plot_dir, exist_ok=True)
 
 task_name = ['learn_to_reach']
 SessionsDf = utils.get_sessions(animal_folder)
@@ -287,7 +281,7 @@ log_paths = [Path(path)/'arduino_log.txt' for path in SessionsDf['path']]
 # Obtain the perc of reaches, correct and incorrect trials
 perc_reach, perc_correct, date = [],[],[]
 
-for log_path in tqdm(log_paths[-2:]):
+for log_path in tqdm(log_paths[-4:]):
     
     path = log_path.parent 
     LogDf = bhv.get_LogDf_from_path(log_path)
