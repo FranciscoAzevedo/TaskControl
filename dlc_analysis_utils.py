@@ -364,16 +364,21 @@ def in_box_span(DlcDf, bp, rect, p=0.99, min_dur=20, convert_to_time=True):
  
 """
 
+def calc_grasp_posture_phase(DlcDf, bps, p=0.99, filter=False):
+
+    return p_phase
+
 def calc_dist_bp_point(DlcDf, bp, point, p=0.99, filter=False):
     """ euclidean distance bodypart to point """
+
     df = DlcDf[bp]
-    D = sp.sqrt(sp.sum((df[['x','y']].values - sp.array(point))**2,axis=1))
+    d = sp.sqrt(sp.sum((df[['x','y']].values - sp.array(point))**2,axis=1))
     good_ix = (df.likelihood > p).values
     if filter is False:
-        return D, good_ix
+        return d, good_ix
     else:
-        D[~good_ix] = sp.nan
-        return D
+        d[~good_ix] = sp.nan
+        return d
 
 def calc_dist_bp_bp(DlcDf, bp1, bp2, p=0.99, filter=False):
     """ euclidean distance between bodyparts """
@@ -395,6 +400,7 @@ def calc_dist_bp_bp(DlcDf, bp1, bp2, p=0.99, filter=False):
 
 def get_speed(DlcDf, bp, p=0.99, filter=False):
     """ bodypart speed over time in px/ms """
+
     Vxy = sp.diff(DlcDf[bp][['x','y']].values,axis=0) / DlcDf['t'][:-1].values[:,sp.newaxis]
     V = sp.sqrt(sp.sum(Vxy**2,axis=1)) # euclid vector norm
     V = V / sp.diff(DlcDf['t'].values) # -> to speed
@@ -407,7 +413,6 @@ def get_speed(DlcDf, bp, p=0.99, filter=False):
     else:
         V[~good_ix] = sp.nan
         return V
-
 
 # Work only on Trial-level
 

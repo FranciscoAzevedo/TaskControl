@@ -12,6 +12,7 @@ import pandas as pd
 import cv2
 import utils
 import calendar
+import os
 
 from tqdm import tqdm
 from pathlib import Path
@@ -40,7 +41,7 @@ plt.rcParams['figure.dpi'] = 166
 
 """
 
-# %% read all three data sources
+# %% read all three data sources (Video, DLC markers and Logs)
 
 # DeepLabCut data
 h5_path = utils.get_file_dialog()
@@ -53,6 +54,7 @@ bodyparts = sp.unique([j[0] for j in DlcDf.columns[1:]])
 video_path = h5_path.parent / "bonsai_video.avi"
 Vid = read_video(str(video_path))
 
+# Logs
 log_path = video_path.parent / 'arduino_log.txt'
 LogDf = bhv.get_LogDf_from_path(log_path)
 
@@ -64,7 +66,7 @@ for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
     TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
 
 metrics = (bhv.get_start, bhv.get_stop, get_correct_side, get_outcome, get_choice, has_reach_left, has_reach_right, \
-            choice_rt_left, choice_rt_right)
+            choice_rt_left, choice_rt_right, bhv.get_in_corr_loop)
 
 SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
@@ -92,20 +94,19 @@ paws = ['PL','PR']
 
 
 """
-  #####  #######  #####   #####  ### ####### #     #
- #     # #       #     # #     #  #  #     # ##    #
- #       #       #       #        #  #     # # #   #
-  #####  #####    #####   #####   #  #     # #  #  #
-       # #             #       #  #  #     # #   # #
- #     # #       #     # #     #  #  #     # #    ##
-  #####  #######  #####   #####  ### ####### #     #
+  #####  #######  #####   #####  ### ####### #     #             #     # ### ######  ####### #######
+ #     # #       #     # #     #  #  #     # ##    #             #     #  #  #     # #       #     #
+ #       #       #       #        #  #     # # #   #             #     #  #  #     # #       #     #
+  #####  #####    #####   #####   #  #     # #  #  #    #####    #     #  #  #     # #####   #     #
+       # #             #       #  #  #     # #   # #              #   #   #  #     # #       #     #
+ #     # #       #     # #     #  #  #     # #    ##               # #    #  #     # #       #     #
+  #####  #######  #####   #####  ### ####### #     #                #    ### ######  ####### #######
 
 """
-
 # %% plot all trajectories
 fig, axes = plt.subplots()
 
-i = 8000 # frame index
+i = 4000 # frame index
 Frame = get_frame(Vid, i)
 axes = plot_frame(Frame, axes=axes)
 axes = plot_trajectories(DlcDf, paws, axes=axes,lw=0.025)
@@ -158,8 +159,8 @@ for i, row in tqdm(SpansDf.iterrows()):
 fig, axes = plt.subplots(nrows=2,sharex=True)
 
 bps = ['PR','PL']
-right_spout = [188,404]
-left_spout = [380, 396]
+right_spout = [230,400]
+left_spout = [380, 405]
 
 line_kwargs = dict(lw=1,alpha=0.8)
 for i, bp in enumerate(bps):
@@ -172,32 +173,49 @@ for i, bp in enumerate(bps):
 
 axes[0].legend()
 
+
+
+"""
+  #####  #######  #####   #####  ### ####### #     #             #       #######  #####
+ #     # #       #     # #     #  #  #     # ##    #             #       #     # #     #
+ #       #       #       #        #  #     # # #   #             #       #     # #
+  #####  #####    #####   #####   #  #     # #  #  #    #####    #       #     # #  ####
+       # #             #       #  #  #     # #   # #             #       #     # #     #
+ #     # #       #     # #     #  #  #     # #    ##             #       #     # #     #
+  #####  #######  #####   #####  ### ####### #     #             ####### #######  #####
+
+"""
+
+# %% 
+pre,post = 1000,3000
+
 # %% Success rate
 bhv_plt_reach.plot_success_rate(LogDf, SessionDf, 10, axes=None)
 plt.savefig(plot_dir / ('success_rate.png'), dpi=600)
 
 # %% Session overview
-pre,post = 1000,6000
+
 align_event = 'PRESENT_CUE_STATE'
 bhv_plt_reach.plot_session_overview(LogDf, align_event, pre, post)
 plt.savefig(plot_dir / ('session_overview.png'), dpi=600)
 
 # %% Session Heatmap aligned to align_event split by side
-pre,post = 2000,6000
 align_event = 'PRESENT_CUE_STATE'
+time_interval = 1000 # ms (for the time axis in the plot)
 
 fig, axes = plt.subplots(ncols=2,sharex=True)
 
 TrialDfs_left = filter_trials_by(SessionDf, TrialDfs, ('correct_side', 'left'))
 TrialDfs_right = filter_trials_by(SessionDf, TrialDfs, ('correct_side', 'right'))
 
+# General function to be applied 
 func = calc_dist_bp_point
 
 d_to_left = get_dist_aligned_on_event(DlcDf, TrialDfs_left, align_event, pre, post, func, 'PR', left_spout)
 d_to_right = get_dist_aligned_on_event(DlcDf, TrialDfs_right, align_event, pre, post, func, 'PR', right_spout)
 
-heat1 = axes[0].matshow(d_to_left, vmin=0, vmax=200, cmap='viridis_r')
-heat2 = axes[1].matshow(d_to_right, vmin=0, vmax=150, cmap='viridis_r')
+heat1 = axes[0].matshow(d_to_left, vmin=0, vmax=200, cmap='viridis_r', extent=[-pre,post,0,d_to_left.shape[0]])
+heat2 = axes[1].matshow(d_to_right, vmin=0, vmax=150, cmap='viridis_r', extent=[-pre,post,0,d_to_right.shape[0]])
 
 cbar1 = plt.colorbar(heat1, ax=axes[0], orientation='horizontal', aspect = 30)
 cbar2 = plt.colorbar(heat2, ax=axes[1], orientation='horizontal', aspect = 30)
@@ -205,53 +223,134 @@ cbar2 = plt.colorbar(heat2, ax=axes[1], orientation='horizontal', aspect = 30)
 cbar1.ax.set_xlabel('Euclid. Distance (a.u.)')
 cbar2.ax.set_xlabel('Euclid. Distance (a.u.)')
 
-axes[0].set_title('Left side')
+axes[0].set_title('Left Trials')
 axes[0].set_ylabel('Trials')
-axes[1].set_title('Right side')
-
-time_interval = 1 # sec
-frame_interval = time_interval*200
+axes[1].set_title('Right Trials')
 
 for ax in axes.flatten():
     ax.set_xlabel('Time (s)')
     ax.set_aspect('auto')
 
 for ax in axes:
-    ax.axvline(x=time2frame(pre,m,b,m2,b2), ymin=0, ymax=1, color = 'red', alpha = 0.5)
-    plt.setp(ax, xticks=np.arange(0, d_to_left.shape[1], frame_interval), xticklabels=np.arange(-pre/1000, post/1000+0.1, time_interval))
+    ax.axvline(x=0, ymin=0, ymax=1, color = 'red', alpha = 0.5)
+    plt.setp(ax, xticks=np.arange(-pre, post+1, time_interval), xticklabels=np.arange(-pre/1000, post/1000+0.1, time_interval/1000))
     ax.xaxis.set_ticks_position('bottom')
 
 plt.savefig(plot_dir / ('heatmap_reaches_aligned_' + str(align_event) + '.png'), dpi=600)
 
-# %% Reaches in a window around align_event
-pre,post = 3000,6000    
-align_event = 'REWARD_RIGHT_AVAILABLE_STATE'
-t_aligns = bhv.get_events_from_name(LogDf, align_event)
+# %% Reaches in a window around align_event 
+side = 'left'
 
 fig, axes = plt.subplots()
+TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, ('correct_side', side))
 
 right_reaches, left_reaches = [],[]
-for i, t_align in t_aligns.iterrows():
-    Df = bhv.time_slice(LogDf, t_align.values-pre, t_align.values+post)
-    right_reaches.append(bhv.get_events_from_name(Df, 'REACH_RIGHT_ON').values - t_align.values)
-    left_reaches.append(bhv.get_events_from_name(Df, 'REACH_LEFT_ON').values -t_align.values)
+for TrialDf in TrialDfs_filt:
+    t_align = TrialDf[TrialDf['name'] == 'PRESENT_CUE_STATE']['t']
+    right_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_LEFT_ON').values - t_align.values)
+    left_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_RIGHT_ON').values -t_align.values)
 
-flat_ipsi_reaches = [item for sublist in right_reaches for item in sublist]
-flat_contra_reaches = [item for sublist in left_reaches for item in sublist]
+# Flatten output matrix
+flat_right_reaches = [item for sublist in right_reaches for item in sublist]
+flat_left_reaches = [item for sublist in left_reaches for item in sublist]
 no_bins = np.linspace(-pre,post, 40) 
 
-axes.hist(np.array(flat_ipsi_reaches), bins = no_bins , alpha=0.5, label = 'Right reaches')
-axes.hist(np.array(flat_contra_reaches), bins = no_bins, alpha=0.5, label = 'Left reaches')
+axes.hist(np.array(flat_right_reaches), bins = no_bins , alpha=0.5, label = 'Right reaches')
+axes.hist(np.array(flat_left_reaches), bins = no_bins, alpha=0.5, label = 'Left reaches')
 plt.setp(axes, xticks=np.arange(-pre, post+1, 1000), xticklabels=np.arange(-pre/1000, post/1000+0.1, 1))
 axes.axvline(x=0, c='black')
 axes.set_xlabel('Time (s)')
+axes.set_ylabel('No. Reaches')
 axes.set_title('Reaches for all trials aligned to \n  %s' %align_event)
 axes.legend()
 
-plt.savefig(plot_dir / ('choice_RTs_aligned_' + str(align_event) + '.png'), dpi=600)
+plt.savefig(plot_dir / ('reaches_aligned_' + str(align_event) + '.png'), dpi=600)
 
-# %% Session Heatmap aligned to valve opening irrespective of being inside of a trial
+# %% 1st reach choice RT
+choice_interval = post
+bin_width = 150
+bhv_plt_reach.plot_choice_RT_hist(SessionDf, choice_interval, bin_width)
+plt.savefig(plot_dir / ('choice_RTs' + '.png'), dpi=600)
 
+# %% Are they priming actions by having a specific posture for each trial type?
+align_event = 'PRESENT_CUE_STATE'
+
+fig, axes = plt.subplots(ncols=2, figsize=(5, 3))
+
+TrialDfs_left = filter_trials_by(SessionDf, TrialDfs, ('choice', 'left'))
+TrialDfs_right = filter_trials_by(SessionDf, TrialDfs, ('choice', 'right'))
+
+pl, pr = [],[]
+
+# For every trial
+for TrialDf in TrialDfs_left:
+
+    # get timepoint of cue presentation
+    log_t_align = bhv.get_events_from_name(TrialDf, align_event)['t']
+
+    # slice the DlcDf at that point (or seach the nearest by subtracting
+    # and finding the lowest value which corresponds to the shift between LogDf and DlcDf)
+    Dlc_idx = DlcDf['t'].sub(int(log_t_align)).abs().idxmin()
+    DlcDf_slice = DlcDf.iloc[Dlc_idx]
+
+    # Plot the locations of the L/R paws separately for L/R trials just before cue presentation
+    pl.append([DlcDf_slice['PL']['x'],DlcDf_slice['PL']['y']])
+    pr.append([DlcDf_slice['PR']['x'],DlcDf_slice['PR']['y']])
+
+pl = np.array(pl)
+pr = np.array(pr)
+
+# Plot the locations of the L/R paws separately for L/R trials just before cue presentation
+axes[0].scatter(pl[:,0], pl[:,1], s = 1, alpha = 0.75, c = 'tab:blue', label = 'Left Paw')
+axes[0].scatter(pr[:,0], pr[:,1], s = 1, alpha = 0.75, c = 'tab:orange', label = 'Right Paw')
+
+pl, pr = [],[]
+# For every trial
+for TrialDf in TrialDfs_right:
+
+    # get timepoint of cue presentation
+    log_t_align = bhv.get_events_from_name(TrialDf, align_event)['t']
+
+    # slice the DlcDf at that point (or seach the nearest by subtracting
+    # and finding the lowest value which corresponds to the shift between LogDf and DlcDf)
+    Dlc_idx = DlcDf['t'].sub(int(log_t_align)).abs().idxmin()
+    DlcDf_slice = DlcDf.iloc[Dlc_idx]
+
+    # Plot the locations of the L/R paws separately for L/R trials just before cue presentation
+    pl.append([DlcDf_slice['PL']['x'],DlcDf_slice['PL']['y']])
+    pr.append([DlcDf_slice['PR']['x'],DlcDf_slice['PR']['y']])
+
+pl = np.array(pl)
+pr = np.array(pr)
+
+# Plot the locations of the L/R paws separately for L/R trials just before cue presentation
+axes[1].scatter(pl[:,0], pl[:,1], s = 1, alpha = 0.75, c = 'tab:blue', label = 'Left Paw')
+axes[1].scatter(pr[:,0], pr[:,1], s = 1, alpha = 0.75, c = 'tab:orange', label = 'Right Paw')
+
+
+# Plot a single fram in the background for comparison
+i = 4000 # frame index
+Frame = get_frame(Vid, i)
+axes[0] = plot_frame(Frame, axes=axes[0])
+axes[1] = plot_frame(Frame, axes=axes[1])
+
+# Formatting
+axes[0].set_title('Left choice')
+axes[1].set_title('Right choice')
+
+for ax in axes:
+    ax.legend(loc="center", bbox_to_anchor=(0.5, -0.2), prop={'size': 8}, ncol=2, frameon= False)
+    ax.axis('off')
+
+fig.suptitle('Paw placement aligned to ' + align_event)
+
+plt.savefig(plot_dir / ('paw_placement_aligned_to_' + align_event + '.png'), dpi=600)
+
+# %% Are they using a sampling strategy?
+
+# What is the prob of going right after going left?
+
+# What is the prob if going left after going right?
 
 
 """
