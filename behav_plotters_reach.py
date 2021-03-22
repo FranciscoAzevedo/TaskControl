@@ -82,7 +82,7 @@ def plot_session_overview(LogDf, align_event, pre, post, how='bars', axes=None):
     axes.set_ylim([0, len(t_ref)])
     axes.invert_yaxis() # Needs to be after set_ylim
     axes.set_xlabel('Time (ms)')
-    axes.set_ylabel('Trials')
+    axes.set_ylabel('Trial No.')
 
     fig.tight_layout()
 
@@ -118,11 +118,12 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
     right_trials = SessionDf.loc[SessionDf['correct_side'] == 'right'].index + 1
     y_right_trials = np.zeros(right_trials.shape[0]) + 1 + line_width
 
-    # L/R trial choices
+    # Some groupby keys dont always return a non-empty Df
     try:
         SDf = SessionDf.groupby('choice').get_group('left')
         left_choices = SDf.index.values+1
         y_left_choices = np.zeros(left_choices.shape[0])
+        axes[1].plot(left_choices, y_left_choices, '|', color='m', label = 'left choice')
     except:
         pass
 
@@ -130,6 +131,14 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
         SDf = SessionDf.groupby('choice').get_group('right')
         right_choices = SDf.index.values+1
         y_right_choices = np.zeros(right_choices.shape[0]) + 1
+        axes[1].plot(right_choices, y_right_choices, '|', color='green', label = 'right choice')
+    except:
+        pass
+
+    try:
+        in_corr_loop = SessionDf.loc[SessionDf['in_corr_loop'] == True].index + 1
+        y_in_corr_loop = np.zeros(in_corr_loop.shape[0]) + 1 + 2*line_width
+        axes[1].plot(in_corr_loop, y_in_corr_loop, '|', color='r', label = 'corr. loops')
     except:
         pass
 
@@ -140,10 +149,8 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
     # Plotting in the same order as computed
     axes[1].plot(left_trials, y_left_trials, '|', color='k')
     axes[1].plot(right_trials, y_right_trials, '|', color='k')
-    axes[1].plot(left_choices, y_left_choices, '|', color='m', label = 'left choice')
-    axes[1].plot(right_choices, y_right_choices, '|', color='green', label = 'right choice')
     axes[1].plot(x,y_sucess_rate, color='C0', label = 'grand average')
-    axes[1].plot(x,y_trial_prob, color='k',alpha=0.3, label = 'right side prob (%)')
+    axes[1].plot(x,y_trial_prob, color='k',alpha=0.3, label = 'R side (%)')
 
     if history is not None:
         y_filt = (SessionDf['outcome'] == 'correct').rolling(history).mean()
@@ -158,7 +165,7 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
     return axes
 
 def plot_choice_RT_hist(SessionDf, choice_interval, bin_width):
-    " Plots the choice RT histograms split by trial type and outcome "
+    " Plots the choice RT histograms for 1st choice split by trial type and outcome "
 
     choices = ['left', 'right']
     outcomes = ['correct', 'incorrect']
