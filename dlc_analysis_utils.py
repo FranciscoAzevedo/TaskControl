@@ -331,8 +331,8 @@ def in_box_span(DlcDf, bp, rect, p=0.99, min_dur=20, convert_to_time=True):
 
     df = pd.DataFrame(columns=['t_on','t_off'])
 
-    ons = sp.where(sp.diff(in_box.astype('int32')) == 1)[0]
-    offs = sp.where(sp.diff(in_box.astype('int32')) == -1)[0]
+    ons = np.where(np.diff(in_box.astype('int32')) == 1)[0]
+    offs = np.where(np.diff(in_box.astype('int32')) == -1)[0]
 
     ts = []
     for t_on in ons:
@@ -499,7 +499,11 @@ def choice_rt_left(TrialDf):
 
     if has_reach_left(TrialDf).values:
 
-        cue_time = TrialDf.groupby('name').get_group("PRESENT_CUE_STATE").iloc[-1]['t']
+        try:
+            cue_time = TrialDf.groupby('name').get_group("PRESENT_CUE_STATE").iloc[-1]['t']
+        except:
+            cue_time = TrialDf.groupby('name').get_group("PRESENT_INTERVAL_STATE").iloc[-1]['t']
+
         reach_time = TrialDf.groupby('name').get_group("REACH_LEFT_ON").iloc[0]['t'] # Only first reach
 
         var = reach_time - cue_time
@@ -512,8 +516,12 @@ def choice_rt_right(TrialDf):
     var_name = 'choice_rt_right'
 
     if has_reach_right(TrialDf).values:
+        
+        try: # for learn to reach and learn to choose
+            cue_time = TrialDf.groupby('name').get_group("PRESENT_CUE_STATE").iloc[-1]['t']
+        except: # for learn to init and learn to time
+            cue_time = TrialDf.groupby('name').get_group("PRESENT_INTERVAL_STATE").iloc[-1]['t']
 
-        cue_time = TrialDf.groupby('name').get_group("PRESENT_CUE_STATE").iloc[-1]['t']
         reach_time = TrialDf.groupby('name').get_group("REACH_RIGHT_ON").iloc[0]['t'] # Only first reach
 
         var = reach_time - cue_time

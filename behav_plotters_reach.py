@@ -11,6 +11,7 @@ from pathlib import Path
 import scipy as sp
 import numpy as np
 import seaborn as sns
+import os
 
 # Custom
 import behavior_analysis_utils as bhv
@@ -26,7 +27,6 @@ import behavior_analysis_utils as bhv
 
 """
  
-
 # Only uses LogDf
 def plot_session_overview(LogDf, align_event, pre, post, how='bars', axes=None):
     "Plots trials Fig5C of Gallinares"
@@ -35,7 +35,7 @@ def plot_session_overview(LogDf, align_event, pre, post, how='bars', axes=None):
         fig, axes = plt.subplots()
 
     # Key Events and Spans
-    key_list = ['REACH_LEFT_ON', 'REACH_RIGHT_ON', 'REWARD_LEFT_AVAILABLE_STATE', 'REWARD_RIGHT_AVAILABLE_STATE']
+    key_list = ['REACH_LEFT_ON', 'REACH_RIGHT_ON', 'PRESENT_CUE_STATE', 'PRESENT_INTERVAL_STATE']
 
     colors = sns.color_palette('hls', n_colors=len(key_list))
     cdict = dict(zip(key_list,colors))
@@ -66,6 +66,9 @@ def plot_session_overview(LogDf, align_event, pre, post, how='bars', axes=None):
                 off_name = span_name + '_OFF'
 
                 SpansDf = bhv.get_spans_from_names(Df, on_name, off_name)
+
+                if 'REACH' in span_name:
+                    SpansDf = SpansDf[SpansDf['dt'] > 15] # remove reaches whose length is less than 15ms
 
                 for j, row_s in SpansDf.iterrows():
                     time = row_s['t_on'] - t
@@ -144,13 +147,13 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
 
     # Grand average rate success rate
     y_sucess_rate = np.cumsum(SessionDf['outcome'] == 'correct') / (SessionDf.index.values+1)
-    y_trial_prob = (SessionDf['correct_side'] == 'right').rolling(10).mean()
+    #y_trial_prob = (SessionDf['correct_side'] == 'right').rolling(10).mean()
 
     # Plotting in the same order as computed
     axes[1].plot(left_trials, y_left_trials, '|', color='k')
     axes[1].plot(right_trials, y_right_trials, '|', color='k')
     axes[1].plot(x,y_sucess_rate, color='C0', label = 'grand average')
-    axes[1].plot(x,y_trial_prob, color='k',alpha=0.3, label = 'R side (%)')
+    #axes[1].plot(x,y_trial_prob, color='k',alpha=0.3, label = 'R side (%)')
 
     if history is not None:
         y_filt = (SessionDf['outcome'] == 'correct').rolling(history).mean()
@@ -262,6 +265,7 @@ def plot_psychometric(SessionDf, axes=None):
 
 
 def plot_trajectories_with_marker(LogDf, SessionDf, labelsDf, align_event, pre, post, animal_id, axes=None):
+    " Plots trajectories from align event until choice with marker"
 
     if axes is None:
         _ , axes = plt.subplots()
@@ -331,52 +335,6 @@ def plot_mean_trajectories(LogDf, LoadCellDf, SessionDf, TrialDfs, align_event, 
 
     if fig:
         fig.tight_layout() 
-
-    return axes
-
-def plot_split_forces_magnitude(SessionDf, LoadCellDf, TrialDfs, align_event, pre, post, split_by, animal_id, axes=None):
-    """ 
-        Force magnitude for Fx and Fy split by any input as long as a metric in SessionDf contemplates it
-    """
-
-    if axes==None:
-        fig , axes = plt.subplots(2,1)
-
-    if split_by != None:
-        outcomes = SessionDf[split_by].unique() # get possible outcomes of given split criteria
-        outcomes = [x for x in outcomes if str(x) != 'nan']
-
-    for outcome in outcomes:
-        try:
-            SDf = SessionDf.groupby([split_by]).get_group(outcome)
-        except:
-            continue
-
-        Fx = []
-        Fy = []
-        for _, row in SDf.iterrows():
-            TrialDf = TrialDfs[row.name]
-            t_align = TrialDf.loc[TrialDf['name'] == align_event, 't'].values[0]
-
-            LCDf = bhv.time_slice(LoadCellDf, t_align-pre, t_align+post)
-            Fx.append(LCDf['x'].values)
-            Fy.append(LCDf['y'].values)
-
-        Fx = np.array(Fx)
-        Fy = np.array(Fy)
-
-        # Compute mean force for each outcome aligned to event       
-        Fmagx = bhv.tolerant_operation(Fx, np.nanmean)
-        Fmagy = bhv.tolerant_operation(Fy, np.nanmean)
-        axes[0].plot(np.arange(len(Fmagx))+1, Fmagx, label = outcome)
-        axes[1].plot(np.arange(len(Fmagy))+1, Fmagy, label = outcome)  
-
-    axes[0].set_ylabel('Left/Right axis')
-    axes[1].set_ylabel('Back/Front axis')
-    plt.setp(axes, xticks=np.arange(0, post + pre+1, 500), xticklabels=np.arange(-pre/1000, post/1000+0.1, 0.5))
-    plt.suptitle("Mean forces split by " + str(split_by) + " for separate Fx/Fy axis \n aligned to " + str(align_event) + " for " + str(animal_id))
-
-    fig.tight_layout()
 
     return axes
 

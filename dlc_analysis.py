@@ -103,13 +103,6 @@ paws = ['PL','PR']
   #####  #######  #####   #####  ### ####### #     #                #    ### ######  ####### #######
 
 """
-# %% plot all trajectories
-fig, axes = plt.subplots()
-
-i = 4000 # frame index
-Frame = get_frame(Vid, i)
-axes = plot_frame(Frame, axes=axes)
-axes = plot_trajectories(DlcDf, paws, axes=axes,lw=0.025)
 
 # %% plot a single frame with DLC markers and Skeleton
 fig, axes = plt.subplots()
@@ -119,41 +112,55 @@ axes = plot_frame(Frame, axes=axes)
 axes = plot_bodyparts(bodyparts, DlcDf, i, axes=axes)
 axes, lines = plot_Skeleton(Skeleton, DlcDf, i , axes=axes)
 
-# %% identify reaches
+# %% plot a heatmap of movement for both paws on a 2D background
 fig, axes = plt.subplots()
-i = 7000 # frame index
+
+i = 4000 # frame index
 Frame = get_frame(Vid, i)
 axes = plot_frame(Frame, axes=axes)
-coords = [188,404] # spout right
-# coords = [380, 396] # spout left
+axes = plot_trajectories(DlcDf, paws, axes=axes,lw=0.025)
+axes.axis('off')
+axes.set_title('Whole session heatmap of paw placement')
+
+plt.savefig(plot_dir / ('heatmap_both_paws.png'), dpi=600)
+
+# %% Plot reaches to one side with one paw
+
+# Settings
+right_spout = [230,400] # spout right
+#left_spout = [380, 405] # spout left
+avg_mvmt_time = 250
 p = 0.99
 
-w = 100 # box size
-rect = box2rect(coords, w)
-
-R = Rectangle(*rect2cart(rect),lw=1,facecolor='none',edgecolor='r')
-axes.add_patch(R)
-
-bp = 'PR'
-SpansDf = in_box_span(DlcDf, bp, rect, min_dur=20)
-
-# convert frames to times in a DF - utils function?
-SpansDf = pd.DataFrame(frame2time(SpansDf.values,m,b,m2,b2),columns=SpansDf.columns)
-
-# plot
+# Background image
 fig, axes = plt.subplots()
 i = 8000 # frame index
 Frame = get_frame(Vid, i)
 axes = plot_frame(Frame, axes=axes)
 
+# Detection rectangle
+w = 75 # box size
+rect = box2rect(right_spout, w)
+R = Rectangle(*rect2cart(rect),lw=1,facecolor='none',edgecolor='r')
+axes.add_patch(R)
+
+# Obtain all reaches within rectangle, convert from frame to time
+bp = 'PR'
+SpansDf = in_box_span(DlcDf, bp, rect, min_dur=5)
+SpansDf = pd.DataFrame(frame2time(SpansDf.values,m,b,m2,b2),columns=SpansDf.columns)
+
+# Plot all reaches to given side 
 df = DlcDf[bp]
 for i, row in tqdm(SpansDf.iterrows()):
     t_on = row['t_on']
-    df = bhv.time_slice(DlcDf,t_on-250,t_on)[bp]
+    df = bhv.time_slice(DlcDf,t_on-avg_mvmt_time,t_on)[bp]
 
     ix = df.likelihood > p
     df = df.loc[ix]
-    axes.plot(df.x,df.y,lw=2.0,alpha=0.5)
+    axes.plot(df.x,df.y,lw=0.2, alpha=0.85, c = 'tab:blue')
+
+axes.set_title('Reach trajectories for right_spout with ' + str(bp))
+plt.savefig(plot_dir / ('reaches_for_right_spout_with_' + str(bp) + '.png'), dpi=600)
 
 # %% distance / speed over time
 fig, axes = plt.subplots(nrows=2,sharex=True)
@@ -173,33 +180,8 @@ for i, bp in enumerate(bps):
 
 axes[0].legend()
 
-
-
-"""
-  #####  #######  #####   #####  ### ####### #     #             #       #######  #####
- #     # #       #     # #     #  #  #     # ##    #             #       #     # #     #
- #       #       #       #        #  #     # # #   #             #       #     # #
-  #####  #####    #####   #####   #  #     # #  #  #    #####    #       #     # #  ####
-       # #             #       #  #  #     # #   # #             #       #     # #     #
- #     # #       #     # #     #  #  #     # #    ##             #       #     # #     #
-  #####  #######  #####   #####  ### ####### #     #             ####### #######  #####
-
-"""
-
-# %% 
+# %% Distance aligned to align_event split by side
 pre,post = 1000,3000
-
-# %% Success rate
-bhv_plt_reach.plot_success_rate(LogDf, SessionDf, 10, axes=None)
-plt.savefig(plot_dir / ('success_rate.png'), dpi=600)
-
-# %% Session overview
-
-align_event = 'PRESENT_CUE_STATE'
-bhv_plt_reach.plot_session_overview(LogDf, align_event, pre, post)
-plt.savefig(plot_dir / ('session_overview.png'), dpi=600)
-
-# %% Session Heatmap aligned to align_event split by side
 align_event = 'PRESENT_CUE_STATE'
 time_interval = 1000 # ms (for the time axis in the plot)
 
@@ -236,41 +218,7 @@ for ax in axes:
     plt.setp(ax, xticks=np.arange(-pre, post+1, time_interval), xticklabels=np.arange(-pre/1000, post/1000+0.1, time_interval/1000))
     ax.xaxis.set_ticks_position('bottom')
 
-plt.savefig(plot_dir / ('heatmap_reaches_aligned_' + str(align_event) + '.png'), dpi=600)
-
-# %% Reaches in a window around align_event 
-side = 'left'
-
-fig, axes = plt.subplots()
-TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, ('correct_side', side))
-
-right_reaches, left_reaches = [],[]
-for TrialDf in TrialDfs_filt:
-    t_align = TrialDf[TrialDf['name'] == 'PRESENT_CUE_STATE']['t']
-    right_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_LEFT_ON').values - t_align.values)
-    left_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_RIGHT_ON').values -t_align.values)
-
-# Flatten output matrix
-flat_right_reaches = [item for sublist in right_reaches for item in sublist]
-flat_left_reaches = [item for sublist in left_reaches for item in sublist]
-no_bins = np.linspace(-pre,post, 40) 
-
-axes.hist(np.array(flat_right_reaches), bins = no_bins , alpha=0.5, label = 'Right reaches')
-axes.hist(np.array(flat_left_reaches), bins = no_bins, alpha=0.5, label = 'Left reaches')
-plt.setp(axes, xticks=np.arange(-pre, post+1, 1000), xticklabels=np.arange(-pre/1000, post/1000+0.1, 1))
-axes.axvline(x=0, c='black')
-axes.set_xlabel('Time (s)')
-axes.set_ylabel('No. Reaches')
-axes.set_title('Reaches for all trials aligned to \n  %s' %align_event)
-axes.legend()
-
-plt.savefig(plot_dir / ('reaches_aligned_' + str(align_event) + '.png'), dpi=600)
-
-# %% 1st reach choice RT
-choice_interval = post
-bin_width = 150
-bhv_plt_reach.plot_choice_RT_hist(SessionDf, choice_interval, bin_width)
-plt.savefig(plot_dir / ('choice_RTs' + '.png'), dpi=600)
+plt.savefig(plot_dir / ('paw_distance_aligned_' + str(align_event) + '.png'), dpi=600)
 
 # %% Are they priming actions by having a specific posture for each trial type?
 align_event = 'PRESENT_CUE_STATE'
@@ -327,7 +275,6 @@ pr = np.array(pr)
 axes[1].scatter(pl[:,0], pl[:,1], s = 1, alpha = 0.75, c = 'tab:blue', label = 'Left Paw')
 axes[1].scatter(pr[:,0], pr[:,1], s = 1, alpha = 0.75, c = 'tab:orange', label = 'Right Paw')
 
-
 # Plot a single fram in the background for comparison
 i = 4000 # frame index
 Frame = get_frame(Vid, i)
@@ -346,12 +293,102 @@ fig.suptitle('Paw placement aligned to ' + align_event)
 
 plt.savefig(plot_dir / ('paw_placement_aligned_to_' + align_event + '.png'), dpi=600)
 
+
+
+"""
+  #####  #######  #####   #####  ### ####### #     #             #       #######  #####
+ #     # #       #     # #     #  #  #     # ##    #             #       #     # #     #
+ #       #       #       #        #  #     # # #   #             #       #     # #
+  #####  #####    #####   #####   #  #     # #  #  #    #####    #       #     # #  ####
+       # #             #       #  #  #     # #   # #             #       #     # #     #
+ #     # #       #     # #     #  #  #     # #    ##             #       #     # #     #
+  #####  #######  #####   #####  ### ####### #     #             ####### #######  #####
+
+"""
+
+# %% General settings
+pre,post = -500,3000
+
+# %% Success rate
+bhv_plt_reach.plot_success_rate(LogDf, SessionDf, 10, axes=None)
+plt.savefig(plot_dir / ('success_rate.png'), dpi=600)
+
+# %% Session overview
+align_event = 'PRESENT_INTERVAL_STATE'
+bhv_plt_reach.plot_session_overview(LogDf, align_event, pre, post)
+plt.savefig(plot_dir / ('session_overview.png'), dpi=600)
+
+# %% Reaches in a window around align_event 
+side = 'left'
+
+fig, axes = plt.subplots()
+TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, ('correct_side', side))
+
+right_reaches, left_reaches = [],[]
+for TrialDf in TrialDfs_filt:
+
+    t_align = TrialDf[TrialDf['name'] == 'PRESENT_CUE_STATE']['t'] 
+    if len(t_align) == 0: # for learn to init and time 
+        t_align = TrialDf[TrialDf['name'] == 'PRESENT_INTERVAL_STATE']['t']
+
+    left_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_LEFT_ON').values - t_align.values)
+    right_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_RIGHT_ON').values -t_align.values)
+
+# Flatten output matrix
+flat_right_reaches = [item for sublist in right_reaches for item in sublist]
+flat_left_reaches = [item for sublist in left_reaches for item in sublist]
+no_bins = np.linspace(-pre,post, 40) 
+
+# Fancy plotting
+axes.hist(np.array(flat_right_reaches), bins = no_bins , alpha=0.5, label = 'Right reaches')
+axes.hist(np.array(flat_left_reaches), bins = no_bins, alpha=0.5, label = 'Left reaches')
+plt.setp(axes, xticks=np.arange(-pre, post+1, 1000), xticklabels=np.arange(-pre/1000, post/1000+0.1, 1))
+axes.axvline(x=0, c='black')
+axes.set_xlabel('Time (s)')
+axes.set_ylabel('No. Reaches')
+axes.set_title('Reaches in ' + str(side) + ' trials aligned to ' + str(align_event))
+axes.legend()
+
+plt.savefig(plot_dir / ('reach_distro_aligned_' + str(align_event) + '_split_by_' + str(side) + '_trials' + '.png'), dpi=600)
+
+# %% 1st reach choice RT
+choice_interval = post
+bin_width = 150
+bhv_plt_reach.plot_choice_RT_hist(SessionDf, choice_interval, bin_width)
+plt.savefig(plot_dir / ('choice_RTs' + '.png'), dpi=600)
+
 # %% Are they using a sampling strategy?
+fig, axes = plt.subplots(figsize=(3, 4))
+
+missesDf = SessionDf['outcome'] == 'missed'
+choiceDf = SessionDf[~missesDf] # drop rows which missed trials
+has_left_reach_Df = choiceDf[choiceDf['has_reach_left'] == True]
+has_right_reach_Df = choiceDf[choiceDf['has_reach_right'] == True]
 
 # What is the prob of going right after going left?
+rights_after_left_df = (has_left_reach_Df['choice_rt_left'] < has_left_reach_Df['choice_rt_right'])
+perc_rights_after_left = sum(rights_after_left_df)/len(rights_after_left_df)*100
 
 # What is the prob if going left after going right?
+lefts_after_right_df = (has_right_reach_Df['choice_rt_right'] < has_right_reach_Df['choice_rt_left'])
+perc_lefts_after_right = sum(lefts_after_right_df)/len(lefts_after_right_df)*100
 
+labels = ['R after L', 'L after R']
+data = [perc_rights_after_left, perc_lefts_after_right]
+
+rect = axes.bar(labels, data)
+
+for i, d in enumerate(data):
+    axes.text(i, d, " "+ str(round(d,1)), color='black', ha='center')
+
+axes.set_ylabel('Prob. (%)')
+axes.set_title('Prob of going X after Y')
+axes.set_ylim([0,50])
+axes.set_xticklabels(labels)
+
+fig.tight_layout()
+
+plt.savefig(plot_dir / ('prob_X_after_Y.png'), dpi=600)
 
 """
     #     #####  ######  #######  #####   #####      #####  #######  #####   #####  ### ####### #     #  #####
@@ -364,7 +401,7 @@ plt.savefig(plot_dir / ('paw_placement_aligned_to_' + align_event + '.png'), dpi
 
 """
 
-# %% Evolution of trial outcome 
+# %% Loading
 
 # Obtain log_paths and plot dirs
 animal_folder = utils.get_folder_dialog()
@@ -373,14 +410,45 @@ animal_meta = pd.read_csv(animal_folder / 'animal_meta.csv')
 nickname = animal_meta[animal_meta['name'] == 'Nickname']['value'].values[0]
 os.makedirs(across_session_plot_dir, exist_ok=True)
 
-task_name = ['learn_to_reach']
+# %% across sessions - plot weight
+SessionsDf = utils.get_sessions(log_path.parent.parent)
+Df = pd.read_csv(log_path.parent.parent / 'animal_meta.csv')
+ini_weight = float(Df[Df['name'] == 'Weight']['value'])
+
+for i,row in SessionsDf.iterrows():
+    try:
+        path = row['path']
+        Df = pd.read_csv(Path(path) / 'animal_meta.csv')
+        current_weight = float(Df[Df['name'] == 'current_weight']['value'])
+        SessionsDf.loc[row.name,'weight'] = current_weight
+        SessionsDf.loc[row.name,'weight_frac'] = current_weight / ini_weight
+    except:
+        pass
+
+# Formatting
+fig, axes = plt.subplots()
+axes.plot(SessionsDf.index.values,SessionsDf.weight_frac,'o')
+axes.set_xticks(SessionsDf.index.values)
+axes.set_xticklabels(SessionsDf['date'].values,rotation=90)
+line_kwargs = dict(lw=1,linestyle=':',alpha=0.75)
+axes.axhline(0.85, color='g', **line_kwargs)
+axes.axhline(0.75, color='r', **line_kwargs)
+axes.set_ylim(0.5,1)
+axes.set_title('Weight across sessions (%s)' %nickname)
+axes.set_xlabel('session date')
+axes.set_ylabel('weight (%)')
+fig.tight_layout()
+plt.savefig(across_session_plot_dir / ('weight_across_sessions.png'), dpi=600)
+
+# %% Evolution of trial outcome 
+task_name = ['learn_to_reach','learn_to_choose']
 SessionsDf = utils.get_sessions(animal_folder)
 log_paths = [Path(path)/'arduino_log.txt' for path in SessionsDf['path']]
 
 # Obtain the perc of reaches, correct and incorrect trials
-perc_reach, perc_correct, date = [],[],[]
+perc_reach_right, perc_reach_left, perc_correct, date = [],[],[],[]
 
-for log_path in tqdm(log_paths[-4:]):
+for log_path in tqdm(log_paths[-5:]):
     
     path = log_path.parent 
     LogDf = bhv.get_LogDf_from_path(log_path)
@@ -401,15 +469,20 @@ for log_path in tqdm(log_paths[-4:]):
     metrics = (bhv.get_start, bhv.get_stop, get_correct_side, get_outcome, get_choice, has_reach_left, has_reach_right)
     SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
+    left_trials_idx = SessionDf['correct_side'] == 'left'
+    right_trials_idx = SessionDf['correct_side'] == 'right'
+
     any_reach = SessionDf.has_reach_left | SessionDf.has_reach_right
 
     # Two metrics of evolution
-    perc_reach.append(sum(any_reach)/len(SessionDf)*100)
+    perc_reach_left.append(sum(any_reach[left_trials_idx])/len(SessionDf[left_trials_idx])*100) 
+    perc_reach_right.append(sum(any_reach[right_trials_idx])/len(SessionDf[right_trials_idx])*100)
     perc_correct.append(sum(SessionDf.outcome == 'correct')/len(SessionDf)*100)
 
 fig , axes = plt.subplots()
 
-axes.plot(perc_reach, color = 'black', label = 'Reached (%)')
+axes.plot(perc_reach_left, color = 'orange', label = 'Reached Right (%)')
+axes.plot(perc_reach_right, color = 'blue', label = 'Reached Left (%)')
 axes.plot(perc_correct, color = 'green', label = 'Correct (%)')
 
 axes.set_ylabel('Trial outcome (%)')
@@ -417,9 +490,9 @@ axes.set_xlabel('Session date')
 axes.legend(loc='upper left', frameon=False) 
 
 plt.setp(axes, xticks=np.arange(0, len(date), 1), xticklabels=date)
-plt.setp(axes, yticks=np.arange(0, 100, 10), yticklabels=np.arange(0, 100, 10))
+plt.setp(axes, yticks=np.arange(0, 100+1, 10), yticklabels=np.arange(0, 100+1, 10))
 plt.xticks(rotation=45)
-plt.savefig(across_session_plot_dir / ('sessions_overview.png'), dpi=600)
+plt.savefig(across_session_plot_dir / ('overview_across_sessions.png'), dpi=600)
 
 
 # %%
