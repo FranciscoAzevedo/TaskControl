@@ -41,32 +41,45 @@ plt.rcParams['figure.dpi'] = 166
 
 """
 
-# %% read all three data sources (Video, DLC markers and Logs)
+# %% read all four data sources (Video, DLC markers, Loadcells and Logs)
 
 # DeepLabCut data
 h5_path = utils.get_file_dialog()
-DlcDf = read_dlc_h5(h5_path)
+#DlcDf = read_dlc_h5(h5_path)
+#bodyparts = sp.unique([j[0] for j in DlcDf.columns[1:]]) # all body parts
 
-# all body parts
-bodyparts = sp.unique([j[0] for j in DlcDf.columns[1:]])
-
-# Video 
-video_path = h5_path.parent / "bonsai_video.avi"
+# Video
+path = h5_path.parent
+video_path = path / "bonsai_video.avi"
 Vid = read_video(str(video_path))
 
 # Logs
-log_path = video_path.parent / 'arduino_log.txt'
+log_path = path / 'arduino_log.txt'
 LogDf = bhv.get_LogDf_from_path(log_path)
 
+# LoadCell data
+LoadCellDf, t_harp = bhv.parse_bonsai_LoadCellData(path / "bonsai_LoadCellData.csv")
+
+# Synching arduino 
+arduino_sync = bhv.get_arduino_sync(log_path, sync_event_name="TRIAL_ENTRY_EVENT")
+t_harp = t_harp['t'].values
+t_arduino = arduino_sync['t'].values
+
+if t_harp.shape != t_arduino.shape:
+    t_arduino, t_harp = bhv.cut_timestamps(t_arduino, t_harp, verbose = True)
+
+m3, b3 = bhv.sync_clocks(t_harp, t_arduino, log_path)
+
+
 # %% Create SessionDf
-TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_ENTRY_STATE", "ITI_STATE")
+TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_AVAILABLE_STATE", "ITI_STATE")
 
 TrialDfs = []
 for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
     TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
 
 metrics = (bhv.get_start, bhv.get_stop, get_correct_side, get_outcome, get_choice, has_reach_left, has_reach_right, \
-            choice_rt_left, choice_rt_right, bhv.get_in_corr_loop)
+            choice_rt_left, choice_rt_right, bhv.get_in_corr_loop, bhv.has_choice, bhv.get_interval)
 
 SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
@@ -307,7 +320,7 @@ plt.savefig(plot_dir / ('paw_placement_aligned_to_' + align_event + '.png'), dpi
 """
 
 # %% General settings
-pre,post = -500,3000
+pre,post = 500,3000
 
 # %% Success rate
 bhv_plt_reach.plot_success_rate(LogDf, SessionDf, 10, axes=None)
@@ -319,7 +332,7 @@ bhv_plt_reach.plot_session_overview(LogDf, align_event, pre, post)
 plt.savefig(plot_dir / ('session_overview.png'), dpi=600)
 
 # %% Reaches in a window around align_event 
-side = 'left'
+side = 'right'
 
 fig, axes = plt.subplots()
 TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, ('correct_side', side))
@@ -357,38 +370,75 @@ bin_width = 150
 bhv_plt_reach.plot_choice_RT_hist(SessionDf, choice_interval, bin_width)
 plt.savefig(plot_dir / ('choice_RTs' + '.png'), dpi=600)
 
-# %% Are they using a sampling strategy?
+# %% Trial initiation distro moving average 1 sec, thresh at - 300/500
+max_range = 30000 # ms
+
+fig, axes = plt.subplots(figsize=(4,3))
+
+initiation_time = []
+for TrialDf in TrialDfs:
+    t_trial_available = TrialDf[TrialDf['name'] == 'TRIAL_AVAILABLE_EVENT']['t'].values
+    t_trial_entry = TrialDf[TrialDf['name'] == 'TRIAL_ENTRY_EVENT']['t'].values
+
+    initiation_time.append(t_trial_entry-t_trial_available)
+
+initiation_time = np.array(initiation_time)
+axes.hist(initiation_time, bins = max_range//1000, range = (0,max_range))
+
+# Formatting
+plt.setp(axes, xticks=np.arange(0, max_range+1, 5000), xticklabels=np.arange(0, max_range/1000 + 0.1, 5))
+axes.set_xlabel('Time (s)')
+axes.set_ylabel('No. of ocurrences')
+axes.set_title('Distribution of initiation times')
+fig.tight_layout()
+
+# %% Are they using a sampling strategy? 
 fig, axes = plt.subplots(figsize=(3, 4))
 
-missesDf = SessionDf['outcome'] == 'missed'
-choiceDf = SessionDf[~missesDf] # drop rows which missed trials
-has_left_reach_Df = choiceDf[choiceDf['has_reach_left'] == True]
-has_right_reach_Df = choiceDf[choiceDf['has_reach_right'] == True]
+missesDf_idx = SessionDf['outcome'] == 'missed'
+choiceDf = SessionDf[~missesDf_idx] # drop rows with missed trials
 
-# What is the prob of going right after going left?
-rights_after_left_df = (has_left_reach_Df['choice_rt_left'] < has_left_reach_Df['choice_rt_right'])
-perc_rights_after_left = sum(rights_after_left_df)/len(rights_after_left_df)*100
+sides = ['left', 'right']
 
-# What is the prob if going left after going right?
-lefts_after_right_df = (has_right_reach_Df['choice_rt_right'] < has_right_reach_Df['choice_rt_left'])
-perc_lefts_after_right = sum(lefts_after_right_df)/len(lefts_after_right_df)*100
+perc_r_after_l, perc_l_after_r = [],[]
+for i, side in enumerate(sides):
 
-labels = ['R after L', 'L after R']
-data = [perc_rights_after_left, perc_lefts_after_right]
+    trial_sideDf = choiceDf[choiceDf['correct_side'] == side]
 
-rect = axes.bar(labels, data)
+    has_left_reach_Df = trial_sideDf[trial_sideDf['has_reach_left'] == True]
+    has_right_reach_Df = trial_sideDf[trial_sideDf['has_reach_right'] == True]
 
-for i, d in enumerate(data):
-    axes.text(i, d, " "+ str(round(d,1)), color='black', ha='center')
+    # What is the prob of going right after going left?
+    rights_after_left_df = (has_left_reach_Df['choice_rt_left'] < has_left_reach_Df['choice_rt_right'])
+    perc_r_after_l.append(sum(rights_after_left_df)/len(rights_after_left_df)*100)
 
-axes.set_ylabel('Prob. (%)')
+    # What is the prob if going left after going right?
+    lefts_after_right_df = (has_right_reach_Df['choice_rt_right'] < has_right_reach_Df['choice_rt_left'])
+    perc_l_after_r.append(sum(lefts_after_right_df)/len(lefts_after_right_df)*100)
+
+labels = ['left trials', 'right trials']
+x = np.arange(len(labels))  # the label locations
+width = 0.25  # the width of the bars
+
+# Plotting groups
+rects1 = axes.bar(x - width/2, perc_r_after_l, width, label='R after L')
+rects2 = axes.bar(x + width/2, perc_l_after_r, width, label='L after R')
+
 axes.set_title('Prob of going X after Y')
-axes.set_ylim([0,50])
+axes.set_ylabel('Prob. (%)')
+axes.set_ylim([0,75])
+axes.set_xticks(x)
 axes.set_xticklabels(labels)
+axes.legend(loc='upper left', frameon=False) 
 
 fig.tight_layout()
 
 plt.savefig(plot_dir / ('prob_X_after_Y.png'), dpi=600)
+
+# %% Psychometric
+bhv_plt_reach.plot_psychometric(SessionDf)
+plt.savefig(plot_dir / ('psychometric' + '.png'), dpi=600)
+
 
 """
     #     #####  ######  #######  #####   #####      #####  #######  #####   #####  ### ####### #     #  #####
@@ -441,14 +491,14 @@ fig.tight_layout()
 plt.savefig(across_session_plot_dir / ('weight_across_sessions.png'), dpi=600)
 
 # %% Evolution of trial outcome 
-task_name = ['learn_to_reach','learn_to_choose']
+task_name = ['learn_to_reach','learn_to_choose','learn_to_time']
 SessionsDf = utils.get_sessions(animal_folder)
 log_paths = [Path(path)/'arduino_log.txt' for path in SessionsDf['path']]
 
 # Obtain the perc of reaches, correct and incorrect trials
 perc_reach_right, perc_reach_left, perc_correct, date = [],[],[],[]
 
-for log_path in tqdm(log_paths[-5:]):
+for log_path in tqdm(log_paths[-8:]):
     
     path = log_path.parent 
     LogDf = bhv.get_LogDf_from_path(log_path)
