@@ -35,7 +35,7 @@ def plot_session_overview(LogDf, align_event, pre, post, how='bars', axes=None):
         fig, axes = plt.subplots()
 
     # Key Events and Spans
-    key_list = ['REACH_LEFT_ON', 'REACH_RIGHT_ON', 'PRESENT_CUE_STATE', 'PRESENT_INTERVAL_STATE']
+    key_list = ['REACH_LEFT_ON', 'REACH_RIGHT_ON', 'PRESENT_CUE_STATE', 'PRESENT_INTERVAL_STATE', 'GO_CUE_SHORT_EVENT', 'GO_CUE_LONG_EVENT']
 
     colors = sns.color_palette('hls', n_colors=len(key_list))
     cdict = dict(zip(key_list,colors))
@@ -82,6 +82,7 @@ def plot_session_overview(LogDf, align_event, pre, post, how='bars', axes=None):
     # Formatting
     axes.legend(loc="center", bbox_to_anchor=(0.5, -0.2), prop={'size': 6}, ncol=len(key_list)) 
     axes.set_title('Trials aligned to ' + str(align_event))
+    plt.setp(axes, xticks=np.arange(-pre, post+1, 500), xticklabels=np.arange(-pre/1000, post/1000+0.1, 0.5))
     axes.set_ylim([0, len(t_ref)])
     axes.invert_yaxis() # Needs to be after set_ylim
     axes.set_xlabel('Time (ms)')
@@ -216,7 +217,7 @@ def plot_psychometric(SessionDf, axes=None):
     " Timing task classic psychometric fit to data"
 
     if axes is None:
-        axes = plt.gca()
+        fig, axes = plt.subplots()
 
     # get only the subset with choices
     SDf = SessionDf.groupby('has_choice').get_group(True)
@@ -240,21 +241,20 @@ def plot_psychometric(SessionDf, axes=None):
         bias = (SessionDf['choice'] == 'right').sum() / SessionDf.shape[0] # This includes premature choices now!
         R = []
         for i in range(100):
-            rand_choices = np.rand(t.shape[0]) < bias # can break here if bias value is too low
+            rand_choices = np.random.rand(t.shape[0]) < bias # can break here if bias value is too low
             R.append(bhv.log_reg(x, rand_choices,x_fit))
         R = np.array(R)
 
-        # Several statistical boundaries (?)
+        # Several statistical boundaries
         alphas = [5, 0.5, 0.05]
-        opacities = [0.5, 0.4, 0.3]
+        opacities = [0.4, 0.2, 0.1]
         for alpha, a in zip(alphas, opacities):
             R_pc = sp.percentile(R, (alpha, 100-alpha), 0)
-            # plt.plot(x_fit, R_pc[0], color='blue', alpha=a)
-            # plt.plot(x_fit, R_pc[1], color='blue', alpha=a)
             plt.fill_between(x_fit, R_pc[0], R_pc[1], color='blue', alpha=a)
         plt.set_cmap
+
     except KeyError:
-        print('Bias too high')
+        print('Bias probably too high')
 
     plt.setp(axes, xticks=np.arange(0, 3000+1, 500), xticklabels=np.arange(0, 3000//1000 +0.1, 0.5))
     axes.set_xlabel('Time (s)')
@@ -262,7 +262,6 @@ def plot_psychometric(SessionDf, axes=None):
     return axes
 
 # Uses DLC data
-
 
 def plot_trajectories_with_marker(LogDf, SessionDf, labelsDf, align_event, pre, post, animal_id, axes=None):
     " Plots trajectories from align event until choice with marker"

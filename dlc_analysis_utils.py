@@ -256,7 +256,7 @@ def filter_trials_by(SessionDf, TrialDfs, filter_pairs):
         print('There are no trials with given input filter_pair combination')
         raise KeyError
 
-    TrialDfs_filt = np.array(TrialDfs)[SDf.index.values.astype(int)]
+    TrialDfs_filt = np.array(TrialDfs, dtype="object")[SDf.index.values.astype(int)]
 
     return TrialDfs_filt
 
