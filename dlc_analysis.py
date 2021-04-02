@@ -58,7 +58,15 @@ log_path = path / 'arduino_log.txt'
 LogDf = bhv.get_LogDf_from_path(log_path)
 
 # LoadCell data
-LoadCellDf, t_harp = bhv.parse_bonsai_LoadCellData(path / "bonsai_LoadCellData.csv")
+LoadCellDf, t_harp = bhv.parse_bonsai_LoadCellData(path / "bonsai_LoadCellData.csv",trig_len=100, ttol=4)
+
+
+# %% sync
+video_sync_path = video_path.parent / 'bonsai_frame_stamps.csv'
+m, b, m2, b2 = sync_arduino_w_dlc(log_path, video_sync_path)
+
+# writing arduino times of frames to the Dlc data
+DlcDf['t'] = frame2time(DlcDf.index,m,b,m2,b2)
 
 # Synching arduino 
 arduino_sync = bhv.get_arduino_sync(log_path, sync_event_name="TRIAL_ENTRY_EVENT")
@@ -69,7 +77,7 @@ if t_harp.shape != t_arduino.shape:
     t_arduino, t_harp = bhv.cut_timestamps(t_arduino, t_harp, verbose = True)
 
 m3, b3 = bhv.sync_clocks(t_harp, t_arduino, log_path)
-
+LogDf = pd.read_csv(path / "LogDf.csv") # re-load the LogDf (to make sure we keep the original arduino clock)
 
 # %% Create SessionDf
 TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_AVAILABLE_STATE", "ITI_STATE")
@@ -90,12 +98,6 @@ nickname = animal_meta[animal_meta['name'] == 'Nickname']['value'].values[0]
 plot_dir = log_path.parent / 'plots'
 os.makedirs(plot_dir, exist_ok=True)
 
-# %% sync
-video_sync_path = video_path.parent / 'bonsai_frame_stamps.csv'
-m, b, m2, b2 = sync_arduino_w_dlc(log_path, video_sync_path)
-
-# writing arduino times of frames to the Dlc data
-DlcDf['t'] = frame2time(DlcDf.index,m,b,m2,b2)
 
 # %% defining some stuff
 Skeleton   = (('D1L','J1L'),('D2L','J2L'),('D3L','J3L'),('D4L','J4L'),('D5L','J5L'),

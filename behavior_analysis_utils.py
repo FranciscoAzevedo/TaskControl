@@ -316,7 +316,7 @@ def groupby_dict(Df, Dict):
 
 """
 
-def parse_bonsai_LoadCellData(csv_path, save=True, trig_len=1, ttol=0.2):
+def parse_bonsai_LoadCellData(csv_path, save=True, trig_len=100, ttol=4):
     LoadCellDf = pd.read_csv(csv_path, names=['t','x','y'])
 
     harp_sync = pd.read_csv(csv_path.parent / "bonsai_harp_sync.csv", names=['t']).values.flatten()
