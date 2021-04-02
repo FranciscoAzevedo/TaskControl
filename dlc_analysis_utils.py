@@ -82,10 +82,10 @@ def sync_arduino_w_dlc(log_path, video_sync_path):
     from scipy import stats
     
     # from arduino time to camera time
-    m, b = stats.linregress(t_arduino, t_camera)[:2]
+    m, b = stats.linregress(t_camera, t_arduino)[:2]
 
     # from camera time to camera frame
-    m2, b2 = stats.linregress(t_camera, frames_index)[:2]
+    m2, b2 = stats.linregress(frames_index, t_camera)[:2]
 
 #    # from arduino time to camera time
 #    m, b = stats.linregress(Arduino_SyncEvent.t.values, Camera_SyncEvent.t.values)[:2]
@@ -95,11 +95,11 @@ def sync_arduino_w_dlc(log_path, video_sync_path):
 
     return m, b, m2, b2
 
-def time2frame(t,m,b,m2,b2):
-    return sp.int32((t*m+b)*m2+b2)
-
-def frame2time(i,m,b,m2,b2):
+def time2frame(i,m,b,m2,b2):
     return (((i-b2)/m2)-b)/m
+
+def frame2time(t,m,b,m2,b2):
+    return sp.int32((t*m+b)*m2+b2)
 
 """
  

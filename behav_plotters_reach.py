@@ -73,7 +73,7 @@ def plot_session_overview(LogDf, align_event, pre, post, how='bars', axes=None):
                 for j, row_s in SpansDf.iterrows():
                     time = row_s['t_on'] - t
                     dur = row_s['dt']
-                    rect = plt.Rectangle((time,i-0.5), dur, 1, facecolor=cdict[on_name], linewidth=2)
+                    rect = plt.Rectangle((time,i-0.5), dur, 1, facecolor=cdict[on_name], linewidth=1)
                     axes.add_patch(rect)
 
     for key in cdict.keys():
@@ -545,8 +545,6 @@ def water_to_spout_distance_across_sessions(LogDfs, paths, task_name, animal_id,
         Plots the evolution of the distance between the spout and water tips across sessions
         Fig.1D Galinanes
     """
-
-
 
     return
 
