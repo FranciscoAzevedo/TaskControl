@@ -98,7 +98,7 @@ def sync_arduino_w_dlc(log_path, video_sync_path):
 def time2frame(i,m,b,m2,b2):
     return (((i-b2)/m2)-b)/m
 
-def frame2time(t,m,b,m2,b2):
+def  frame2time(t,m,b,m2,b2):
     return sp.int32((t*m+b)*m2+b2)
 
 """
@@ -283,6 +283,29 @@ def truncate_pad_vector(arrs, pad_with = None, max_len = None):
             trunc_pad_arr[i,:] = np.array(arr)
 
     return trunc_pad_arr
+
+def get_LC_window_aligned_on_event(LoadCellDf, TrialDfs, align_event, pre, post):
+    """
+        Returns Fx/Fy/Fmag NUMPY ND.ARRAY for all trials aligned to an event in a window defined by [align-pre, align+post]"
+        Don't forget: we are using nd.arrays so, implicitly, we use advanced slicing which means [row, col] instead of [row][col]
+    """
+
+    X, Y = [],[]
+
+    for TrialDf in TrialDfs:
+        
+        t_align = TrialDf.loc[TrialDf['name'] == align_event, 't'].values[0]
+        LCDf = bhv.time_slice(LoadCellDf, t_align-pre, t_align+post) # slice around reference event
+
+        # Store
+        X.append(LCDf['x'].values)
+        Y.append(LCDf['y'].values)
+
+    # Turn into numpy arrays
+    X = np.array(X).T
+    Y = np.array(Y).T
+
+    return X,Y
 
 
 """
@@ -498,11 +521,15 @@ def choice_rt_left(TrialDf):
     var_name = 'choice_rt_left'
 
     if has_reach_left(TrialDf).values:
-
-        try:
+        # for learn to reach and learn to choose
+        if 'PRESENT_CUE_STATE' in TrialDf['name'].values: 
             cue_time = TrialDf.groupby('name').get_group("PRESENT_CUE_STATE").iloc[-1]['t']
-        except:
-            cue_time = TrialDf.groupby('name').get_group("PRESENT_INTERVAL_STATE").iloc[-1]['t']
+
+        # for learn to init and learn to time
+        elif 'GO_CUE_LEFT_EVENT' in TrialDf['name'].values: 
+            cue_time = TrialDf.groupby('name').get_group("GO_CUE_LEFT_EVENT").iloc[-1]['t']
+        elif 'GO_CUE_RIGHT_EVENT' in TrialDf['name'].values: 
+            cue_time = TrialDf.groupby('name').get_group("GO_CUE_RIGHT_EVENT").iloc[-1]['t']
 
         reach_time = TrialDf.groupby('name').get_group("REACH_LEFT_ON").iloc[0]['t'] # Only first reach
 
@@ -515,12 +542,16 @@ def choice_rt_left(TrialDf):
 def choice_rt_right(TrialDf):
     var_name = 'choice_rt_right'
 
-    if has_reach_right(TrialDf).values:
-        
-        try: # for learn to reach and learn to choose
+    if has_reach_left(TrialDf).values:
+        # for learn to reach and learn to choose
+        if 'PRESENT_CUE_STATE' in TrialDf['name'].values: 
             cue_time = TrialDf.groupby('name').get_group("PRESENT_CUE_STATE").iloc[-1]['t']
-        except: # for learn to init and learn to time
-            cue_time = TrialDf.groupby('name').get_group("PRESENT_INTERVAL_STATE").iloc[-1]['t']
+
+        # for learn to init and learn to time
+        elif 'GO_CUE_LEFT_EVENT' in TrialDf['name'].values: 
+            cue_time = TrialDf.groupby('name').get_group("GO_CUE_LEFT_EVENT").iloc[-1]['t']
+        elif 'GO_CUE_RIGHT_EVENT' in TrialDf['name'].values: 
+            cue_time = TrialDf.groupby('name').get_group("GO_CUE_RIGHT_EVENT").iloc[-1]['t']
 
         reach_time = TrialDf.groupby('name').get_group("REACH_RIGHT_ON").iloc[0]['t'] # Only first reach
 
