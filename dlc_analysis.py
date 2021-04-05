@@ -60,13 +60,17 @@ LogDf = bhv.get_LogDf_from_path(log_path)
 # LoadCell data
 LoadCellDf, t_harp = bhv.parse_bonsai_LoadCellData(path / "bonsai_LoadCellData.csv",trig_len=100, ttol=4)
 
+# Moving average mean subtraction
+samples = 1000 # ms
+LoadCellDf['x'] = LoadCellDf['x'] - LoadCellDf['x'].rolling(samples).mean()
+LoadCellDf['y'] = LoadCellDf['y'] - LoadCellDf['y'].rolling(samples).mean()
 
-# %% sync
+# %% Synching 
 video_sync_path = video_path.parent / 'bonsai_frame_stamps.csv'
 m, b, m2, b2 = sync_arduino_w_dlc(log_path, video_sync_path)
 
 # writing arduino times of frames to the Dlc data
-DlcDf['t'] = frame2time(DlcDf.index,m,b,m2,b2)
+#DlcDf['t'] = frame2time(DlcDf.index,m,b,m2,b2)
 
 # Synching arduino 
 arduino_sync = bhv.get_arduino_sync(log_path, sync_event_name="TRIAL_ENTRY_EVENT")
@@ -333,8 +337,12 @@ align_event = 'PRESENT_INTERVAL_STATE'
 bhv_plt_reach.plot_session_overview(LogDf, align_event, pre, post)
 plt.savefig(plot_dir / ('session_overview.png'), dpi=600)
 
+# %% Psychometric
+bhv_plt_reach.plot_psychometric(SessionDf)
+plt.savefig(plot_dir / ('psychometric' + '.png'), dpi=600)
+
 # %% Reaches in a window around align_event 
-side = 'right'
+side = 'left'
 
 fig, axes = plt.subplots()
 TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, ('correct_side', side))
@@ -372,11 +380,58 @@ bin_width = 150
 bhv_plt_reach.plot_choice_RT_hist(SessionDf, choice_interval, bin_width)
 plt.savefig(plot_dir / ('choice_RTs' + '.png'), dpi=600)
 
-# %% Trial initiation distro moving average 1 sec, thresh at - 300/500
-max_range = 30000 # ms
+# %% How hard do they push to initiate trials?
+window_of_event = 300 # ms
+align_event = 'TRIAL_ENTRY_EVENT'
+fig, axes = plt.subplots(ncols=2,sharex=True, figsize=(6,3))
 
-fig, axes = plt.subplots(figsize=(4,3))
+X,Y = get_LC_window_aligned_on_event(LoadCellDf, TrialDfs, align_event, window_of_event, window_of_event) 
 
+# Average traces
+X_mean = np.mean(X, axis = 1)
+Y_mean = np.mean(Y, axis = 1)
+
+axes[0].plot(X, alpha=0.25, c = 'tab:orange')
+axes[0].plot(X_mean, c = 'k')
+axes[1].plot(Y, alpha=0.25, c = 'tab:blue')
+axes[1].plot(Y_mean, c = 'k')
+
+# Formatting
+axes[0].set_ylabel('Force (a.u.)')
+plt.setp(axes, xticks=np.arange(0, window_of_event*2+1, 100), xticklabels=np.arange(-window_of_event, window_of_event+1, 100))
+
+for ax in axes:
+    ax.set_ylim([-4000,2000])
+    ax.axvline(300, linestyle='dotted', color='k', alpha = 0.5)
+    ax.set_xlabel('Time (ms)')
+
+fig.suptitle('LC forces aligned to ' + str(align_event))
+fig.tight_layout()
+plt.savefig(plot_dir / ('trial_init_forces.png'), dpi=600)
+
+# %% Trial initiation distro
+max_range = 20000 # ms
+tresh = 500
+window_width = 500 # ms
+pre,post = 10000, 10000
+align_event = 'TRIAL_AVAILABLE_EVENT'
+fig, axes = plt.subplots(ncols=2, figsize=(6,3))
+
+# Initiations obtained through LC and thresholding
+X,Y = get_LC_window_aligned_on_event(LoadCellDf, TrialDfs, align_event, pre, post)
+
+X_tresh_idx = X < -tresh
+Y_tresh_idx = Y < -tresh
+
+gate_AND_idx = X_tresh_idx*Y_tresh_idx
+gate_AND_idx_sum = np.convolve(gate_AND_idx.sum(axis=1), np.ones(window_width), 'valid') / window_width
+
+axes[0].plot(gate_AND_idx_sum)
+axes[0].set_title('Putative inits aligned \n to trial avail')
+axes[0].axvline(pre, linestyle='dotted', color='k', alpha = 0.5)
+plt.setp(axes[0], xticks=np.arange(0, post+pre+1, 5000), xticklabels=np.arange(-pre/1000, post/1000 + 0.1, 5))
+
+# Initiations obtained through LogDf
 initiation_time = []
 for TrialDf in TrialDfs:
     t_trial_available = TrialDf[TrialDf['name'] == 'TRIAL_AVAILABLE_EVENT']['t'].values
@@ -385,14 +440,20 @@ for TrialDf in TrialDfs:
     initiation_time.append(t_trial_entry-t_trial_available)
 
 initiation_time = np.array(initiation_time)
-axes.hist(initiation_time, bins = max_range//1000, range = (0,max_range))
+axes[1].hist(initiation_time, bins = max_range//1000, range = (0,max_range))
+axes[1].set_title('Distro of init times')
+plt.setp(axes[1], xticks=np.arange(0, max_range+1, 5000), xticklabels=np.arange(0, max_range/1000 + 0.1, 5))
 
 # Formatting
-plt.setp(axes, xticks=np.arange(0, max_range+1, 5000), xticklabels=np.arange(0, max_range/1000 + 0.1, 5))
-axes.set_xlabel('Time (s)')
-axes.set_ylabel('No. of ocurrences')
-axes.set_title('Distribution of initiation times')
+for ax in axes:
+    ax.set_ylabel('No. of ocurrences')
+    ax.set_xlabel('Time (s)')
+
 fig.tight_layout()
+plt.savefig(plot_dir / ('trial_init_distro.png'), dpi=600)
+
+# %% Reaching hazard rate for short and long trials
+
 
 # %% Are they using a sampling strategy? 
 fig, axes = plt.subplots(figsize=(3, 4))
@@ -436,11 +497,6 @@ axes.legend(loc='upper left', frameon=False)
 fig.tight_layout()
 
 plt.savefig(plot_dir / ('prob_X_after_Y.png'), dpi=600)
-
-# %% Psychometric
-bhv_plt_reach.plot_psychometric(SessionDf)
-plt.savefig(plot_dir / ('psychometric' + '.png'), dpi=600)
-
 
 """
     #     #####  ######  #######  #####   #####      #####  #######  #####   #####  ### ####### #     #  #####

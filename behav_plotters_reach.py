@@ -231,7 +231,7 @@ def plot_psychometric(SessionDf, axes=None):
     axes.set_ylabel('choice')
     axes.axvline(1500,linestyle=':',alpha=0.5,lw=1,color='k')
 
-    x_fit = np.linspace(0,3000,100)
+    x_fit = np.linspace(600,3000,100)
     line, = plt.plot([],color='red', linewidth=2,alpha=0.75)
     line.set_data(x_fit, bhv.log_reg(x, y, x_fit))
     
@@ -342,7 +342,7 @@ def plot_timing_overview(LogDf, LoadCellDf, TrialDfs, axes=None):
         Heatmap aligned to 1st cue with 2nd (timing) cue and choice RT markers, split by trial outcome and trial type
     """
 
-    pre, post = 500, 5000
+    pre, post = 500, 4000
     Fx, interval, choice_RT = [],[],[]
     correct_idx, incorrect_idx, pre_idx, missed_idx = [],[],[],[]
 
