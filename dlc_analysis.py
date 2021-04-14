@@ -90,7 +90,7 @@ TrialDfs = []
 for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
     TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
 
-metrics = (bhv.get_start, bhv.get_stop, get_correct_side, get_outcome, get_choice, has_reach_left, has_reach_right, \
+metrics = (bhv.get_start, bhv.get_stop, get_trial_side, get_trial_type, get_outcome, get_choice, has_reach_left, has_reach_right, \
             choice_rt_left, choice_rt_right, bhv.get_in_corr_loop, bhv.has_choice, bhv.get_interval)
 
 SessionDf = bhv.parse_trials(TrialDfs, metrics)
@@ -206,8 +206,8 @@ time_interval = 1000 # ms (for the time axis in the plot)
 
 fig, axes = plt.subplots(ncols=2,sharex=True)
 
-TrialDfs_left = filter_trials_by(SessionDf, TrialDfs, ('correct_side', 'left'))
-TrialDfs_right = filter_trials_by(SessionDf, TrialDfs, ('correct_side', 'right'))
+TrialDfs_left = filter_trials_by(SessionDf, TrialDfs, ('trial_side', 'left'))
+TrialDfs_right = filter_trials_by(SessionDf, TrialDfs, ('trial_side', 'right'))
 
 # General function to be applied 
 func = calc_dist_bp_point
@@ -342,43 +342,25 @@ bhv_plt_reach.plot_psychometric(SessionDf)
 plt.savefig(plot_dir / ('psychometric' + '.png'), dpi=600)
 
 # %% Reaches in a window around align_event 
-side = 'left'
+pre, post = 500,3000
+align_event = 'PRESENT_INTERVAL_STATE'
+filter_pair = ('trial_side', 'right')
 
-fig, axes = plt.subplots()
-TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, ('correct_side', side))
+bhv_plt_reach.plot_reaches_window_aligned_on_event(SessionDf, TrialDfs, align_event, filter_pair, pre, post)
 
-right_reaches, left_reaches = [],[]
-for TrialDf in TrialDfs_filt:
-
-    t_align = TrialDf[TrialDf['name'] == 'PRESENT_CUE_STATE']['t'] 
-    if len(t_align) == 0: # for learn to init and time 
-        t_align = TrialDf[TrialDf['name'] == 'PRESENT_INTERVAL_STATE']['t']
-
-    left_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_LEFT_ON').values - t_align.values)
-    right_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_RIGHT_ON').values -t_align.values)
-
-# Flatten output matrix
-flat_right_reaches = [item for sublist in right_reaches for item in sublist]
-flat_left_reaches = [item for sublist in left_reaches for item in sublist]
-no_bins = np.linspace(-pre,post, 40) 
-
-# Fancy plotting
-axes.hist(np.array(flat_right_reaches), bins = no_bins , alpha=0.5, label = 'Right reaches')
-axes.hist(np.array(flat_left_reaches), bins = no_bins, alpha=0.5, label = 'Left reaches')
-plt.setp(axes, xticks=np.arange(-pre, post+1, 1000), xticklabels=np.arange(-pre/1000, post/1000+0.1, 1))
-axes.axvline(x=0, c='black')
-axes.set_xlabel('Time (s)')
-axes.set_ylabel('No. Reaches')
-axes.set_title('Reaches in ' + str(side) + ' trials aligned to ' + str(align_event))
-axes.legend()
-
-plt.savefig(plot_dir / ('reach_distro_aligned_' + str(align_event) + '_split_by_' + str(side) + '_trials' + '.png'), dpi=600)
+plt.savefig(plot_dir / ('reach_distro_aligned_' + str(align_event) + '_split_by_' + str(filter_pair) + '_trials.png'), dpi=600)
 
 # %% 1st reach choice RT
-choice_interval = post
-bin_width = 150
+choice_interval = 1000
+bin_width = 50
 bhv_plt_reach.plot_choice_RT_hist(SessionDf, choice_interval, bin_width)
 plt.savefig(plot_dir / ('choice_RTs' + '.png'), dpi=600)
+
+# %% Reaches in delay period
+event_1 = 'PRESENT_INTERVAL_STATE'
+event_2 = 'GO_CUE_EVENT'
+
+bhv_plt_reach.plot_reaches_between_events(SessionDf, LogDf, TrialDfs, event_1, event_2)
 
 # %% How hard do they push to initiate trials?
 window_of_event = 300 # ms
@@ -417,7 +399,7 @@ pre,post = 10000, 10000
 align_event = 'TRIAL_AVAILABLE_EVENT'
 fig, axes = plt.subplots(ncols=2, figsize=(6,3))
 
-# Initiations obtained through LC and thresholding
+# Putative initiations obtained through LC and thresholding
 X,Y = get_LC_window_aligned_on_event(LoadCellDf, TrialDfs, align_event, pre, post)
 
 X_tresh_idx = X < -tresh
@@ -452,8 +434,31 @@ for ax in axes:
 fig.tight_layout()
 plt.savefig(plot_dir / ('trial_init_distro.png'), dpi=600)
 
-# %% Reaching hazard rate for short and long trials
+# %% Reaching CDF's for short and long trials 
+trial_types = ['short','long']
+fig, axes = plt.subplots(ncols=len(trial_types), sharey=True, figsize=(6, 4))
 
+for i, trial_type in enumerate(trial_types):
+
+    TrialDfs_type =  filter_trials_by(SessionDf, TrialDfs, ('trial_type', trial_type))
+
+    rts = []
+    for TrialDf_type in TrialDfs_type:
+        rts.append(reach_rt_delay_period(TrialDf_type))
+
+    rts = np.array(rts)
+    count, bins_count = np.histogram(rts[~np.isnan(rts)])
+    pdf = count / len(rts) # sum of RT's since I want to include the Nans 
+    cdf = np.cumsum(pdf)
+
+    ax = axes[i]
+    ax.plot(bins_count[1:], cdf, label="CDF")
+    ax.set_title(str(trial_type) + ' trials')
+    ax.set_ylim([0,1])
+
+fig.text(0.5, 0.04, 'Time since 1st cue (ms)', ha='center')
+fig.suptitle('CDF of first reach for')
+plt.savefig(plot_dir / ('CDF_of_reach_during_delay.png'), dpi=600)
 
 # %% Are they using a sampling strategy? 
 fig, axes = plt.subplots(figsize=(3, 4))
@@ -466,7 +471,7 @@ sides = ['left', 'right']
 perc_r_after_l, perc_l_after_r = [],[]
 for i, side in enumerate(sides):
 
-    trial_sideDf = choiceDf[choiceDf['correct_side'] == side]
+    trial_sideDf = choiceDf[choiceDf['trial_side'] == side]
 
     has_left_reach_Df = trial_sideDf[trial_sideDf['has_reach_left'] == True]
     has_right_reach_Df = trial_sideDf[trial_sideDf['has_reach_right'] == True]
@@ -512,15 +517,15 @@ plt.savefig(plot_dir / ('prob_X_after_Y.png'), dpi=600)
 # %% Loading
 
 # Obtain log_paths and plot dirs
-animal_folder = utils.get_folder_dialog()
-across_session_plot_dir = animal_folder / 'plots'
-animal_meta = pd.read_csv(animal_folder / 'animal_meta.csv')
+animal_fd_path = utils.get_folder_dialog()
+across_session_plot_dir = animal_fd_path / 'plots'
+animal_meta = pd.read_csv(animal_fd_path / 'animal_meta.csv')
 nickname = animal_meta[animal_meta['name'] == 'Nickname']['value'].values[0]
 os.makedirs(across_session_plot_dir, exist_ok=True)
 
 # %% across sessions - plot weight
-SessionsDf = utils.get_sessions(log_path.parent.parent)
-Df = pd.read_csv(log_path.parent.parent / 'animal_meta.csv')
+SessionsDf = utils.get_sessions(animal_fd_path)
+Df = pd.read_csv(animal_fd_path / 'animal_meta.csv')
 ini_weight = float(Df[Df['name'] == 'Weight']['value'])
 
 for i,row in SessionsDf.iterrows():
@@ -550,13 +555,14 @@ plt.savefig(across_session_plot_dir / ('weight_across_sessions.png'), dpi=600)
 
 # %% Evolution of trial outcome 
 task_name = ['learn_to_reach','learn_to_choose','learn_to_time']
-SessionsDf = utils.get_sessions(animal_folder)
+SessionsDf = utils.get_sessions(animal_fd_path)
 log_paths = [Path(path)/'arduino_log.txt' for path in SessionsDf['path']]
 
 # Obtain the perc of reaches, correct and incorrect trials
-perc_reach_right, perc_reach_left, perc_correct, date = [],[],[],[]
+perc_reach_right, perc_reach_left, perc_correct, perc_missed = [],[],[],[]
+date,tpm = [],[] # Trials Per Minute (tpm)
 
-for log_path in tqdm(log_paths[-8:]):
+for log_path in tqdm(log_paths[-10:]):
     
     path = log_path.parent 
     LogDf = bhv.get_LogDf_from_path(log_path)
@@ -574,11 +580,11 @@ for log_path in tqdm(log_paths[-8:]):
     for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
         TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
 
-    metrics = (bhv.get_start, bhv.get_stop, get_correct_side, get_outcome, get_choice, has_reach_left, has_reach_right)
+    metrics = (bhv.get_start, bhv.get_stop, get_trial_side, get_outcome, get_choice, has_reach_left, has_reach_right)
     SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
-    left_trials_idx = SessionDf['correct_side'] == 'left'
-    right_trials_idx = SessionDf['correct_side'] == 'right'
+    left_trials_idx = SessionDf['trial_side'] == 'left'
+    right_trials_idx = SessionDf['trial_side'] == 'right'
 
     any_reach = SessionDf.has_reach_left | SessionDf.has_reach_right
 
@@ -586,12 +592,16 @@ for log_path in tqdm(log_paths[-8:]):
     perc_reach_left.append(sum(any_reach[left_trials_idx])/len(SessionDf[left_trials_idx])*100) 
     perc_reach_right.append(sum(any_reach[right_trials_idx])/len(SessionDf[right_trials_idx])*100)
     perc_correct.append(sum(SessionDf.outcome == 'correct')/len(SessionDf)*100)
+    perc_missed.append(sum(SessionDf.outcome == 'missed')/len(SessionDf)*100)
+
+    tpm.append(len(SessionDf))
 
 fig , axes = plt.subplots()
 
 axes.plot(perc_reach_left, color = 'orange', label = 'Reached Right (%)')
 axes.plot(perc_reach_right, color = 'blue', label = 'Reached Left (%)')
 axes.plot(perc_correct, color = 'green', label = 'Correct (%)')
+axes.plot(perc_missed, color = 'grey', label = 'Missed (%)')
 
 axes.set_ylabel('Trial outcome (%)')
 axes.set_xlabel('Session date')
@@ -602,6 +612,16 @@ plt.setp(axes, yticks=np.arange(0, 100+1, 10), yticklabels=np.arange(0, 100+1, 1
 plt.xticks(rotation=45)
 plt.savefig(across_session_plot_dir / ('overview_across_sessions.png'), dpi=600)
 
+# %% Trials per minute
+fig , axes = plt.subplots()
+axes.plot(tpm)
+
+axes.set_ylim([0,300])
+plt.title('No. Trials across sessions')
+plt.setp(axes, xticks=np.arange(0, len(date), 1), xticklabels=date)
+plt.xticks(rotation=45)
+
+plt.savefig(across_session_plot_dir / ('tpm_across_sessions.png'), dpi=600)
 
 # %%
 dists = calc_dist_bp_point(DlcDf, bp, coords, p=0.1, filter=True)
