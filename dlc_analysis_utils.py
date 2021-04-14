@@ -22,7 +22,7 @@ import behavior_analysis_utils as bhv
  
 """
 
-def read_dlc_csv(path):
+def read_dlc_csv(csv_path):
     """ reads Dlc csv output to hierarchical multiindex (on columns) pd.DataFrame """
     DlcDf = pd.read_csv(csv_path, header=[1,2],index_col=0)
     return DlcDf
@@ -212,6 +212,9 @@ def get_dist_between_events(DlcDf, TrialDfs, first_event, second_event, func, f_
     """
         Returns Fx/Fy/Fmag NUMPY ND.ARRAY with dimensions (trials, max_array_len) for all trials 
         NOTE: we are returning NP nd.arrays so we use advanced slicing, meaning [row, col] instead of [row][col]
+
+        func anf f_arg1/2 are names for a more general implementation yet to test where one can get any function 
+        between two events (does not have to be distance despite the function name)
     """
 
     dist = []
@@ -439,7 +442,7 @@ def get_speed(DlcDf, bp, p=0.99, filter=False):
 
 # Work only on Trial-level
 
-def get_correct_side(TrialDf):
+def get_trial_side(TrialDf):
     var_name = "correct_side"
 
     try:
@@ -453,6 +456,16 @@ def get_correct_side(TrialDf):
     
     except KeyError:
         var = np.NaN
+
+    return pd.Series(var, name='trial_side')
+
+def get_trial_type(TrialDf):
+    var_name = "trial_type"
+
+    if bhv.get_interval(TrialDf).values < 1500:
+        var = 'short'
+    elif bhv.get_interval(TrialDf).values > 1500:
+        var = 'long'
 
     return pd.Series(var, name=var_name)
 
@@ -488,11 +501,11 @@ def get_outcome(TrialDf):
         var = 'missed'
 
     # Correct
-    elif get_choice(TrialDf).values == get_correct_side(TrialDf).values:
+    elif get_choice(TrialDf).values == get_trial_side(TrialDf).values:
         var = 'correct'
 
     # Incorrect
-    elif get_choice(TrialDf).values != get_correct_side(TrialDf).values:
+    elif get_choice(TrialDf).values != get_trial_side(TrialDf).values:
         var = 'incorrect'
 
     return pd.Series(var, name=var_name)    
@@ -529,11 +542,16 @@ def choice_rt_left(TrialDf):
         elif 'GO_CUE_LEFT_EVENT' in TrialDf['name'].values: 
             cue_time = TrialDf.groupby('name').get_group("GO_CUE_LEFT_EVENT").iloc[-1]['t']
         elif 'GO_CUE_RIGHT_EVENT' in TrialDf['name'].values: 
-            cue_time = TrialDf.groupby('name').get_group("GO_CUE_RIGHT_EVENT").iloc[-1]['t']
+            cue_time =  TrialDf.groupby('name').get_group("GO_CUE_RIGHT_EVENT").iloc[-1]['t']
 
-        reach_time = TrialDf.groupby('name').get_group("REACH_LEFT_ON").iloc[0]['t'] # Only first reach
+        # only first reach
+        reach_times = TrialDf.groupby('name').get_group("REACH_LEFT_ON")['t'] 
+        rt = reach_times[reach_times>cue_time].values
 
-        var = reach_time - cue_time
+        if len(rt) != 0:
+            var = rt[0] - cue_time 
+        else:
+            var = np.NaN
     else:
         var = np.NaN    
  
@@ -542,7 +560,7 @@ def choice_rt_left(TrialDf):
 def choice_rt_right(TrialDf):
     var_name = 'choice_rt_right'
 
-    if has_reach_left(TrialDf).values:
+    if has_reach_right(TrialDf).values:
         # for learn to reach and learn to choose
         if 'PRESENT_CUE_STATE' in TrialDf['name'].values: 
             cue_time = TrialDf.groupby('name').get_group("PRESENT_CUE_STATE").iloc[-1]['t']
@@ -553,10 +571,59 @@ def choice_rt_right(TrialDf):
         elif 'GO_CUE_RIGHT_EVENT' in TrialDf['name'].values: 
             cue_time = TrialDf.groupby('name').get_group("GO_CUE_RIGHT_EVENT").iloc[-1]['t']
 
-        reach_time = TrialDf.groupby('name').get_group("REACH_RIGHT_ON").iloc[0]['t'] # Only first reach
+        # only first reach
+        reach_times = TrialDf.groupby('name').get_group("REACH_RIGHT_ON")['t']
+        rt = reach_times[reach_times>cue_time].values
 
-        var = reach_time - cue_time
+        if len(rt) != 0:
+            var = rt[0] - cue_time 
+        else:
+            var = np.NaN
     else:
+        var = np.NaN    
+ 
+    return pd.Series(var, name=var_name)
+
+def reach_rt_delay_period(TrialDf):
+    " First reach RT during only the DELAY period, agnostic of chosen side or arm"
+    var_name = 'delay_reach_rt'
+
+    cue_time = TrialDf.groupby('name').get_group("PRESENT_INTERVAL_STATE").iloc[-1]['t']
+    interval = bhv.get_interval(TrialDf).values
+
+    # obtain reach times for each side
+    try:
+        if has_reach_left(TrialDf).values:
+            putative_times = TrialDf.groupby('name').get_group("REACH_LEFT_ON")['t'].values # All reaches
+
+            # Check if they belong to [cue_time, interval] window
+            reach_l_time = putative_times[(putative_times>cue_time) & ((putative_times-cue_time)<interval)]
+
+            if len(reach_l_time) == 0: # when there is no reach inside window
+                reach_l_time = np.NaN
+            else: # when there is, get first one
+                reach_l_time = reach_l_time[0]
+        else:
+            reach_l_time = np.NaN
+
+        if has_reach_right(TrialDf).values:
+            putative_times = TrialDf.groupby('name').get_group("REACH_RIGHT_ON")['t'] 
+
+            # Check if they belong to [cue_time, interval] window
+            reach_r_time = putative_times[(putative_times>cue_time) & ((putative_times-cue_time)<interval)]
+            
+            if len(reach_r_time) == 0: 
+                reach_r_time = np.NaN
+            else:
+                reach_r_time = reach_r_time[0]
+        else:
+            reach_r_time = np.NaN
+        
+        # merge result (works if its NaN's as well)
+        reach_time = np.nanmin([reach_l_time,reach_r_time])
+        var = reach_time - cue_time
+
+    except:
         var = np.NaN    
  
     return pd.Series(var, name=var_name)

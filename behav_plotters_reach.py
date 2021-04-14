@@ -15,6 +15,7 @@ import os
 
 # Custom
 import behavior_analysis_utils as bhv
+from dlc_analysis_utils import *
 
 """
   #####  #######  #####   #####  ### ####### #     #
@@ -117,9 +118,9 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
     line_width = 0.04
 
     # L/R trial types
-    left_trials = SessionDf.loc[SessionDf['correct_side'] == 'left'].index + 1
+    left_trials = SessionDf.loc[SessionDf['trial_side'] == 'left'].index + 1
     y_left_trials = np.zeros(left_trials.shape[0]) - line_width
-    right_trials = SessionDf.loc[SessionDf['correct_side'] == 'right'].index + 1
+    right_trials = SessionDf.loc[SessionDf['trial_side'] == 'right'].index + 1
     y_right_trials = np.zeros(right_trials.shape[0]) + 1 + line_width
 
     # Some groupby keys dont always return a non-empty Df
@@ -148,7 +149,7 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
 
     # Grand average rate success rate
     y_sucess_rate = np.cumsum(SessionDf['outcome'] == 'correct') / (SessionDf.index.values+1)
-    #y_trial_prob = (SessionDf['correct_side'] == 'right').rolling(10).mean()
+    #y_trial_prob = (SessionDf['trial_side'] == 'right').rolling(10).mean()
 
     # Plotting in the same order as computed
     axes[1].plot(left_trials, y_left_trials, '|', color='k')
@@ -160,6 +161,7 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
         y_filt = (SessionDf['outcome'] == 'correct').rolling(history).mean()
         axes[1].plot(x,y_filt, color='C0',alpha=0.3, label = 'rolling mean')
     
+    axes[1].axhline(0.5 ,linestyle=':',alpha=0.5,lw=1,color='k')
     axes[1].set_ylabel('Success rate')
     axes[1].set_xlabel('trial #')
     axes[1].set_xlim([0, len(SessionDf)])
@@ -202,8 +204,8 @@ def plot_choice_RT_hist(SessionDf, choice_interval, bin_width):
     # Formatting
     plt.setp(axes, xticks=np.arange(0, choice_interval+1, 1000), xticklabels=np.arange(0, (choice_interval/1000)+0.1, 1))
     fig.suptitle('Choice RTs Histogram')
-    axes[0, 0].set_title('left')
-    axes[0, 1].set_title('right')
+    axes[0, 0].set_title('left choice')
+    axes[0, 1].set_title('right choice')
     axes[0, 0].set_ylabel('correct')
     axes[1, 0].set_ylabel('incorrect')
 
@@ -213,11 +215,95 @@ def plot_choice_RT_hist(SessionDf, choice_interval, bin_width):
 
     return axes  
 
+def plot_reaches_between_events(SessionDf, LogDf, TrialDfs, event_1, event_2):
+    " Plots the reaches during between two events split by trial side and outcome "
+
+    trial_sides = ['left', 'right']
+    outcomes = ['correct', 'incorrect']
+    
+    fig, axes = plt.subplots(nrows=len(outcomes), ncols=len(trial_sides), figsize=[4, 4], sharex=True, sharey=True)
+
+    kwargs = dict(alpha=0.5, edgecolor='none')
+    
+    # For each side and outcome
+    for i, trial_side in enumerate(trial_sides):
+        for j, outcome in enumerate(outcomes):
+            
+            # Filter trials (continues if there are no trials to pool from)
+            try:
+                TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, [('trial_side', trial_side), ('outcome',outcome)])
+            except:
+                continue
+            
+            # For each trial get the left and right reaches during delay period
+            left_reaches, right_reaches = [],[]
+            for TrialDf in TrialDfs_filt:
+
+                t_event_1 = TrialDf[TrialDf['name'] == event_1].iloc[-1]['t'] 
+
+                if 'GO_CUE_LEFT_EVENT' in TrialDf['name'].values: 
+                    t_event_2 = TrialDf.groupby('name').get_group("GO_CUE_LEFT_EVENT").iloc[-1]['t']
+                elif 'GO_CUE_RIGHT_EVENT' in TrialDf['name'].values: 
+                    t_event_2 =  TrialDf.groupby('name').get_group("GO_CUE_RIGHT_EVENT").iloc[-1]['t']
+                
+                # Slice trials between events
+                sliceDf = bhv.time_slice(LogDf, t_event_1, t_event_2)
+
+                left_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_LEFT_ON').values-t_event_1)
+                right_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_RIGHT_ON').values-t_event_1)
+                
+            ax = axes[j, i]
+            ax.hist(left_reaches, **kwargs, label = str([trial_side, outcome]))
+            ax.hist(right_reaches, **kwargs, label = str([trial_side, outcome]))
+            ax.legend(loc='upper right', frameon=False, fontsize = 8, handletextpad = 0.3, handlelength = 0.5)
+        
+    # Formatting
+    fig.suptitle('Histogram of reaches during interval period')
+    axes[0, 0].set_title('left choice')
+    axes[0, 1].set_title('right choice')
+    axes[0, 0].set_ylabel('correct')
+    axes[1, 0].set_ylabel('incorrect')
+
+    return axes
+
+def plot_reaches_window_aligned_on_event(SessionDf, TrialDfs, align_event, filter_pair, pre, post):
+    " Plots the reaches around a [-pre,post] window aligned to an event filtered according to filter_pair"
+
+    fig, axes = plt.subplots()
+    TrialDfs_filt = bhv.filter_trials_by(SessionDf, TrialDfs, filter_pair)
+
+    right_reaches, left_reaches = [],[]
+    for TrialDf in TrialDfs_filt:
+
+        t_align = TrialDf[TrialDf['name'] == align_event]['t'] 
+
+        left_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_LEFT_ON').values - t_align.values)
+        right_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_RIGHT_ON').values -t_align.values)
+
+    # Flatten output matrix
+    flat_right_reaches = [item for sublist in right_reaches for item in sublist]
+    flat_left_reaches = [item for sublist in left_reaches for item in sublist]
+    no_bins = np.linspace(-pre,post, 40) 
+
+    # Fancy plotting
+    axes.hist(np.array(flat_right_reaches), bins = no_bins , alpha=0.5, label = 'Right reaches')
+    axes.hist(np.array(flat_left_reaches), bins = no_bins, alpha=0.5, label = 'Left reaches')
+    plt.setp(axes, xticks=np.arange(-pre, post+1, 1000), xticklabels=np.arange(-pre/1000, post/1000+0.1, 1))
+    axes.axvline(x=0, c='black')
+    axes.set_xlabel('Time (s)')
+    axes.set_ylabel('No. Reaches')
+    axes.set_title('Reaches in ' + str(filter_pair) + ' trials aligned to ' + str(align_event))
+    axes.legend()
+
+    return axes
+
 def plot_psychometric(SessionDf, axes=None):
     " Timing task classic psychometric fit to data"
 
     if axes is None:
         fig, axes = plt.subplots()
+
+    time_lims = [500,2500]
 
     # get only the subset with choices
     SDf = SessionDf.groupby('has_choice').get_group(True)
@@ -231,7 +317,7 @@ def plot_psychometric(SessionDf, axes=None):
     axes.set_ylabel('choice')
     axes.axvline(1500,linestyle=':',alpha=0.5,lw=1,color='k')
 
-    x_fit = np.linspace(600,3000,100)
+    x_fit = np.linspace(time_lims[0], time_lims[1],100)
     line, = plt.plot([],color='red', linewidth=2,alpha=0.75)
     line.set_data(x_fit, bhv.log_reg(x, y, x_fit))
     
@@ -256,8 +342,16 @@ def plot_psychometric(SessionDf, axes=None):
     except KeyError:
         print('Bias probably too high')
 
-    plt.setp(axes, xticks=np.arange(0, 3000+1, 500), xticklabels=np.arange(0, 3000//1000 +0.1, 0.5))
+    axes.set_xlim([time_lims[0],time_lims[1]])
+    plt.setp(axes, xticks=np.arange(time_lims[0], time_lims[1]+1, 500), xticklabels=np.arange(time_lims[0]/1000, time_lims[1]/1000 +0.1, 0.5))
     axes.set_xlabel('Time (s)')
+
+    return axes
+
+def plot_reach_duration_distro(TrialDfs, LogDf, axes=None):
+
+    if axes is None:
+        fig, axes = plt.subplots()
 
     return axes
 
@@ -337,14 +431,14 @@ def plot_mean_trajectories(LogDf, LoadCellDf, SessionDf, TrialDfs, align_event, 
 
     return axes
 
-def plot_timing_overview(LogDf, LoadCellDf, TrialDfs, axes=None): 
+def plot_timing_overview(LogDf, TrialDfs, axes=None): 
     """
         Heatmap aligned to 1st cue with 2nd (timing) cue and choice RT markers, split by trial outcome and trial type
     """
 
     pre, post = 500, 4000
-    Fx, interval, choice_RT = [],[],[]
-    correct_idx, incorrect_idx, pre_idx, missed_idx = [],[],[],[]
+    interval, choice_RT = [],[]
+    correct_idx, incorrect_idx, missed_idx = [],[],[]
 
     if axes is None:
         fig = plt.figure(constrained_layout=True)
@@ -352,28 +446,30 @@ def plot_timing_overview(LogDf, LoadCellDf, TrialDfs, axes=None):
     # for every trial initiation
     i = 0
     for TrialDf in TrialDfs:
-        time_1st = float(TrialDf[TrialDf.name == 'FIRST_TIMING_CUE_EVENT']['t'])
+        #time_1st = float(TrialDf[TrialDf.name == 'FIRST_TIMING_CUE_EVENT']['t'])
 
-        F = bhv.time_slice(LoadCellDf, time_1st-pre, time_1st+post)
-        if (len(F) < post-pre):
-            print('LCDf is shorter than LogDf!')
-            continue
+        # F = bhv.time_slice(LoadCellDf, time_1st-pre, time_1st+post)
+        # if (len(F) < post-pre):
+        #     print('LCDf is shorter than LogDf!')
+        #     continue
 
-        Fx.append(F['x'])
+        # Fx.append(F['x'])
         
         # Store indexes for different types of trials
         if bhv.get_outcome(TrialDf).values[0] == 'correct':
             correct_idx.append(i)
         if bhv.get_outcome(TrialDf).values[0] == 'incorrect':
-            incorrect_idx.append(i)
-        if bhv.get_outcome(TrialDf).values[0] == 'premature':
-            pre_idx.append(i)            
+            incorrect_idx.append(i)          
         if bhv.get_outcome(TrialDf).values[0] == 'missed':
             missed_idx.append(i)
 
         # Store information
         interval.append(int(bhv.get_interval(TrialDf)))
-        choice_RT.append(float(bhv.choice_RT(TrialDf)))
+
+        choice_time_left = choice_rt_left(TrialDf)
+        choice_time_right = choice_rt_right(TrialDf)
+
+        choice_RT.append(float(np.min([choice_time_left,choice_time_right])))
 
         i = i + 1
 
@@ -382,28 +478,26 @@ def plot_timing_overview(LogDf, LoadCellDf, TrialDfs, axes=None):
     choice_RT = np.array(choice_RT) + interval
     correct_idx = np.array(correct_idx)
     incorrect_idx = np.array(incorrect_idx)
-    pre_idx = np.array(pre_idx)
     missed_idx = np.array(missed_idx)
-    Fx = np.array(Fx)
+    # Fx = np.array(Fx)
 
     # Sort the INDEXES (of data already split based on interval)
     corr_idx_sorted = correct_idx[np.argsort(interval[correct_idx])]
     incorr_idx_sorted = incorrect_idx[np.argsort(interval[incorrect_idx])]
-    pre_idx_sorted = pre_idx[np.argsort(interval[pre_idx])]
     missed_idx_sorted = missed_idx[np.argsort(interval[missed_idx])]
 
-    split_sorted_idxs_list = [corr_idx_sorted, incorr_idx_sorted, pre_idx_sorted, missed_idx_sorted]
+    split_sorted_idxs_list = [corr_idx_sorted, incorr_idx_sorted, missed_idx_sorted]
 
     """ Plotting """
-    heights= [len(corr_idx_sorted), len(incorr_idx_sorted), len(pre_idx_sorted), len(missed_idx_sorted)]
-    gs = fig.add_gridspec(ncols=1, nrows=4, height_ratios=heights)
-    ylabel = ['Correct', 'Incorrect', 'Premature', 'Missed']
+    heights= [len(corr_idx_sorted), len(incorr_idx_sorted), len(missed_idx_sorted)]
+    gs = fig.add_gridspec(ncols=1, nrows=3, height_ratios=heights)
+    ylabel = ['Correct', 'Incorrect', 'Missed']
 
     for i, idxs in enumerate(split_sorted_idxs_list):
 
         axes = fig.add_subplot(gs[i]) 
         force_x_tresh = 2500
-        heat = axes.matshow(Fx[idxs,:], cmap='RdBu',vmin=-force_x_tresh,vmax=force_x_tresh) # X axis
+        # heat = axes.matshow(Fx[idxs,:], cmap='RdBu',vmin=-force_x_tresh,vmax=force_x_tresh) # X axis
         axes.set_aspect('auto')
         axes.axvline(500,linestyle='solid',alpha=0.5,lw=1,color='k')
         axes.axvline(2000,linestyle='solid',alpha=0.25,lw=1,color='k')
@@ -428,8 +522,8 @@ def plot_timing_overview(LogDf, LoadCellDf, TrialDfs, axes=None):
     plt.setp(axes, xticks=np.arange(0, post+pre+1, 500), xticklabels=np.arange((-pre/1000), (post/1000)+0.5, 0.5))
     plt.xlabel('Time')
     
-    cbar = plt.colorbar(heat, orientation='horizontal', aspect = 50)
-    cbar.set_ticks([-2000,-1000,0,1000,2000]); cbar.set_ticklabels(["Left (-2000)","-1000","0","1000","Right (2000)"])
+    # cbar = plt.colorbar(heat, orientation='horizontal', aspect = 50)
+    # cbar.set_ticks([-2000,-1000,0,1000,2000]); cbar.set_ticklabels(["Left (-2000)","-1000","0","1000","Right (2000)"])
 
     return axes
 
