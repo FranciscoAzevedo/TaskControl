@@ -390,7 +390,9 @@ def in_box_span(DlcDf, bp, rect, p=0.99, min_dur=20, convert_to_time=True):
  
 """
 
-def calc_grasp_posture_phase(DlcDf, bps, p=0.99, filter=False):
+def calc_grasp_phase(DlcDf, bps, p=0.99, filter=False):
+    " Relative phase of grasp across trial - TODO , stub for now"
+    p_phase = []
 
     return p_phase
 
@@ -469,6 +471,17 @@ def get_trial_type(TrialDf):
 
     return pd.Series(var, name=var_name)
 
+def get_timing_trial(TrialDf):
+    var_name = "timing_trial"
+
+    try:
+        Df = TrialDf.groupby('var').get_group(var_name)
+        var = Df.iloc[0]['value'].astype('bool')
+    except KeyError:
+        var = np.NaN    
+
+    return pd.Series(var, name=var_name)
+
 def get_choice(TrialDf):
     var_name = 'choice'
 
@@ -499,14 +512,20 @@ def get_outcome(TrialDf):
     # Missed
     if not has_reach_left(TrialDf).values and not has_reach_right(TrialDf).values:
         var = 'missed'
+    
+    # Premature - before go cue
+    elif "PREMATURE_CHOICE_EVENT" in TrialDf['name'].values:
+        var = 'premature'
 
-    # Correct
-    elif get_choice(TrialDf).values == get_trial_side(TrialDf).values:
-        var = 'correct'
+    # After go cue
+    else:
+        # Correct
+        if get_choice(TrialDf).values == get_trial_side(TrialDf).values:
+            var = 'correct'
 
-    # Incorrect
-    elif get_choice(TrialDf).values != get_trial_side(TrialDf).values:
-        var = 'incorrect'
+        # Incorrect
+        elif get_choice(TrialDf).values != get_trial_side(TrialDf).values:
+            var = 'incorrect'
 
     return pd.Series(var, name=var_name)    
 
@@ -532,16 +551,19 @@ def has_reach_right(TrialDf):
 
 def choice_rt_left(TrialDf):
     var_name = 'choice_rt_left'
-
+    
     if has_reach_left(TrialDf).values:
+
         # for learn to reach and learn to choose
         if 'PRESENT_CUE_STATE' in TrialDf['name'].values: 
             cue_time = TrialDf.groupby('name').get_group("PRESENT_CUE_STATE").iloc[-1]['t']
 
-        # for learn to init and learn to time
-        elif 'GO_CUE_LEFT_EVENT' in TrialDf['name'].values: 
+        # for learn to init, fixate and time 
+        if get_outcome(TrialDf).values != 'premature': # in case it is a premature choice
+            cue_time = TrialDf.groupby('name').get_group("PREMATURE_CHOICE_EVENT").iloc[-1]['t']
+        elif 'GO_CUE_LEFT_EVENT' in TrialDf['name'].values: # go cue on left
             cue_time = TrialDf.groupby('name').get_group("GO_CUE_LEFT_EVENT").iloc[-1]['t']
-        elif 'GO_CUE_RIGHT_EVENT' in TrialDf['name'].values: 
+        elif 'GO_CUE_RIGHT_EVENT' in TrialDf['name'].values: # go cue on right
             cue_time =  TrialDf.groupby('name').get_group("GO_CUE_RIGHT_EVENT").iloc[-1]['t']
 
         # only first reach
@@ -561,14 +583,17 @@ def choice_rt_right(TrialDf):
     var_name = 'choice_rt_right'
 
     if has_reach_right(TrialDf).values:
+
         # for learn to reach and learn to choose
         if 'PRESENT_CUE_STATE' in TrialDf['name'].values: 
             cue_time = TrialDf.groupby('name').get_group("PRESENT_CUE_STATE").iloc[-1]['t']
 
-        # for learn to init and learn to time
-        elif 'GO_CUE_LEFT_EVENT' in TrialDf['name'].values: 
+        # for learn to init, fixate and time 
+        if get_outcome(TrialDf).values != 'premature': # in case it is a premature choice
+            cue_time = TrialDf.groupby('name').get_group("PREMATURE_CHOICE_EVENT").iloc[-1]['t']
+        elif 'GO_CUE_LEFT_EVENT' in TrialDf['name'].values: # go cue on left
             cue_time = TrialDf.groupby('name').get_group("GO_CUE_LEFT_EVENT").iloc[-1]['t']
-        elif 'GO_CUE_RIGHT_EVENT' in TrialDf['name'].values: 
+        elif 'GO_CUE_RIGHT_EVENT' in TrialDf['name'].values: # go cue on right
             cue_time = TrialDf.groupby('name').get_group("GO_CUE_RIGHT_EVENT").iloc[-1]['t']
 
         # only first reach

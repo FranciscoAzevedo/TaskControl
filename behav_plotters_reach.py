@@ -98,7 +98,7 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
 
     fig, axes = plt.subplots(nrows=2,gridspec_kw=dict(height_ratios=(0.1,1)))
 
-    colors = dict(correct="#72E043", incorrect="#F56057", missed="#F7D379")
+    colors = dict(correct="#72E043", incorrect="#F56057", missed="#F7D379", premature="#FFC0CB")
 
     # bars
     for i, row in SessionDf.iterrows():
@@ -171,7 +171,7 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
     return axes
 
 def plot_choice_RT_hist(SessionDf, choice_interval, bin_width):
-    " Plots the choice RT histograms for 1st choice split by trial type and outcome "
+    " Plots the choice RT histograms for 1st choice split by trial type and outcome, excludes prematures"
 
     choices = ['left', 'right']
     outcomes = ['correct', 'incorrect']
@@ -215,15 +215,17 @@ def plot_choice_RT_hist(SessionDf, choice_interval, bin_width):
 
     return axes  
 
-def plot_reaches_between_events(SessionDf, LogDf, TrialDfs, event_1, event_2):
+def plot_reaches_between_events(SessionDf, LogDf, TrialDfs, event_1, event_2, bin_width):
     " Plots the reaches during between two events split by trial side and outcome "
+
+    hist_range=(0,2500)
 
     trial_sides = ['left', 'right']
     outcomes = ['correct', 'incorrect']
     
-    fig, axes = plt.subplots(nrows=len(outcomes), ncols=len(trial_sides), figsize=[4, 4], sharex=True, sharey=True)
+    fig, axes = plt.subplots(nrows=len(outcomes), ncols=len(trial_sides), figsize=[6, 4], sharex=True, sharey=True)
 
-    kwargs = dict(alpha=0.5, edgecolor='none')
+    kwargs = dict(bins = (round(hist_range[1]/bin_width)), range = hist_range, alpha=0.5, edgecolor='none')
     
     # For each side and outcome
     for i, trial_side in enumerate(trial_sides):
@@ -249,20 +251,24 @@ def plot_reaches_between_events(SessionDf, LogDf, TrialDfs, event_1, event_2):
                 # Slice trials between events
                 sliceDf = bhv.time_slice(LogDf, t_event_1, t_event_2)
 
-                left_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_LEFT_ON').values-t_event_1)
-                right_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_RIGHT_ON').values-t_event_1)
-                
+                left_reaches.append(bhv.get_events_from_name(sliceDf, 'REACH_LEFT_ON').values-t_event_1)
+                right_reaches.append(bhv.get_events_from_name(sliceDf, 'REACH_RIGHT_ON').values-t_event_1)
+
+            flat_left_reaches = [item for sublist in left_reaches for item in sublist] 
+            flat_right_reaches = [item for sublist in right_reaches for item in sublist]
+               
             ax = axes[j, i]
-            ax.hist(left_reaches, **kwargs, label = str([trial_side, outcome]))
-            ax.hist(right_reaches, **kwargs, label = str([trial_side, outcome]))
+            ax.hist(np.array(flat_left_reaches), **kwargs, label = 'reach left')
+            ax.hist(np.array(flat_right_reaches), **kwargs, label = 'reach right')
             ax.legend(loc='upper right', frameon=False, fontsize = 8, handletextpad = 0.3, handlelength = 0.5)
         
     # Formatting
-    fig.suptitle('Histogram of reaches during interval period')
-    axes[0, 0].set_title('left choice')
-    axes[0, 1].set_title('right choice')
+    axes[0, 0].set_title('short trials')
+    axes[0, 1].set_title('long trials')
     axes[0, 0].set_ylabel('correct')
     axes[1, 0].set_ylabel('incorrect')
+    fig.suptitle('Hist of reaches between ' + str(event_1) + ' and ' + str(event_2))
+    fig.tight_layout()
 
     return axes
 
