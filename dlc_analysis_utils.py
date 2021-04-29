@@ -485,22 +485,10 @@ def get_timing_trial(TrialDf):
 def get_choice(TrialDf):
     var_name = 'choice'
 
-    # Is there a reach for this trial?
-    if has_reach_left(TrialDf).values or has_reach_right(TrialDf).values:
-
-        left_reaches_idx = TrialDf['name'] == 'REACH_LEFT_ON'
-        right_reaches_idx = TrialDf['name'] == 'REACH_RIGHT_ON'
-
-        reaches_idx_union = left_reaches_idx | right_reaches_idx
-
-        first_reach_idx = np.argmax(reaches_idx_union)
-
-        # Check which side the first reach is
-        if TrialDf.iloc[first_reach_idx]['name'] == 'REACH_LEFT_ON':
-            var = 'left'
-        elif TrialDf.iloc[first_reach_idx]['name'] == 'REACH_RIGHT_ON':
-            var = 'right'
-
+    if 'CHOICE_LEFT_EVENT' in TrialDf['name'].values:
+        var = 'left'
+    elif 'CHOICE_RIGHT_EVENT' in TrialDf['name'].values:
+        var = 'right'
     else: 
         var = np.NaN
 
@@ -559,7 +547,7 @@ def choice_rt_left(TrialDf):
             cue_time = TrialDf.groupby('name').get_group("PRESENT_CUE_STATE").iloc[-1]['t']
 
         # for learn to init, fixate and time 
-        if get_outcome(TrialDf).values != 'premature': # in case it is a premature choice
+        if get_outcome(TrialDf).values == 'premature': # in case it is a premature choice
             cue_time = TrialDf.groupby('name').get_group("PREMATURE_CHOICE_EVENT").iloc[-1]['t']
         elif 'GO_CUE_LEFT_EVENT' in TrialDf['name'].values: # go cue on left
             cue_time = TrialDf.groupby('name').get_group("GO_CUE_LEFT_EVENT").iloc[-1]['t']
@@ -589,7 +577,7 @@ def choice_rt_right(TrialDf):
             cue_time = TrialDf.groupby('name').get_group("PRESENT_CUE_STATE").iloc[-1]['t']
 
         # for learn to init, fixate and time 
-        if get_outcome(TrialDf).values != 'premature': # in case it is a premature choice
+        if get_outcome(TrialDf).values == 'premature': # in case it is a premature choice
             cue_time = TrialDf.groupby('name').get_group("PREMATURE_CHOICE_EVENT").iloc[-1]['t']
         elif 'GO_CUE_LEFT_EVENT' in TrialDf['name'].values: # go cue on left
             cue_time = TrialDf.groupby('name').get_group("GO_CUE_LEFT_EVENT").iloc[-1]['t']
