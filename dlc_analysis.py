@@ -58,7 +58,7 @@ log_path = path / 'arduino_log.txt'
 LogDf = bhv.get_LogDf_from_path(log_path)
 
 # LoadCell data
-LoadCellDf, t_harp = bhv.parse_bonsai_LoadCellData(path / "bonsai_LoadCellData.csv",trig_len=100, ttol=4)
+LoadCellDf, t_harp = bhv.parse_bonsai_LoadCellData(path / "bonsai_LoadCellData.csv",trig_len=100, ttol=50)
 
 # Moving average mean subtraction
 samples = 1000 # ms
@@ -101,7 +101,6 @@ nickname = animal_meta[animal_meta['name'] == 'Nickname']['value'].values[0]
 
 plot_dir = log_path.parent / 'plots'
 os.makedirs(plot_dir, exist_ok=True)
-
 
 # %% defining some stuff
 Skeleton   = (('D1L','J1L'),('D2L','J2L'),('D3L','J3L'),('D4L','J4L'),('D5L','J5L'),
@@ -334,7 +333,7 @@ pre,post = 500,3000
 align_event = 'PRESENT_INTERVAL_STATE'
 
 bhv_plt_reach.plot_session_overview(LogDf, align_event, pre, post)
-plt.savefig(plot_dir / ('session_overview.png'), dpi=600)
+plt.savefig(plot_dir / ('session_overview_aligned_on_' + str(align_event) + '.png'), dpi=600)
 
 # %% Trials initiated moving average within session
 window_sizes = [5,10] # min
@@ -379,8 +378,8 @@ bhv_plt_reach.plot_psychometric(TimingDf[pre_idx])
 plt.savefig(plot_dir / ('pseudo_psychometric_timing.png'), dpi=600)
 
 # %% 1st reach choice RT
-choice_interval = 1000 # ms
-bin_width = 50 # ms
+choice_interval = 2000 # ms
+bin_width = 100 # ms
 
 bhv_plt_reach.plot_choice_RT_hist(SessionDf, choice_interval, bin_width)
 plt.savefig(plot_dir / ('choice_RTs.png'), dpi=600)
@@ -427,16 +426,15 @@ filter_pair = ('trial_side', 'right')
 bhv_plt_reach.plot_reaches_window_aligned_on_event(SessionDf, TrialDfs, align_event, filter_pair, pre, post)
 plt.savefig(plot_dir / ('reach_distro_aligned_' + str(align_event) + '_split_by_' + str(filter_pair) + '_trials.png'), dpi=600)
 
-# %% Reach duration distro split by outcome and trial side
+# %% Reach duration distro split by outcome and choice
 choices = ['left', 'right']
 outcomes = ['correct', 'incorrect']
 
-bin_width = 100 # ms
-max_reach_dur = 2000 # ms
+bin_width = 10 # ms
+max_reach_dur = 500 # ms
+no_bins = round(max_reach_dur/bin_width)
 
 fig, axes = plt.subplots(nrows=len(outcomes), ncols=len(choices), figsize=[4, 4], sharex=True, sharey=True)
-
-no_bins = round(max_reach_dur/bin_width)
 
 kwargs = dict(bins = no_bins, range = (0, max_reach_dur), alpha=0.5, edgecolor='none')
 
@@ -446,16 +444,35 @@ for i, choice in enumerate(choices):
         
         # try to filter trials
         try:
-            SDf = SessionDf.groupby(['choice', 'outcome']).get_group((choice, outcome))
+            TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, [('choice', choice), ('outcome', outcome)])
         except:
             continue
         
         ax = axes[j, i]
-    
-    # get spans Df for reaches
+        
+        # get spans Df for reaches and plot durations
+        if choice == 'left':
+            left_reach_spansDf = bhv.get_spans_from_names(LogDf, 'REACH_LEFT_ON', 'REACH_LEFT_OFF')
+            left_reach_durs = np.array(left_reach_spansDf['dt'])
 
-    # hist plot of duration of reaches
-    
+            ax.hist(left_reach_durs, label = 'left reaches', **kwargs)
+
+        if choice == 'right':
+            right_reach_spansDf = bhv.get_spans_from_names(LogDf, 'REACH_RIGHT_ON', 'REACH_RIGHT_OFF')
+            right_reach_durs = np.array(right_reach_spansDf['dt'])   
+
+            ax.hist(right_reach_durs, label = 'left reaches', **kwargs)
+
+axes[0, 0].set_title('left choice')
+axes[0, 1].set_title('right choice')
+axes[0, 0].set_ylabel('correct')
+axes[1, 0].set_ylabel('incorrect')
+
+for ax in axes:
+    ax.set_xlabel('Time (ms)')
+
+fig.suptitle("Histogram of reaches' duration")    
+plt.savefig(plot_dir / ('hist_reaches_duration.png'), dpi=600)
 
 # %% How hard do they push to initiate trials?
 window = 300 # ms
@@ -489,9 +506,9 @@ fig.tight_layout()
 plt.savefig(plot_dir / ('trial_init_forces.png'), dpi=600)
 
 # %% Trial initiation distro
-max_range = 5000 # ms, for actual inits
+max_range = 10000 # ms, for actual inits
 bin_width = 500 # ms for actual inits
-tresh = 500 # for putative init detection
+tresh = 850 # for putative init detection
 window_width = 250 # ms, for moving average
 pre,post = 2000, 2000 # for putative init
 
@@ -586,9 +603,7 @@ plt.savefig(plot_dir / ('prob_X_after_Y.png'), dpi=600)
 
 """
 
-# %% Loading
-
-# Obtain log_paths and plot dirs
+# %% Obtain log_paths and plot dirs
 animal_fd_path = utils.get_folder_dialog()
 across_session_plot_dir = animal_fd_path / 'plots'
 animal_meta = pd.read_csv(animal_fd_path / 'animal_meta.csv')
@@ -634,7 +649,7 @@ FilteredSessionsDf = pd.concat([SessionsDf.groupby('task').get_group(name) for n
 log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']]
 
 # Obtain the perc of reaches, correct and incorrect trials
-perc_reach_right, perc_reach_left, perc_correct, perc_missed = [],[],[],[]
+perc_reach_right, perc_reach_left, perc_correct, perc_missed, perc_pre = [],[],[],[],[]
 date,tpm,session_length = [],[],[] # Trials Per Minute (tpm)
 
 for log_path in tqdm(log_paths):
@@ -669,19 +684,25 @@ for log_path in tqdm(log_paths):
     perc_correct.append(sum(SessionDf.outcome == 'correct')/len(SessionDf)*100)
     perc_missed.append(sum(SessionDf.outcome == 'missed')/len(SessionDf)*100)
 
+    if len(SessionDf[SessionDf.outcome == 'premature']) != 0:
+        perc_pre.append(sum(SessionDf.outcome == 'premature')/len(SessionDf)*100)
+    else:
+        perc_pre.append(0)
+
     tpm.append(len(SessionDf))
     session_length.append((LogDf['t'].iloc[-1]-LogDf['t'].iloc[0])/(1000*60)) # convert msec. -> sec.-> min.
 
 fig , axes = plt.subplots()
 
-axes.plot(perc_reach_left, color = 'orange', label = 'Reached Right (%)')
-axes.plot(perc_reach_right, color = 'blue', label = 'Reached Left (%)')
-axes.plot(perc_correct, color = 'green', label = 'Correct (%)')
-axes.plot(perc_missed, color = 'grey', label = 'Missed (%)')
+axes.plot(perc_reach_left, color = 'orange', label = 'Reached R (%)', marker='o', markersize=2)
+axes.plot(perc_reach_right, color = 'blue', label = 'Reached L (%)', marker='o', markersize=2)
+axes.plot(perc_correct, color = 'green', label = 'Correct (%)', marker='o', markersize=2)
+axes.plot(perc_missed, color = 'grey', label = 'Missed (%)', marker='o', markersize=2)
+axes.plot(perc_pre, color = 'pink', label = 'Premature (%)', marker='o', markersize=2)
 
 axes.set_ylabel('Trial outcome (%)')
 axes.set_xlabel('Session date')
-axes.legend(loc='upper left', frameon=False) 
+axes.legend(loc="center", frameon=False, bbox_to_anchor=(0.5, 1.05), prop={'size': 6}, ncol=5) 
 
 plt.setp(axes, xticks=np.arange(0, len(date), 1), xticklabels=date)
 plt.setp(axes, yticks=np.arange(0, 100+1, 10), yticklabels=np.arange(0, 100+1, 10))
