@@ -32,6 +32,8 @@ from dlc_analysis_utils import *
 def plot_session_overview(LogDf, align_event, pre, post, how='bars', axes=None):
     "Plots trials Fig5C of Gallinares"
 
+    # TODO Align to 2nd GO CUE
+
     if axes is None:
         fig, axes = plt.subplots()
 
@@ -93,7 +95,7 @@ def plot_session_overview(LogDf, align_event, pre, post, how='bars', axes=None):
 
     return axes
 
-def plot_success_rate(LogDf, SessionDf, history, axes=None): 
+def plot_success_rate(LogDf, SessionDf, history): 
     " Plots success rate with trial type and choice tickmarks "
 
     fig, axes = plt.subplots(nrows=2,gridspec_kw=dict(height_ratios=(0.1,1)))
@@ -118,14 +120,14 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
     line_width = 0.04
 
     # L/R trial types
-    left_trials = SessionDf.loc[SessionDf['trial_side'] == 'left'].index + 1
+    left_trials = SessionDf.loc[SessionDf['correct_side'] == 'left'].index + 1
     y_left_trials = np.zeros(left_trials.shape[0]) - line_width
-    right_trials = SessionDf.loc[SessionDf['trial_side'] == 'right'].index + 1
+    right_trials = SessionDf.loc[SessionDf['correct_side'] == 'right'].index + 1
     y_right_trials = np.zeros(right_trials.shape[0]) + 1 + line_width
 
     # Some groupby keys dont always return a non-empty Df
     try:
-        SDf = SessionDf.groupby('choice').get_group('left')
+        SDf = SessionDf.groupby('chosen_side').get_group('left')
         left_choices = SDf.index.values+1
         y_left_choices = np.zeros(left_choices.shape[0])
         axes[1].plot(left_choices, y_left_choices, '|', color='m', label = 'left choice')
@@ -133,7 +135,7 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
         pass
 
     try:
-        SDf = SessionDf.groupby('choice').get_group('right')
+        SDf = SessionDf.groupby('chosen_side').get_group('right')
         right_choices = SDf.index.values+1
         y_right_choices = np.zeros(right_choices.shape[0]) + 1
         axes[1].plot(right_choices, y_right_choices, '|', color='green', label = 'right choice')
@@ -170,47 +172,54 @@ def plot_success_rate(LogDf, SessionDf, history, axes=None):
 
     return axes
 
-def plot_choice_RT_hist(SessionDf, choice_interval, bin_width):
+def plot_choice_RT_hist(SessionDf, choice_interval, bin_width, axes=None):
     " Plots the choice RT histograms for 1st choice split by trial type and outcome, excludes prematures"
 
-    choices = ['left', 'right']
+    sides = ['left', 'right']
     outcomes = ['correct', 'incorrect']
     
-    fig, axes = plt.subplots(nrows=len(outcomes), ncols=len(choices), figsize=[4, 4], sharex=True, sharey=True)
+    if axes is None:
+        fig, axes = plt.subplots(nrows=len(outcomes), ncols=len(sides), figsize=[4, 4], sharex=True, sharey=True)
 
     no_bins = round(choice_interval/bin_width)
 
+    cmap = mpl.cm.PiYG
+    colors = [cmap]
+
     kwargs = dict(bins = no_bins, range = (0, choice_interval), alpha=0.5, edgecolor='none')
 
-    for i, choice in enumerate(choices):
+    for i, side in enumerate(sides):
         for j, outcome in enumerate(outcomes):
-
+            
+            # Get choice rts
             try:
-                SDf = SessionDf.groupby(['choice', 'outcome']).get_group((choice, outcome))
+                SDf = SessionDf.groupby(['correct_side','outcome']).get_group((side,outcome))
+                values = SDf['choice_rt'].values
             except:
                 continue
-            
-            ax = axes[j, i]
 
-            # Merge the two Dfs because either way SDf already has only the trials of interest
-            rt_leftDf = SDf['choice_rt_left']
-            rt_rightDf = SDf['choice_rt_right']
-            df = pd.concat([rt_leftDf, rt_rightDf]).groupby(level=0).min()
+            # Define color
+            if (side == 'left' and outcome == 'correct') or (side == 'right' and outcome == 'incorrect'):
+                color = cmap(0.1)
+            else:
+                color = cmap(.9)
 
-            choice_rts = df.values
-            ax.hist(choice_rts, **kwargs, label = str([choice, outcome]))
-            ax.legend(loc='upper right', frameon=False, fontsize = 8, handletextpad = 0.3, handlelength = 0.5)
+            axes[j, i].hist(values, **kwargs, color=color, label = str([side, outcome]))
+            #axes[j, i].legend(loc='upper right', frameon=False, fontsize = 8, handletextpad = 0.3, handlelength = 0.5)
         
     # Formatting
     plt.setp(axes, xticks=np.arange(0, choice_interval+1, 1000), xticklabels=np.arange(0, (choice_interval/1000)+0.1, 1))
     fig.suptitle('Choice RTs Histogram')
-    axes[0, 0].set_title('left choice')
-    axes[0, 1].set_title('right choice')
-    axes[0, 0].set_ylabel('correct')
-    axes[1, 0].set_ylabel('incorrect')
 
     for ax in axes[-1,:]:
         ax.set_xlabel('Time (s)')
+
+    for i, ax in enumerate(axes[:,0]):
+        ax.set_ylabel(outcomes[i])
+
+    for i, ax in enumerate(axes[0,:]):
+        ax.set_title(sides[i])
+
     fig.tight_layout()
 
     return axes  
@@ -233,7 +242,7 @@ def plot_reaches_between_events(SessionDf, LogDf, TrialDfs, event_1, event_2, bi
             
             # Filter trials (continues if there are no trials to pool from)
             try:
-                TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, [('trial_side', trial_side), ('outcome',outcome)])
+                TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, [('correct_side', trial_side), ('outcome',outcome)])
             except:
                 continue
             
@@ -272,19 +281,19 @@ def plot_reaches_between_events(SessionDf, LogDf, TrialDfs, event_1, event_2, bi
 
     return axes
 
-def plot_reaches_window_aligned_on_event(SessionDf, TrialDfs, align_event, filter_pair, pre, post):
-    " Plots the reaches around a [-pre,post] window aligned to an event filtered according to filter_pair"
-
-    fig, axes = plt.subplots()
-    TrialDfs_filt = bhv.filter_trials_by(SessionDf, TrialDfs, filter_pair)
+def plot_reaches_window_aligned_on_event(TrialDfs, align_event, pre, post, axes=None):
+    " Plots the reaches around a [-pre,post] window aligned to an event "
+    
+    if axes is None:
+        fig, axes = plt.subplots()
 
     right_reaches, left_reaches = [],[]
-    for TrialDf in TrialDfs_filt:
+    for TrialDf in TrialDfs:
 
         t_align = TrialDf[TrialDf['name'] == align_event]['t'] 
 
         left_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_LEFT_ON').values - t_align.values)
-        right_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_RIGHT_ON').values -t_align.values)
+        right_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_RIGHT_ON').values -~t_align.values)
 
     # Flatten output matrix
     flat_right_reaches = [item for sublist in right_reaches for item in sublist]
@@ -298,68 +307,159 @@ def plot_reaches_window_aligned_on_event(SessionDf, TrialDfs, align_event, filte
     axes.axvline(x=0, c='black')
     axes.set_xlabel('Time (s)')
     axes.set_ylabel('No. Reaches')
-    axes.set_title('Reaches in ' + str(filter_pair) + ' trials aligned to ' + str(align_event))
+    axes.set_title('Reaches aligned to ' + str(align_event))
     axes.legend()
 
     return axes
 
-def plot_psychometric(SessionDf, axes=None):
-    " Timing task classic psychometric fit to data"
-
+def plot_psychometric(SessionDf, N=1000, axes=None, discrete=False):
     if axes is None:
         fig, axes = plt.subplots()
 
-    time_lims = [500,2500]
+    # get only the subset with choices - excludes missed
+    SDf = bhv.groupby_dict(SessionDf, dict(has_choice=True, exclude=False,
+                                       in_corr_loop=False, is_premature=False,
+                                       timing_trial=True))
 
-    # get only the subset with choices
-    SDf = SessionDf.groupby('has_choice').get_group(True)
-    y = SDf['choice'].values == 'right'
+    # SDf = SessionDf.groupby('has_choice').get_group(True)
+    # SDf = SDf.groupby('exclude').get_group(False)
+    # SDf = SDf.groupby('in_corr_loop').get_group(False)
+
+    try:
+        SDf = SDf.groupby('timing_trial').get_group(True)
+    except KeyError:
+        print("no timing trials in session")
+
+    # exclude premature trials
+    # SDf = SDf.loc[(~(SDf['outcome'] == 'premature'))]
+
+    y = SDf['chosen_side'].values == 'right'
     x = SDf['this_interval'].values
 
-    # plot choices
-    axes.plot(x,y,'.',color='k',alpha=0.5)
-    axes.set_yticks([0,1])
-    axes.set_yticklabels(['short','long'])
-    axes.set_ylabel('choice')
-    axes.axvline(1500,linestyle=':',alpha=0.5,lw=1,color='k')
-
-    x_fit = np.linspace(time_lims[0], time_lims[1],100)
-    line, = plt.plot([],color='red', linewidth=2,alpha=0.75)
-    line.set_data(x_fit, bhv.log_reg(x, y, x_fit))
+    # plot the choices
+    if not discrete:
+        axes.plot(x,y,'.',color='k',alpha=0.5)
+    axx = plt.twinx(axes)
+    axx.set_yticks([0,1])
+    axx.set_yticklabels(['short','long'])
+    axx.set_ylabel('choice')
+    w = 0.05
+    axx.set_ylim(0-w, 1+w)
+    axes.set_ylim(0-w, 1+w)
+    axes.set_ylabel('p')
     
-    try:
-        # %% random margin - with animal bias
-        t = SDf['this_interval'].values
-        bias = (SessionDf['choice'] == 'right').sum() / SessionDf.shape[0] # This includes premature choices now!
-        R = []
-        for i in range(100):
-            rand_choices = np.random.rand(t.shape[0]) < bias # can break here if bias value is too low
+    axes.axvline(1500,linestyle=':',alpha=0.5,lw=1,color='k')
+    axes.axhline(0.5,linestyle=':',alpha=0.5,lw=1,color='k')
+
+    # plot the fit
+    x_fit = np.linspace(0,3000,100)
+    axes.plot(x_fit, bhv.log_reg(x, y, x_fit),color='red', linewidth=2,alpha=0.75)
+
+    # plot the random models based on the choice bias
+    bias = (SDf['chosen_side'] == 'right').sum() / SDf.shape[0]
+    R = []
+    for i in tqdm(range(N)):
+        rand_choices = sp.rand(SDf.shape[0]) < bias
+        try:
             R.append(bhv.log_reg(x, rand_choices,x_fit))
-        R = np.array(R)
+        except ValueError:
+            # thrown when all samples are true or false
+            print("all true or false")
+            pass
+    R = np.array(R)
 
-        # Several statistical boundaries
-        alphas = [5, 0.5, 0.05]
-        opacities = [0.4, 0.2, 0.1]
-        for alpha, a in zip(alphas, opacities):
-            R_pc = sp.percentile(R, (alpha, 100-alpha), 0)
-            plt.fill_between(x_fit, R_pc[0], R_pc[1], color='blue', alpha=a)
-        plt.set_cmap
+    # Several statistical boundaries
+    alphas = [5, 0.5, 0.05]
+    opacities = [0.2, 0.2, 0.2]
+    for alpha, a in zip(alphas, opacities):
+        R_pc = sp.percentile(R, (alpha, 100-alpha), 0)
+        axes.fill_between(x_fit, R_pc[0], R_pc[1], color='blue', alpha=a, linewidth=0)
 
-    except KeyError:
-        print('Bias probably too high')
+    axes.set_xlabel('time (ms)')
 
-    axes.set_xlim([time_lims[0],time_lims[1]])
-    plt.setp(axes, xticks=np.arange(time_lims[0], time_lims[1]+1, 500), xticklabels=np.arange(time_lims[0]/1000, time_lims[1]/1000 +0.1, 0.5))
-    axes.set_xlabel('Time (s)')
+    if discrete:
+        intervals = list(SessionDf.groupby('this_interval').groups.keys())
+        correct_sides = ['right','right','right','right']
+        for i, interval in enumerate(intervals):
+            SDf = bhv.groupby_dict(SessionDf, dict(this_interval=interval, has_choice=True, is_premature=False))
+            f = (SDf['chosen_side'] == correct_sides[i]).sum() / SDf.shape[0]
+            axes.plot(interval,f,'o',color='r')
 
     return axes
 
-def plot_reach_duration_distro(TrialDfs, LogDf, axes=None):
+def plot_reach_duration_distro(SessionDf, TrialDfs, bin_width, max_reach_dur, percentile):
+    " Plots the distribution of reach durations split by chosen side and outcome"
+
+    chosen_sides = ['left', 'right']
+
+    no_bins = round(max_reach_dur/bin_width)
+    kwargs = dict(bins = no_bins, range = (0, max_reach_dur), alpha=0.5, edgecolor='none')
+
+    fig, axes = plt.subplots(ncols=len(chosen_sides), figsize=[4, 4], sharex=True, sharey=True)
+
+    # for each condition pair
+    for i, chosen_side in enumerate(chosen_sides):
+            
+        # try to filter trials
+        try:
+            TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, ('chosen_side', chosen_side))
+        except:
+            continue
+        
+        reach_durs = []
+        for TrialDf in TrialDfs_filt:
+
+            # get spans Df for reaches and plot durations
+            if chosen_side == 'left':
+                event_on, event_off = 'REACH_LEFT_ON','REACH_LEFT_OFF'
+
+            if chosen_side == 'right':
+                event_on, event_off = 'REACH_RIGHT_ON','REACH_RIGHT_OFF'
+
+            reach_spansDf = bhv.get_spans_from_names(TrialDf, event_on, event_off)
+            reach_durs.append(reach_spansDf['dt'].values) 
+
+        reach_durs = np.array(reach_durs, dtype=object)
+        ax = axes[i]  
+        ax.hist(reach_durs, **kwargs)
+        
+        # Most reaches are under percentile th
+        ax.axvline(np.percentile(reach_durs, percentile), alpha=0.5)
+        ax.set_title(str(chosen_side) + 'reaches')
+
+    for ax in axes:
+        ax.set_xlabel('Time (ms)')
+
+    fig.suptitle("Histogram of reaches' duration")    
+
+    return axes
+
+def CDF_of_reaches_during_delay(SessionDf,TrialDfs, axes = None, **kwargs):
+
+    trial_types = ['short','long']
 
     if axes is None:
-        fig, axes = plt.subplots()
+        fig, axes = plt.subplots(ncols = 2, figsize=(6, 3))
 
-    return axes
+    for i, trial_type in enumerate(trial_types):
+
+        TrialDfs_type =  filter_trials_by(SessionDf, TrialDfs, ('interval_category', trial_type))
+
+        rts = []
+        for TrialDf_type in TrialDfs_type:
+            rts.append(get_delay_rt(TrialDf_type))
+
+        rts = np.array(rts)
+        count, bins_count = np.histogram(rts[~np.isnan(rts)], bins = 50)
+        pdf = count / len(rts) # sum of RT's since I want to include the Nans - normalize across no. trials
+        cdf = np.cumsum(pdf)
+
+        axes[i].plot(bins_count[1:], cdf, **kwargs)
+
+        # Formatting
+        axes[i].set_title(trial_type)
+        axes[i].set_xlabel('Time since 1st cue (ms)')
+        axes[i].set_ylim([0,1])
 
 # Uses DLC data
 

@@ -279,7 +279,7 @@ for log_path in tqdm(log_paths):
 
     # %% Success rate
     history = 10 # trial rolling mean 
-    plot_success_rate(LogDf, SessionDf, history, axes=None)
+    plot_success_rate(LogDf, SessionDf, history)
     plt.savefig(plot_dir / ('success_rate.png'), dpi=300)
 
     # %% Choice / Outcome grid for LC forces
