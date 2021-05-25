@@ -241,26 +241,28 @@ def get_dist_between_events(DlcDf, TrialDfs, first_event, second_event, func, f_
 
     return dist
 
-def filter_trials_by(SessionDf, TrialDfs, filter_pairs):
+def filter_trials_by(SessionDf, TrialDfs, filter_dict):
     """
         This function filters input TrialDfs given filter_pair tuple (or list of tuples)
-        Example: given filter_pairs [(outcome,correct) , (choice,left)] it will only output trials which are correct to left side 
+        Example: given dict(outcome='correct', chosen_side='left') it will only output trials which are correct to left side 
     """
 
-    if type(filter_pairs) is list: # in case its more than one pair
-        groupby_keys = [filter_pair[0] for filter_pair in filter_pairs]
-        getgroup_keys = tuple([filter_pair[1] for filter_pair in filter_pairs])
-    else:
-        groupby_keys = filter_pairs[0]
-        getgroup_keys = filter_pairs[1]
+    if len(filter_dict) == 1: # in case its only one pair
+        groupby_keys = list(filter_dict.keys())
+        getgroup_keys = list(filter_dict.values())[0]
 
-    try:
-        SDf = SessionDf.groupby(groupby_keys).get_group(getgroup_keys)
-    except:
-        print('There are no trials with given input filter_pair combination')
-        raise KeyError
+        try:
+            SDf = SessionDf.groupby(groupby_keys).get_group(getgroup_keys)
+        except:
+            print('No trials with given input filter_pair combination')
+            
+    else: # more than 1 pair
+        try:
+            SDf = bhv.groupby_dict(SessionDf, filter_dict)
+        except:
+            print('No trials with given input filter_pair combination')
 
-    TrialDfs_filt = np.array(TrialDfs, dtype="object")[SDf.index.values.astype(int)]
+    TrialDfs_filt = [TrialDfs[i] for i in SDf.index.values.astype(int)]
 
     return TrialDfs_filt
 

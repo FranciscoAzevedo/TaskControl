@@ -69,8 +69,7 @@ samples = 1000 # ms
 LoadCellDf['x'] = LoadCellDf['x'] - LoadCellDf['x'].rolling(samples).mean()
 LoadCellDf['y'] = LoadCellDf['y'] - LoadCellDf['y'].rolling(samples).mean()
 
-
-# %% Synching 
+#  Synching 
 video_sync_path = video_path.parent / 'bonsai_frame_stamps.csv'
 m, b, m2, b2 = sync_arduino_w_dlc(log_path, video_sync_path)
 
@@ -91,7 +90,7 @@ LogDf = pd.read_csv(path / "LogDf.csv") # re-load the LogDf (to make sure we kee
 # ADD SINGLE GO_CUE_EVENT
 LogDf = add_go_cue_LogDf(LogDf)
 
-# %% Create SessionDf - For LEARN_TO_CHOOSE onwards
+#  Create SessionDf - For LEARN_TO_CHOOSE onwards
 TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_AVAILABLE_STATE", "ITI_STATE")
 
 TrialDfs = []
@@ -104,7 +103,15 @@ metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_interval_c
 
 SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
-# %% Plots dir and animal info
+# expand outcomes in boolean columns
+outcomes = SessionDf['outcome'].unique()
+for outcome in outcomes:
+    SessionDf['is_'+outcome] = SessionDf['outcome'] == outcome
+
+# setup general filter
+SessionDf['exclude'] = False
+
+#  Plots dir and animal info
 animal_meta = pd.read_csv(log_path.parent.parent / 'animal_meta.csv')
 nickname = animal_meta[animal_meta['name'] == 'Nickname']['value'].values[0]
 
@@ -135,11 +142,14 @@ paws = ['PL','PR']
 align_events = ['REWARD_LEFT_VALVE_ON','REWARD_RIGHT_VALVE_ON']
 pre,post = 500,2000 # ms
 
-fig, axes = plt.subplots(ncols = 2)
+bin_width = 50 # ms
+
+fig, axes = plt.subplots(nrows = 2)
 
 for align_event,axis in zip(align_events,axes):
-    bhv_plt_reach.plot_reaches_window_aligned_on_event(TrialDfs, align_event, pre, post, axes =axis)
+    bhv_plt_reach.plot_reaches_window_aligned_on_event(LogDf, align_event, pre, post, bin_width,axes = axis)
 
+fig.tight_layout()
 plt.savefig(plot_dir / ('hist_of_reaches_aligned_to_valve_opening.png'), dpi=600)
 
 """
@@ -152,12 +162,6 @@ plt.savefig(plot_dir / ('hist_of_reaches_aligned_to_valve_opening.png'), dpi=600
  ####### ####### #     # #     # #     #       #    #######     #####  #     # ####### #######  #####  #######
 
 """
-# %% Session overview
-pre,post = 500,4000
-align_event = 'PRESENT_INTERVAL_STATE'
-
-bhv_plt_reach.plot_session_overview(LogDf, align_event, pre, post)
-plt.savefig(plot_dir / ('session_overview_aligned_on_' + str(align_event) + '.png'), dpi=600)
 
 # %% 1st reach choice RT
 choice_interval = 2000 # ms
@@ -173,10 +177,11 @@ plt.savefig(plot_dir / ('CDF_of_reaches_during_delay.png'), dpi=600)
 
 # %% Grasp duration distro split by outcome and choice
 bin_width = 10 # ms
-max_reach_dur = 200 # ms
+max_reach_dur = 500 # ms
+
 percentile = 75 #th 
 
-bhv_plt_reach.plot_reach_duration_distro(SessionDf, TrialDfs, bin_width, max_reach_dur, percentile)
+bhv_plt_reach.plot_reach_duration_distro(LogDf, bin_width, max_reach_dur, percentile)
 plt.savefig(plot_dir / ('hist_duration_of_reaches.png'), dpi=600)
 
 # %% Are they using a sampling strategy? 
@@ -233,6 +238,17 @@ plt.savefig(plot_dir / ('prob_X_after_Y.png'), dpi=600)
  ####### ####### #     # #     # #     #       #    #######    ### #     # ###    #
 
 """
+
+# %% Session overview
+pre,post = 500,4000
+align_event = 'PRESENT_INTERVAL_STATE'
+
+bhv_plt_reach.plot_session_aligned_to_1st_2nd(LogDf, align_event, pre, post)
+plt.savefig(plot_dir / ('session_overview_aligned_on_' + str(align_event) + '.png'), dpi=600)
+
+# %% outcome_split_by_interval_category
+bhv_plt_reach.outcome_split_by_interval_category(SessionDf)
+plt.savefig(plot_dir / ('outcome_split_by_interval_category.png'), dpi=600)
 
 # %% Trials initiated moving average within session
 window_sizes = [5,10] # min
@@ -348,8 +364,48 @@ plt.savefig(plot_dir / ('attempts_before_init.png'), dpi=600)
 # axes[1].plot(Y)
 # axes[1].plot(Y_peaks, Y[Y_peaks], marker="o",ls="")
 
+# %% Trial initiation distro
+max_range = 10000 # ms, for actual inits
+bin_width = 500 # ms for actual inits
+tresh = 850 # for putative init detection
+window_width = 250 # ms, for moving average
+pre,post = 2000, 2000 # for putative init
 
+align_event = 'TRIAL_AVAILABLE_EVENT'
+fig, axes = plt.subplots(ncols=2, figsize=(6,3))
 
+# Putative initiations obtained through LC and thresholding
+X,Y = get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs, align_event, pre, post)
+
+# Threshold needs to be crossed on both
+X_tresh_idx = X < -tresh
+Y_tresh_idx = Y < -tresh
+gate_AND_idx = X_tresh_idx*Y_tresh_idx
+gate_AND_idx_sum = np.convolve(gate_AND_idx.sum(axis=1), np.ones(window_width), 'valid') / window_width # moving average
+
+axes[0].plot(gate_AND_idx_sum)
+axes[0].set_title('Putative inits aligned \n to trial avail')
+axes[0].axvline(pre, linestyle='dotted', color='k', alpha = 0.5)
+plt.setp(axes[0], xticks=np.arange(0, post+pre+1, 5000), xticklabels=np.arange(-pre/1000, post/1000 + 0.1, 5))
+
+# Initiations obtained through LogDf
+initiation_time = []
+for TrialDf in TrialDfs:
+    initiation_time.append(met.get_init_rt(TrialDf))
+
+initiation_time = np.array(initiation_time)
+axes[1].hist(initiation_time, bins = np.linspace(0,max_range, round(max_range/bin_width)), range = (0,max_range))
+axes[1].set_title('Distro of init times')
+
+# Formatting
+for ax in axes:
+    ax.set_ylabel('No. of ocurrences')
+    ax.set_xlabel('Time (s)')
+
+fig.tight_layout()
+plt.savefig(plot_dir / ('trial_init_distro.png'), dpi=600)
+
+# %%
 """
  #       #######    #    ######  #     #    ####### #######    ####### ### #     # #######
  #       #         # #   #     # ##    #       #    #     #       #     #  ##   ## #
@@ -360,7 +416,36 @@ plt.savefig(plot_dir / ('attempts_before_init.png'), dpi=600)
  ####### ####### #     # #     # #     #       #    #######       #    ### #     # #######
 
 """
+# %% Session overview aligned to 1st and 2nd
+pre,post = 500,4000
+align_event = 'PRESENT_INTERVAL_STATE'
 
+bhv_plt_reach.plot_session_aligned_to_1st_2nd(LogDf, align_event, pre, post)
+plt.savefig(plot_dir / ('session_overview_aligned_on_1st_2nd.png'), dpi=600)
+
+# %% Plot simple session overview with success rate
+fig, axes = plt.subplots(figsize=[8,2])
+
+bhv_plt_reach.plot_session_overview(SessionDf, axes = axes)
+plt.savefig(plot_dir / ('session_overview.png'), dpi=600)
+
+# %% outcome_split_by_interval_category
+bhv_plt_reach.outcome_split_by_interval_category(SessionDf)
+plt.savefig(plot_dir / ('outcome_split_by_interval_category.png'), dpi=600)
+
+# %% Psychometric timing trials
+TimingDf = SessionDf.groupby('timing_trial').get_group(True)
+pre_idx = TimingDf['outcome'] == 'premature'
+
+bhv_plt_reach.plot_psychometric(TimingDf[~pre_idx])
+plt.savefig(plot_dir / ('psychometric_timing.png'), dpi=600)
+
+# %% Pseudo-Psychometric with premature timing trials
+TimingDf = SessionDf.groupby('timing_trial').get_group(True)
+pre_idx = TimingDf['outcome'] == 'premature'
+
+bhv_plt_reach.plot_psychometric(TimingDf[pre_idx])
+plt.savefig(plot_dir / ('pseudo_psychometric_timing.png'), dpi=600)
 
 
 """
@@ -415,7 +500,7 @@ plt.savefig(across_session_plot_dir / ('weight_across_sessions.png'), dpi=600)
 SessionsDf = utils.get_sessions(animal_fd_path)
 
 # Filter sessions to the ones of the task we want to see
-task_name = ['learn_to_fixate_v1','learn_to_fixate_discrete_v1']
+task_name = ['learn_to_choose']
 FilteredSessionsDf = pd.concat([SessionsDf.groupby('task').get_group(name) for name in task_name])
 log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']]
 
@@ -423,7 +508,7 @@ log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']
 perc_reach_right, perc_reach_left, perc_correct, perc_missed, perc_pre = [],[],[],[],[]
 date,tpm,session_length = [],[],[] # Trials Per Minute (tpm)
 
-for log_path in tqdm(log_paths):
+for log_path in tqdm(log_paths[-2:]):
     
     path = log_path.parent 
     LogDf = bhv.get_LogDf_from_path(log_path)
@@ -441,7 +526,7 @@ for log_path in tqdm(log_paths):
     for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
         TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
 
-    metrics = (get_start, get_stop, get_correct_side, get_outcome, get_chosen_side, has_reach_left, has_reach_right)
+    metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_outcome, met.get_chosen_side, has_reach_left, has_reach_right)
     SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
     left_trials_idx = SessionDf['correct_side'] == 'left'
@@ -496,14 +581,14 @@ SessionsDf = utils.get_sessions(animal_fd_path)
 Df = pd.read_csv(animal_fd_path / 'animal_meta.csv')
 
 # Filter sessions to the ones of the task we want to see
-task_name = ['learn_to_time','learn_to_time_v2']
+task_name = ['learn_to_choose']
 FilteredSessionsDf = pd.concat([SessionsDf.groupby('task').get_group(name) for name in task_name])
 log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']]
 
 fig, axes = plt.subplots(ncols=2, figsize=[6, 3], sharey=True, sharex=True)
 colors = sns.color_palette(palette='turbo',n_colors=len(log_paths))
 
-for j,log_path in enumerate(log_paths):
+for j,log_path in enumerate(log_paths[-2:]):
     
     path = log_path.parent 
     LogDf = bhv.get_LogDf_from_path(log_path)
@@ -530,3 +615,111 @@ axes[0].legend(frameon=False, fontsize='x-small')
 fig.tight_layout()
 
 plt.savefig(across_session_plot_dir / ('CDF_first_reach_across_sessions.png'), dpi=600)
+
+
+"""
+  #####  ####### ####### #     # ######
+ #     # #          #    #     # #     #
+ #       #          #    #     # #     #
+  #####  #####      #    #     # ######
+       # #          #    #     # #
+ #     # #          #    #     # #
+  #####  #######    #     #####  #
+
+""" 
+
+# %% See what is the impact of the buzzer frequency on LCs
+window = 150 # ms around event
+sides = ['left','right']
+
+data_fd_path = utils.get_folder_dialog()
+
+plot_dir = data_fd_path / 'plots'
+os.makedirs(plot_dir, exist_ok=True)
+
+SessionsDf = utils.get_sessions(data_fd_path)
+paths = [Path(path) for path in SessionsDf['path']]
+
+fig, axes = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(6,6))
+colors = sns.color_palette(palette='turbo', n_colors=len(paths))
+
+# For every session
+for color_no, path in enumerate(paths):
+
+    ## LOADING ##
+    log_path = path /'arduino_log.txt'
+    LogDf = bhv.get_LogDf_from_path(log_path)
+
+    # LoadCell data
+    LoadCellDf, t_harp = bhv.parse_bonsai_LoadCellData(path / "bonsai_LoadCellData.csv",trig_len=100, ttol=50)
+
+    # Moving average mean subtraction
+    samples = 1000 # ms
+    LoadCellDf['x'] = LoadCellDf['x'] - LoadCellDf['x'].rolling(samples).mean()
+    LoadCellDf['y'] = LoadCellDf['y'] - LoadCellDf['y'].rolling(samples).mean()
+
+    # Synching arduino 
+    arduino_sync = bhv.get_arduino_sync(log_path, sync_event_name="TRIAL_ENTRY_EVENT")
+    t_harp = t_harp['t'].values
+    t_arduino = arduino_sync['t'].values
+
+    if t_harp.shape != t_arduino.shape:
+        t_arduino, t_harp = bhv.cut_timestamps(t_arduino, t_harp, verbose = True)
+
+    m3, b3 = bhv.sync_clocks(t_harp, t_arduino, log_path = log_path)
+    LogDf = pd.read_csv(path / "LogDf.csv") # re-load the LogDf (to make sure we keep the original arduino clock)
+
+    #  Create SessionDf - For LEARN_TO_CHOOSE onwards
+    TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_AVAILABLE_STATE", "ITI_STATE")
+
+    TrialDfs = []
+    for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
+        TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
+
+    metrics = (met.get_start, met.get_stop, met.get_correct_side)
+    SessionDf = bhv.parse_trials(TrialDfs, metrics)
+
+    ## PLOTTING ##
+    f = open(log_path, "r")
+    freq_lines = [line for line in f if 'SET buzz_freq_sep' in line]
+    freq_value = int(freq_lines[0][-4:-2]) #FIXME HARCODED
+
+    # For short and long trials
+    for i, side in enumerate(sides):
+
+        go_cue = 'GO_CUE_' + side.upper() + '_EVENT'
+
+        TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, dict(correct_side=side))
+
+        X,Y = get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs_filt, go_cue, window, window) 
+
+        linspace = np.linspace(-window, window, 2*window).T
+
+        # Average traces
+        X_mean = np.mean(X, axis = 1)
+        Y_mean = np.mean(Y, axis = 1)
+        
+        # Time domain
+        #axes[i,0].plot(linspace, X_mean, c = colors[color_no], label = str(freq_value) + 'Hz', zorder = -color_no, linewidth = 0.5)
+        #axes[i,1].plot(linspace, Y_mean, c = colors[color_no], zorder = -color_no, linewidth= 0.5)
+
+        # TODO ALL OF THIS FREQ ANALISYS
+        # Freq Domain
+        _, _, spec_X = sp.signal.spectrogram(X_mean)
+        _, _, spec_Y = sp.signal.spectrogram(Y_mean)
+
+        axes[i,0].imshow(spec_X, aspect='auto', cmap='hot_r', origin='lower', zorder = -color_no, label = str(freq_value) + 'Hz')
+        axes[i,1].imshow(spec_X, aspect='auto', cmap='hot_r', origin='lower', zorder = -color_no)
+
+        axes[i,0].legend(frameon=False, loc = 'upper left', fontsize="small")
+
+axes[0,0].set_title('Short trial')
+axes[1,0].set_title('Long trial')
+axes[1,0].set_xlabel('Left LC')
+axes[1,1].set_xlabel('Right LC')
+fig.suptitle('Impact of separability of buzzer freq. on LCs')
+fig.tight_layout()
+
+plt.savefig(plot_dir / ('impact_of_buzzer_freq_on_LCs.png'), dpi=600)
+
+# %%
