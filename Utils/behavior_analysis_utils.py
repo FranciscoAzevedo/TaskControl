@@ -168,6 +168,22 @@ def filter_bad_licks(LogDf, min_time=50, max_time=200, remove=False):
 
     return LogDf
 
+def add_go_cue_LogDf(LogDf):
+    # Add single GO_CUE_EVENT to LogDf
+    go_cue_leftDf = get_events_from_name(LogDf, 'GO_CUE_LEFT_EVENT')
+    go_cue_rightDf = get_events_from_name(LogDf, 'GO_CUE_RIGHT_EVENT')
+    go_cue_Df = pd.merge(go_cue_leftDf, go_cue_rightDf, how = 'outer')
+
+    go_cue_event = pd.DataFrame(np.stack([['NA']*go_cue_Df.shape[0], go_cue_Df['t'].values, ['GO_CUE_EVENT']*go_cue_Df.shape[0]]).T, columns=['code', 't', 'name'])
+    go_cue_event['t'] = go_cue_event['t'].astype('float')
+    LogDf = LogDf.append(go_cue_event)
+
+    # Reorder Df according to time and reset indexes
+    LogDf = LogDf.sort_values('t')
+    LogDf = LogDf.reset_index(drop=True)
+
+    return LogDf
+
 def filter_spans_to_event(LogDf, on_name, off_name, t_min=50, t_max=200, name=None):
     """ 
     creates an Event in the LogDf based on min / max duration of Spans

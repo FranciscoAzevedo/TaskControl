@@ -14,8 +14,8 @@ import seaborn as sns
 import os
 
 # Custom
-import behavior_analysis_utils as bhv
-from dlc_analysis_utils import *
+from Utils import behavior_analysis_utils as bhv
+from Utils import dlc_analysis_utils
 
 """
   #####  #######  #####   #####  ### ####### #     #
@@ -731,8 +731,6 @@ def plot_timing_overview(LogDf, TrialDfs, axes=None):
 
 """
 
-# Number of responded trials (%)
-
 def plot_sessions_overview(LogDfs, paths, task_name, animal_id, axes = None):
     " Plots trials performed together with every trial outcome plus sucess rate and weight across sessions"
 
@@ -825,15 +823,86 @@ def plot_sessions_overview(LogDfs, paths, task_name, animal_id, axes = None):
 
     return axes
 
-def water_to_spout_distance_across_sessions(LogDfs, paths, task_name, animal_id, axes = None):
-    """ 
-        Plots the evolution of the distance between the spout and water tips across sessions
-        Fig.1D Galinanes
+
+
+"""
+ #     # ###  #####   #####
+ ##   ##  #  #     # #     #
+ # # # #  #  #       #
+ #  #  #  #   #####  #
+ #     #  #        # #
+ #     #  #  #     # #     #
+ #     # ###  #####   #####
+
+"""
+
+def filter_trials_by(SessionDf, TrialDfs, filter_dict):
+    """
+        This function filters input TrialDfs given filter_pair tuple (or list of tuples)
+        Example: given dict(outcome='correct', chosen_side='left') it will only output trials which are correct to left side 
     """
 
-    return
+    if len(filter_dict) == 1: # in case its only one pair
+        groupby_keys = list(filter_dict.keys())
+        getgroup_keys = list(filter_dict.values())[0]
 
-def trial_phases_across_sessions(LogDfs, paths, task_name, animal_id, axes = None):
-    " Plots the phase of the trial averaged for all trials across sessions Fig.1F Galinanes"
+        try:
+            SDf = SessionDf.groupby(groupby_keys).get_group(getgroup_keys)
+        except:
+            print('No trials with given input filter_pair combination')
+            
+    else: # more than 1 pair
+        try:
+            SDf = bhv.groupby_dict(SessionDf, filter_dict)
+        except:
+            print('No trials with given input filter_pair combination')
 
-    return axes
+    TrialDfs_filt = [TrialDfs[i] for i in SDf.index.values.astype(int)]
+
+    return TrialDfs_filt
+
+def truncate_pad_vector(arrs, pad_with = None, max_len = None):
+    " Truncate and pad an array with rows of different dimensions to max_len (defined either by user or input arrs)"
+    
+    # In case length is not defined by user
+    if max_len == None:
+        list_len = [len(arr) for arr in arrs]
+        max_len = max(list_len)
+
+    if pad_with == None:
+        pad_with = np.NaN
+    
+    trunc_pad_arr = np.empty((len(arrs), max_len)) 
+    trunc_pad_arr[:] = np.NaN # Initialize with all Nans
+
+    for i, arr in enumerate(arrs):
+        if len(arr) < max_len:
+            trunc_pad_arr[i,:] = np.pad(arr, (0, max_len-arr.shape[0]), mode='constant',constant_values=(pad_with,))
+        elif len(arr) > max_len:
+            trunc_pad_arr[i,:] = np.array(arr[:max_len])
+        elif len(arr) == max_len:
+            trunc_pad_arr[i,:] = np.array(arr)
+
+    return trunc_pad_arr
+
+def get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs, align_event, pre, post):
+    """
+        Returns Fx/Fy/Fmag NUMPY ND.ARRAY for all trials aligned to an event in a window defined by [align-pre, align+post]"
+        Don't forget: we are using nd.arrays so, implicitly, we use advanced slicing which means [row, col] instead of [row][col]
+    """
+    X, Y = [],[]
+
+    for TrialDf in TrialDfs:
+        
+        t_align = TrialDf.loc[TrialDf['name'] == align_event, 't'].values[0]
+        LCDf = bhv.time_slice(LoadCellDf, t_align-pre, t_align+post) # slice around reference event
+
+        # Store
+        X.append(LCDf['x'].values)
+        Y.append(LCDf['y'].values)
+
+    # Turn into numpy arrays
+    X = np.array(X).T
+    Y = np.array(Y).T
+
+    return X,Y
