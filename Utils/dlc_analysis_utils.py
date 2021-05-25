@@ -6,7 +6,7 @@ import pandas as pd
 import cv2
 import seaborn as sns
 from pathlib import Path
-import behavior_analysis_utils as bhv
+from Utils import behavior_analysis_utils as bhv
 from copy import copy
 
 """

@@ -241,77 +241,6 @@ def get_dist_between_events(DlcDf, TrialDfs, first_event, second_event, func, f_
 
     return dist
 
-def filter_trials_by(SessionDf, TrialDfs, filter_dict):
-    """
-        This function filters input TrialDfs given filter_pair tuple (or list of tuples)
-        Example: given dict(outcome='correct', chosen_side='left') it will only output trials which are correct to left side 
-    """
-
-    if len(filter_dict) == 1: # in case its only one pair
-        groupby_keys = list(filter_dict.keys())
-        getgroup_keys = list(filter_dict.values())[0]
-
-        try:
-            SDf = SessionDf.groupby(groupby_keys).get_group(getgroup_keys)
-        except:
-            print('No trials with given input filter_pair combination')
-            
-    else: # more than 1 pair
-        try:
-            SDf = bhv.groupby_dict(SessionDf, filter_dict)
-        except:
-            print('No trials with given input filter_pair combination')
-
-    TrialDfs_filt = [TrialDfs[i] for i in SDf.index.values.astype(int)]
-
-    return TrialDfs_filt
-
-def truncate_pad_vector(arrs, pad_with = None, max_len = None):
-    " Truncate and pad an array with rows of different dimensions to max_len (defined either by user or input arrs)"
-    
-    # In case length is not defined by user
-    if max_len == None:
-        list_len = [len(arr) for arr in arrs]
-        max_len = max(list_len)
-
-    if pad_with == None:
-        pad_with = np.NaN
-    
-    trunc_pad_arr = np.empty((len(arrs), max_len)) 
-    trunc_pad_arr[:] = np.NaN # Initialize with all Nans
-
-    for i, arr in enumerate(arrs):
-        if len(arr) < max_len:
-            trunc_pad_arr[i,:] = np.pad(arr, (0, max_len-arr.shape[0]), mode='constant',constant_values=(pad_with,))
-        elif len(arr) > max_len:
-            trunc_pad_arr[i,:] = np.array(arr[:max_len])
-        elif len(arr) == max_len:
-            trunc_pad_arr[i,:] = np.array(arr)
-
-    return trunc_pad_arr
-
-def get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs, align_event, pre, post):
-    """
-        Returns Fx/Fy/Fmag NUMPY ND.ARRAY for all trials aligned to an event in a window defined by [align-pre, align+post]"
-        Don't forget: we are using nd.arrays so, implicitly, we use advanced slicing which means [row, col] instead of [row][col]
-    """
-    X, Y = [],[]
-
-    for TrialDf in TrialDfs:
-        
-        t_align = TrialDf.loc[TrialDf['name'] == align_event, 't'].values[0]
-        LCDf = bhv.time_slice(LoadCellDf, t_align-pre, t_align+post) # slice around reference event
-
-        # Store
-        X.append(LCDf['x'].values)
-        Y.append(LCDf['y'].values)
-
-    # Turn into numpy arrays
-    X = np.array(X).T
-    Y = np.array(Y).T
-
-    return X,Y
-
 """
  
     ###    ##    ##    ###    ##       ##    ##  ######  ####  ######  
@@ -323,22 +252,6 @@ def get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs, align_event, pre, post):
  ##     ## ##    ## ##     ## ########    ##     ######  ####  ######  
  
 """
-
-def add_go_cue_LogDf(LogDf):
-    # Add single GO_CUE_EVENT to LogDf
-    go_cue_leftDf = bhv.get_events_from_name(LogDf, 'GO_CUE_LEFT_EVENT')
-    go_cue_rightDf = bhv.get_events_from_name(LogDf, 'GO_CUE_RIGHT_EVENT')
-    go_cue_Df = pd.merge(go_cue_leftDf, go_cue_rightDf, how = 'outer')
-
-    go_cue_event = pd.DataFrame(np.stack([['NA']*go_cue_Df.shape[0], go_cue_Df['t'].values, ['GO_CUE_EVENT']*go_cue_Df.shape[0]]).T, columns=['code', 't', 'name'])
-    go_cue_event['t'] = go_cue_event['t'].astype('float')
-    LogDf = LogDf.append(go_cue_event)
-
-    # Reorder Df according to time and reset indexes
-    LogDf = LogDf.sort_values('t')
-    LogDf = LogDf.reset_index(drop=True)
-
-    return LogDf
 
 def box2rect(center, w):
     """ definition: x1,y1, x2,y2 """
@@ -458,66 +371,6 @@ def get_speed(DlcDf, bp, p=0.99, filter=False):
     else:
         V[~good_ix] = sp.nan
         return V
-
-# Work only on Trial-level
-def has_reach_left(TrialDf):
-    var_name = 'has_reach_left'
-
-    if "REACH_LEFT_ON" in TrialDf['name'].values:
-        var = True
-    else:
-        var = False    
- 
-    return pd.Series(var, name=var_name)
-
-def has_reach_right(TrialDf):
-    var_name = 'has_reach_right'
-
-    if "REACH_RIGHT_ON" in TrialDf['name'].values:
-        var = True
-    else:
-        var = False    
- 
-    return pd.Series(var, name=var_name)
-
-def choice_rt_left(TrialDf):
-    var_name = 'choice_rt_left'
-
-    if get_chosen_side(TrialDf).values == 'left':
-        var = get_choice_rt(TrialDf)
-    else:
-        var = np.NaN
-
-    return pd.Series(var, name=var_name)
-
-def choice_rt_right(TrialDf):
-    var_name = 'choice_rt_right'
-
-    if get_chosen_side(TrialDf).values == 'right':
-        var = get_choice_rt(TrialDf)
-    else:
-        var = np.NaN
-
-    return pd.Series(var, name=var_name)
-
-def get_delay_rt(TrialDf):
-    " First reach RT during only the DELAY period, agnostic of chosen side or arm"
-    var_name = 'delay_rt'
-
-    Df = event_slice(TrialDf, "PRESENT_INTERVAL_STATE", "GO_CUE_EVENT")
-
-    # Union of left and right reaches
-    reach_leftDf = bhv.get_events_from_name(Df, 'REACH_LEFT_ON')
-    reach_rightDf = bhv.get_events_from_name(Df, 'REACH_RIGHT_ON')
-    reach_Df  =pd.merge(reach_leftDf,reach_rightDf, how = 'outer')
-
-    # compute the time of the delay rt
-    if not reach_Df.empty:
-        var = reach_Df.iloc[0]['t'] - Df.iloc[0]['t']
-    else:
-        var = np.NaN
-        
-    return pd.Series(var, name=var_name)
 
 # Backwards compatible for v0.2 (didnt have CHOICE_EVENT)
 def choice_rt_left_b(TrialDf):

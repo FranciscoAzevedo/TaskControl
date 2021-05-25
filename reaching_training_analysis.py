@@ -4,26 +4,29 @@
 %load_ext autoreload
 %autoreload 2
 
+# plotting
 import matplotlib.pyplot as plt
 from matplotlib import cm
+import seaborn as sns
+import cv2
+
+# Math
 import scipy as sp
 import scipy.signal
 import numpy as np
 import pandas as pd
-import cv2
-import utils
+
+# Misc
 import calendar
 import os
-import calendar
-import seaborn as sns
-
 from tqdm import tqdm
 from pathlib import Path
 
 # Custom
-import behavior_analysis_utils as bhv
-from dlc_analysis_utils import *
-import metrics as met
+from Utils import behavior_analysis_utils as bhv
+from Utils import dlc_analysis_utils as dlc_utils
+from Utils import metrics as met
+from Utils import utils
 import behav_plotters_reach as bhv_plt_reach
 
 # Settings
@@ -54,8 +57,8 @@ h5_path = utils.get_file_dialog()
 
 # Video
 path = h5_path.parent
-video_path = path / "bonsai_video.avi"
-Vid = read_video(str(video_path))
+#video_path = path / "bonsai_video.avi"
+#Vid = read_video(str(video_path))
 
 # Logs
 log_path = path / 'arduino_log.txt'
@@ -70,8 +73,8 @@ LoadCellDf['x'] = LoadCellDf['x'] - LoadCellDf['x'].rolling(samples).mean()
 LoadCellDf['y'] = LoadCellDf['y'] - LoadCellDf['y'].rolling(samples).mean()
 
 #  Synching 
-video_sync_path = video_path.parent / 'bonsai_frame_stamps.csv'
-m, b, m2, b2 = sync_arduino_w_dlc(log_path, video_sync_path)
+#video_sync_path = video_path.parent / 'bonsai_frame_stamps.csv'
+#m, b, m2, b2 = sync_arduino_w_dlc(log_path, video_sync_path)
 
 # writing arduino times of frames to the Dlc data
 #DlcDf['t'] = frame2time(DlcDf.index,m,b,m2,b2)
@@ -88,7 +91,7 @@ m3, b3 = bhv.sync_clocks(t_harp, t_arduino, log_path = log_path)
 LogDf = pd.read_csv(path / "LogDf.csv") # re-load the LogDf (to make sure we keep the original arduino clock)
 
 # ADD SINGLE GO_CUE_EVENT
-LogDf = add_go_cue_LogDf(LogDf)
+LogDf = bhv.add_go_cue_LogDf(LogDf)
 
 #  Create SessionDf - For LEARN_TO_CHOOSE onwards
 TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_AVAILABLE_STATE", "ITI_STATE")
@@ -98,8 +101,8 @@ for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
     TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
 
 metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_interval_category, met.get_outcome, 
-            met.get_chosen_side, has_reach_left, has_reach_right, met.get_in_corr_loop, choice_rt_left, 
-            choice_rt_right, met.has_choice, met.get_interval, met.get_timing_trial, met.get_choice_rt)
+            met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop, met.choice_rt_left, 
+            met.choice_rt_right, met.has_choice, met.get_interval, met.get_timing_trial, met.get_choice_rt)
 
 SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
