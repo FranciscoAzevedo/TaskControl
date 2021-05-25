@@ -49,8 +49,8 @@ plt.rcParams['figure.dpi'] = 166
 
 # DeepLabCut data
 h5_path = utils.get_file_dialog()
-#DlcDf = read_dlc_h5(h5_path)
-#bodyparts = sp.unique([j[0] for j in DlcDf.columns[1:]]) # all body parts
+DlcDf = read_dlc_h5(h5_path)
+bodyparts = sp.unique([j[0] for j in DlcDf.columns[1:]]) # all body parts
 
 # Video
 path = h5_path.parent
@@ -74,7 +74,7 @@ video_sync_path = video_path.parent / 'bonsai_frame_stamps.csv'
 m, b, m2, b2 = sync_arduino_w_dlc(log_path, video_sync_path)
 
 # writing arduino times of frames to the Dlc data
-#DlcDf['t'] = frame2time(DlcDf.index,m,b,m2,b2)
+DlcDf['t'] = frame2time(DlcDf.index,m,b,m2,b2)
 
 # Synching arduino 
 arduino_sync = bhv.get_arduino_sync(log_path, sync_event_name="TRIAL_ENTRY_EVENT")
@@ -213,8 +213,8 @@ time_interval = 1000 # ms (for the time axis in the plot)
 
 fig, axes = plt.subplots(ncols=2,sharex=True)
 
-TrialDfs_left = filter_trials_by(SessionDf, TrialDfs, ('trial_side', 'left'))
-TrialDfs_right = filter_trials_by(SessionDf, TrialDfs, ('trial_side', 'right'))
+TrialDfs_left = filter_trials_by(SessionDf, TrialDfs, dict(trial_side='left'))
+TrialDfs_right = filter_trials_by(SessionDf, TrialDfs, dict(trial_side='right'))
 
 # General function to be applied 
 func = calc_dist_bp_point
@@ -251,8 +251,8 @@ align_event = 'PRESENT_CUE_STATE'
 
 fig, axes = plt.subplots(ncols=2, figsize=(5, 3))
 
-TrialDfs_left = filter_trials_by(SessionDf, TrialDfs, ('choice', 'left'))
-TrialDfs_right = filter_trials_by(SessionDf, TrialDfs, ('choice', 'right'))
+TrialDfs_left = filter_trials_by(SessionDf, TrialDfs, dict(choice='left'))
+TrialDfs_right = filter_trials_by(SessionDf, TrialDfs, dict(choice='right'))
 
 pl, pr = [],[]
 
@@ -318,292 +318,6 @@ for ax in axes:
 fig.suptitle('Paw placement aligned to ' + align_event)
 
 plt.savefig(plot_dir / ('paw_placement_aligned_to_' + align_event + '.png'), dpi=600)
-
-
-
-"""
-  #####  #######  #####   #####  ### ####### #     #             #       #######  #####
- #     # #       #     # #     #  #  #     # ##    #             #       #     # #     #
- #       #       #       #        #  #     # # #   #             #       #     # #
-  #####  #####    #####   #####   #  #     # #  #  #    #####    #       #     # #  ####
-       # #             #       #  #  #     # #   # #             #       #     # #     #
- #     # #       #     # #     #  #  #     # #    ##             #       #     # #     #
-  #####  #######  #####   #####  ### ####### #     #             ####### #######  #####
-
-"""
-
-# %% Success rate
-bhv_plt_reach.plot_success_rate(LogDf, SessionDf, 10)
-plt.savefig(plot_dir / ('success_rate.png'), dpi=600)
-
-# %% Session overview
-pre,post = 500,3000
-align_event = 'PRESENT_INTERVAL_STATE'
-
-bhv_plt_reach.plot_session_overview(LogDf, align_event, pre, post)
-plt.savefig(plot_dir / ('session_overview_aligned_on_' + str(align_event) + '.png'), dpi=600)
-
-# %% Trials initiated moving average within session
-window_sizes = [5,10] # min
-ylims = [0,6]
-fig, axes = plt.subplots(figsize=(5, 4))
-
-init_times = (np.array(SessionDf['t_on'].values)-LogDf['t'].iloc[0])/(1000*60) # msec-> sec -> min
-linspace = np.arange(0, round(max(init_times)))
-
-n, edges = np.histogram(init_times, bins = linspace) # a bin every minute
-
-# Uniform window to convolve every 
-for window_size in window_sizes:
-    y_mov_avg = np.convolve(n, np.ones(window_size)/window_size, mode='valid')
-    axes.plot(y_mov_avg, label = str(window_size))
-
-# Formatting
-axes.axhline(5, linestyle=':', alpha = 0.5, color = 'k')
-axes.set_xlabel('Time (min)')
-axes.set_ylabel('Number of trials initiated')
-axes.set_ylim(ylims)
-axes.legend(loc='upper right', frameon=False, title = 'window (min)')
-axes.set_title('Rolling mean of trial initiations')
-plt.savefig(plot_dir / ('trial_init_rolling_mean.png'), dpi=600)
-
-# %% Psychometric for cued trials
-bhv_plt_reach.plot_psychometric(SessionDf.groupby('timing_trial').get_group(False))
-plt.savefig(plot_dir / ('psychometric_cued.png'), dpi=600)
-
-# %% Psychometric timing trials
-TimingDf = SessionDf.groupby('timing_trial').get_group(True)
-pre_idx = TimingDf['outcome'] == 'premature'
-
-bhv_plt_reach.plot_psychometric(TimingDf[~pre_idx])
-plt.savefig(plot_dir / ('psychometric_timing.png'), dpi=600)
-
-# %% Pseudo-Psychometric with premature timing trials
-TimingDf = SessionDf.groupby('timing_trial').get_group(True)
-pre_idx = TimingDf['outcome'] == 'premature'
-
-bhv_plt_reach.plot_psychometric(TimingDf[pre_idx])
-plt.savefig(plot_dir / ('pseudo_psychometric_timing.png'), dpi=600)
-
-# %% 1st reach choice RT
-choice_interval = 2000 # ms
-bin_width = 100 # ms
-
-bhv_plt_reach.plot_choice_RT_hist(SessionDf, choice_interval, bin_width)
-plt.savefig(plot_dir / ('choice_RTs.png'), dpi=600)
-
-# %% Reaches in delay period (useful before learn to fixate)
-event_1 = 'PRESENT_INTERVAL_STATE'
-event_2 = 'GO_CUE_EVENT'
-bin_width = 50 # ms
-
-bhv_plt_reach.plot_reaches_between_events(SessionDf, LogDf, TrialDfs, event_1, event_2, bin_width)
-plt.savefig(plot_dir / ('hist_of_reaches_between_' + str(event_1) + '_and_' + str(event_2) + '.png'), dpi=600)
-
-# %% Reaching CDF's for short and long trials (useful before learn to fixate)
-bhv_plt_reach.CDF_of_reaches_during_delay(SessionDf,TrialDfs)
-fig.suptitle('CDF of first reach split on trial type')
-plt.savefig(plot_dir / ('CDF_of_reaches_during_delay.png'), dpi=600)
-
-# %% Grasp duration distro split by side
-bin_width = 10 # ms
-max_reach_dur = 200 # ms
-percentile = 75 #th 
-
-bhv_plt_reach.plot_reach_duration_distro(SessionDf, TrialDfs, bin_width, max_reach_dur, percentile)
-plt.savefig(plot_dir / ('hist_duration_of_reaches.png'), dpi=600)
-
-# %% How hard do they push to initiate trials?
-window = 300 # ms
-ylims = [-3000,2000]
-align_event = 'TRIAL_ENTRY_EVENT'
-fig, axes = plt.subplots(ncols=2,sharex=True, figsize=(6,3))
-
-linspace = np.linspace(-window, window, 2*window).T
-
-X,Y = get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs, align_event, window, window) 
-
-# Average traces
-X_mean = np.mean(X, axis = 1)
-Y_mean = np.mean(Y, axis = 1)
-
-axes[0].plot(linspace, X, alpha=0.25, c = 'tab:orange')
-axes[0].plot(linspace, X_mean, c = 'k')
-axes[1].plot(linspace, Y, alpha=0.25, c = 'tab:blue')
-axes[1].plot(linspace, Y_mean, c = 'k')
-
-# Formatting
-axes[0].set_ylabel('Force (a.u.)')
-
-for ax in axes:
-    ax.set_ylim(ylims)
-    ax.axvline(0, linestyle='dotted', color='k', alpha = 0.5)
-    ax.set_xlabel('Time (ms)')
-
-fig.suptitle('LC forces aligned to ' + str(align_event))
-fig.tight_layout()
-plt.savefig(plot_dir / ('trial_init_forces.png'), dpi=600)
-
-# %% Plots no. of attempts before actual init over session
-init_tresh = 850
-sub_tresh = 0.66*init_tresh # About two thirds the original
-
-fig = plt.figure(figsize=(6,4))
-
-attempts = []
-for TrialDf in TrialDfs:
-
-    # Slice when trial is available but not initiated
-    Df = bhv.event_slice(TrialDf, "TRIAL_AVAILABLE_EVENT", "TRIAL_ENTRY_EVENT")
-    
-    if not Df.empty:
-        LCDf = bhv.time_slice(LoadCellDf, Df.iloc[0]['t'], Df.iloc[-1]['t'])
-
-        X = LCDf['x'].values
-        Y = LCDf['y'].values
-
-        # sub thresh pushing
-        X_peaks , _ = scipy.signal.find_peaks(-X, height = sub_tresh, width = 50)
-        Y_peaks , _ = scipy.signal.find_peaks(-Y, height = sub_tresh, width = 50)
-
-        attempts.append(max(len(X_peaks),len(Y_peaks)))
-
-    # Instant initiation 
-    else:
-        attempts.append(0)
-
-# Plotting settings
-left, width = 0.1, 0.65
-bottom, height = 0.1, 0.65
-spacing = 0.005
-rect_scatter = [left, bottom, width, height]
-rect_histy = [left + width + spacing, bottom, 0.2, height]
-
-ax = fig.add_axes(rect_scatter)
-ax_histy = fig.add_axes(rect_histy, sharey=ax)
-
-# Formatting
-ax.scatter(np.arange(len(TrialDfs)), attempts, s = 2)
-ax.set_ylim([0,20])
-ax.set_ylabel('No of init attempts')
-ax.set_xlabel('Trial No.')
-
-n, bins, _ = ax_histy.hist(attempts, bins=20, range= (0,20), density = True, orientation='horizontal')
-ax_histy.tick_params(axis="y", labelleft=False)
-ax_histy.set_xlabel('Perc. of trials (%)')
-ax_histy.set_xlim([0,0.75])
-
-ax.set_title('Number attempts before trial init')
-plt.savefig(plot_dir / ('attempts_before_init.png'), dpi=600)
-
-# # Sanity check
-# fig, axes = plt.subplots(ncols=2,sharex=True)
-# axes[0].plot(X)
-# axes[0].plot(X_peaks, X[X_peaks], marker="o",ls="")
-# axes[1].plot(Y)
-# axes[1].plot(Y_peaks, Y[Y_peaks], marker="o",ls="")
-
-# %% Trial initiation distro
-max_range = 10000 # ms, for actual inits
-bin_width = 500 # ms for actual inits
-tresh = 850 # for putative init detection
-window_width = 250 # ms, for moving average
-pre,post = 2000, 2000 # for putative init
-
-align_event = 'TRIAL_AVAILABLE_EVENT'
-fig, axes = plt.subplots(ncols=2, figsize=(6,3))
-
-# Putative initiations obtained through LC and thresholding
-X,Y = get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs, align_event, pre, post)
-
-# Threshold needs to be crossed on both
-X_tresh_idx = X < -tresh
-Y_tresh_idx = Y < -tresh
-gate_AND_idx = X_tresh_idx*Y_tresh_idx
-gate_AND_idx_sum = np.convolve(gate_AND_idx.sum(axis=1), np.ones(window_width), 'valid') / window_width # moving average
-
-axes[0].plot(gate_AND_idx_sum)
-axes[0].set_title('Putative inits aligned \n to trial avail')
-axes[0].axvline(pre, linestyle='dotted', color='k', alpha = 0.5)
-plt.setp(axes[0], xticks=np.arange(0, post+pre+1, 5000), xticklabels=np.arange(-pre/1000, post/1000 + 0.1, 5))
-
-# Initiations obtained through LogDf
-initiation_time = []
-for TrialDf in TrialDfs:
-    initiation_time.append(met.get_init_rt(TrialDf))
-
-initiation_time = np.array(initiation_time)
-axes[1].hist(initiation_time, bins = np.linspace(0,max_range, round(max_range/bin_width)), range = (0,max_range))
-axes[1].set_title('Distro of init times')
-
-# Formatting
-for ax in axes:
-    ax.set_ylabel('No. of ocurrences')
-    ax.set_xlabel('Time (s)')
-
-fig.tight_layout()
-plt.savefig(plot_dir / ('trial_init_distro.png'), dpi=600)
-
-# %% Are they using a sampling strategy? 
-fig, axes = plt.subplots(figsize=(3, 4))
-
-missesDf_idx = SessionDf['outcome'] == 'missed'
-choiceDf = SessionDf[~missesDf_idx] # drop rows with missed trials
-
-sides = ['left', 'right']
-
-perc_r_after_l, perc_l_after_r = [],[]
-for i, side in enumerate(sides):
-
-    chosen_sideDf = choiceDf[choiceDf['chosen_side'] == side]
-
-    has_left_reach_Df = chosen_sideDf[chosen_sideDf['has_reach_left'] == True]
-    has_right_reach_Df = chosen_sideDf[chosen_sideDf['has_reach_right'] == True]
-
-    # What is the prob of going right after going left?
-    rights_after_left_df = (has_left_reach_Df['choice_rt_left'] < has_left_reach_Df['choice_rt_right'])
-    perc_r_after_l.append(sum(rights_after_left_df)/len(rights_after_left_df)*100)
-
-    # What is the prob if going left after going right?
-    lefts_after_right_df = (has_right_reach_Df['choice_rt_right'] < has_right_reach_Df['choice_rt_left'])
-    perc_l_after_r.append(sum(lefts_after_right_df)/len(lefts_after_right_df)*100)
-
-labels = ['left trials', 'right trials']
-x = np.arange(len(labels))  # the label locations
-width = 0.25  # the width of the bars
-
-# Plotting groups
-rects1 = axes.bar(x - width/2, perc_r_after_l, width, label='R after L')
-rects2 = axes.bar(x + width/2, perc_l_after_r, width, label='L after R')
-
-axes.set_title('Prob of going X after Y')
-axes.set_ylabel('Prob. (%)')
-axes.set_ylim([0,75])
-axes.set_xticks(x)
-axes.set_xticklabels(labels)
-axes.legend(loc='upper left', frameon=False) 
-
-fig.tight_layout()
-
-plt.savefig(plot_dir / ('prob_X_after_Y.png'), dpi=600)
-
-"""
-  #####  ####### ####### ######
- #     #    #    #     # #     #
- #          #    #     # #     #
-  #####     #    #     # ######
-       #    #    #     # #
- #     #    #    #     # #
-  #####     #    ####### #
-
-"""
-
-# %%
-dists = calc_dist_bp_point(DlcDf, bp, coords, p=0.1, filter=True)
-
-for i in range(len(inds)):
-    shape = inds[i].shape[0]
-    D[:shape,i] = dists[inds[i]]
 
 # %% full plot
 fig, axes = plt.subplots(nrows=2,ncols=2,sharex=True,sharey=True)

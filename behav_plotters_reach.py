@@ -29,70 +29,58 @@ from dlc_analysis_utils import *
 """
  
 # Only uses LogDf
-def plot_session_overview(LogDf, align_event, pre, post, how='bars', axes=None):
-    "Plots trials Fig5C of Gallinares"
-
-    # TODO Align to 2nd GO CUE
-
+def plot_session_overview(SessionDf, axes=None):
+    
+    colors = dict(success="#72E043", 
+            reward="#3CE1FA", 
+            correct="#72E043", 
+            incorrect="#F56057", 
+            premature="#9D5DF0", 
+            missed="#F7D379")
+    
     if axes is None:
         fig, axes = plt.subplots()
 
-    # Key Events and Spans
-    key_list = ['REACH_LEFT_ON', 'REACH_RIGHT_ON', 'PRESENT_CUE_STATE', 'PRESENT_INTERVAL_STATE', 'GO_CUE_SHORT_EVENT', 'GO_CUE_LONG_EVENT']
+    outcomes = SessionDf['outcome'].unique()
 
-    colors = sns.color_palette('hls', n_colors=len(key_list))
-    cdict = dict(zip(key_list,colors))
+    for i, row in SessionDf.iterrows():
+        axes.plot([i,i],[0,1],lw=2.5,color=colors[row.outcome],zorder=-1)
 
-    t_ref = bhv.get_events_from_name(LogDf, align_event).values
+        w = 0.05
+        if row.correct_side == 'left':
+            axes.plot([i,i],[0-w,0+w],lw=1,color='k')
+        if row.correct_side == 'right':
+            axes.plot([i,i],[1-w,1+w],lw=1,color='k')
 
-    for i,t in enumerate(t_ref):
+        if row.has_choice:
+            if row.chosen_side == 'left':
+                axes.plot(i,-0.0,'.',color='k')
+            if row.chosen_side == 'right':
+                axes.plot(i,1.0,'.',color='k')
 
-        Df = bhv.time_slice(LogDf,t-pre,t+post,'t')
+        if row.in_corr_loop and not np.isnan(row.in_corr_loop):
+            axes.plot([i,i],[-0.1,1.1],color='red',alpha=0.5,zorder=-2,lw=3)
+        
+        if row.timing_trial and not np.isnan(row.timing_trial):
+            axes.plot([i,i],[-0.1,1.1],color='cyan',alpha=0.5,zorder=-2,lw=3)
 
-        for name in cdict:
-            # plot events
-            if name.endswith("_EVENT") or name.endswith("_STATE"):
-                event_name = name
-                times = bhv.get_events_from_name(Df, name).values - t
-                
-                if how == 'dots':
-                    axes.plot(times, [i]*len(times), '.', color=cdict[event_name], alpha=0.75) # a bar
-                
-                if how == 'bars':
-                    for time in times:
-                        axes.plot([time,time],[i-0.5,i+0.5],lw=2,color=cdict[event_name], alpha=0.75) # a bar
-            
-            # plot spans
-            if name.endswith("_ON"):
-                span_name = name.split("_ON")[0]
-                on_name = span_name + '_ON'
-                off_name = span_name + '_OFF'
+    # success rate
+    hist=10
+    for outcome in ['missed']:
+        srate = (SessionDf.outcome == outcome).rolling(hist).mean()
+        axes.plot(range(SessionDf.shape[0]),srate,lw=1.5,color='black',alpha=0.75)
+        axes.plot(range(SessionDf.shape[0]),srate,lw=1,color=colors[outcome],alpha=0.75)
 
-                SpansDf = bhv.get_spans_from_names(Df, on_name, off_name)
+    # valid trials
+    SDf = SessionDf.groupby('is_missed').get_group(False)
+    srate = (SDf.outcome == 'correct').rolling(hist).mean()
+    axes.plot(SDf.index,srate,lw=1.5,color='k')
 
-                if 'REACH' in span_name:
-                    SpansDf = SpansDf[SpansDf['dt'] > 15] # remove reaches whose length is less than 15ms
+    axes.axhline(0.5,linestyle=':',color='k',alpha=0.5)
 
-                for j, row_s in SpansDf.iterrows():
-                    time = row_s['t_on'] - t
-                    dur = row_s['dt']
-                    rect = plt.Rectangle((time,i-0.5), dur, 1, facecolor=cdict[on_name], linewidth=1)
-                    axes.add_patch(rect)
-
-    for key in cdict.keys():
-        axes.plot([0],[0],color=cdict[key],label=key,lw=4)
-
-    # Formatting
-    axes.legend(loc="center", bbox_to_anchor=(0.5, -0.2), prop={'size': 6}, ncol=len(key_list)) 
-    axes.set_title('Trials aligned to ' + str(align_event))
-    plt.setp(axes, xticks=np.arange(-pre, post+1, 500), xticklabels=np.arange(-pre/1000, post/1000+0.1, 0.5))
-    axes.set_ylim([0, len(t_ref)])
-    axes.invert_yaxis() # Needs to be after set_ylim
-    axes.set_xlabel('Time (ms)')
-    axes.set_ylabel('Trial No.')
-
-    fig.tight_layout()
-
+    # deco
+    axes.set_xlabel('trial #')
+    axes.set_ylabel('success rate')
     return axes
 
 def plot_success_rate(LogDf, SessionDf, history): 
@@ -242,7 +230,7 @@ def plot_reaches_between_events(SessionDf, LogDf, TrialDfs, event_1, event_2, bi
             
             # Filter trials (continues if there are no trials to pool from)
             try:
-                TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, [('correct_side', trial_side), ('outcome',outcome)])
+                TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, dict(correct_side=trial_side , outcome=outcome))
             except:
                 continue
             
@@ -281,28 +269,27 @@ def plot_reaches_between_events(SessionDf, LogDf, TrialDfs, event_1, event_2, bi
 
     return axes
 
-def plot_reaches_window_aligned_on_event(TrialDfs, align_event, pre, post, axes=None):
+def plot_reaches_window_aligned_on_event(LogDf, align_event, pre, post, bin_width, axes=None):
     " Plots the reaches around a [-pre,post] window aligned to an event "
     
     if axes is None:
         fig, axes = plt.subplots()
 
-    right_reaches, left_reaches = [],[]
-    for TrialDf in TrialDfs:
+    no_bins = round((post+pre)/bin_width)
 
-        t_align = TrialDf[TrialDf['name'] == align_event]['t'] 
+    t_aligns = LogDf[LogDf['name'] == align_event]['t'] 
 
-        left_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_LEFT_ON').values - t_align.values)
-        right_reaches.append(bhv.get_events_from_name(TrialDf, 'REACH_RIGHT_ON').values -~t_align.values)
+    left_reaches, right_reaches = np.empty([1,0]), np.empty([1,0])
+    for t_align in t_aligns:
 
-    # Flatten output matrix
-    flat_right_reaches = [item for sublist in right_reaches for item in sublist]
-    flat_left_reaches = [item for sublist in left_reaches for item in sublist]
-    no_bins = np.linspace(-pre,post, 40) 
+        sliceDf = bhv.time_slice(LogDf, t_align-pre, t_align + post)
+        
+        left_reaches = np.append(left_reaches, bhv.get_events_from_name(sliceDf, 'REACH_LEFT_ON').values - np.array(t_align))
+        right_reaches = np.append(right_reaches, bhv.get_events_from_name(sliceDf, 'REACH_RIGHT_ON').values - np.array(t_align))
 
     # Fancy plotting
-    axes.hist(np.array(flat_right_reaches), bins = no_bins , alpha=0.5, label = 'Right reaches')
-    axes.hist(np.array(flat_left_reaches), bins = no_bins, alpha=0.5, label = 'Left reaches')
+    axes.hist(left_reaches, bins = no_bins, range = (-pre,post), alpha=0.5, label = 'Left reaches')
+    axes.hist(right_reaches, bins = no_bins, range = (-pre,post), alpha=0.5, label = 'Right reaches')
     plt.setp(axes, xticks=np.arange(-pre, post+1, 1000), xticklabels=np.arange(-pre/1000, post/1000+0.1, 1))
     axes.axvline(x=0, c='black')
     axes.set_xlabel('Time (s)')
@@ -387,50 +374,35 @@ def plot_psychometric(SessionDf, N=1000, axes=None, discrete=False):
 
     return axes
 
-def plot_reach_duration_distro(SessionDf, TrialDfs, bin_width, max_reach_dur, percentile):
+def plot_reach_duration_distro(LogDf, bin_width, max_reach_dur, percentile):
     " Plots the distribution of reach durations split by chosen side and outcome"
 
-    chosen_sides = ['left', 'right']
+    sides = ['LEFT', 'RIGHT']
 
     no_bins = round(max_reach_dur/bin_width)
     kwargs = dict(bins = no_bins, range = (0, max_reach_dur), alpha=0.5, edgecolor='none')
 
-    fig, axes = plt.subplots(ncols=len(chosen_sides), figsize=[4, 4], sharex=True, sharey=True)
+    fig, axes = plt.subplots(ncols=len(sides), figsize=[4, 3], sharex=True, sharey=True)
 
-    # for each condition pair
-    for i, chosen_side in enumerate(chosen_sides):
-            
-        # try to filter trials
-        try:
-            TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, ('chosen_side', chosen_side))
-        except:
-            continue
-        
-        reach_durs = []
-        for TrialDf in TrialDfs_filt:
+    colors = sns.color_palette('hls', n_colors=len(sides))
 
-            # get spans Df for reaches and plot durations
-            if chosen_side == 'left':
-                event_on, event_off = 'REACH_LEFT_ON','REACH_LEFT_OFF'
+    for i, side in enumerate(sides):
 
-            if chosen_side == 'right':
-                event_on, event_off = 'REACH_RIGHT_ON','REACH_RIGHT_OFF'
+        # Determine event names
+        event_on, event_off = 'REACH_' + str(side) + '_ON', 'REACH_' + str(side) + '_OFF'
 
-            reach_spansDf = bhv.get_spans_from_names(TrialDf, event_on, event_off)
-            reach_durs.append(reach_spansDf['dt'].values) 
-
-        reach_durs = np.array(reach_durs, dtype=object)
-        ax = axes[i]  
-        ax.hist(reach_durs, **kwargs)
-        
-        # Most reaches are under percentile th
-        ax.axvline(np.percentile(reach_durs, percentile), alpha=0.5)
-        ax.set_title(str(chosen_side) + 'reaches')
+        # Histogram with percentile vertical line
+        reaches_spansDf = bhv.get_spans_from_names(LogDf, event_on, event_off)
+        reach_durs = np.array(reaches_spansDf['dt'].values, dtype=object) 
+        axes[i].hist(reach_durs, **kwargs, color = colors[i], label = side)
+        axes[i].axvline(np.percentile(reach_durs, percentile), color = colors[i], alpha=1)
 
     for ax in axes:
+        ax.legend(frameon=False, markerscale = 3)
         ax.set_xlabel('Time (ms)')
 
-    fig.suptitle("Histogram of reaches' duration")    
+    fig.suptitle("Histogram of reaches' duration split by side")    
+    fig.tight_layout()
 
     return axes
 
@@ -443,7 +415,7 @@ def CDF_of_reaches_during_delay(SessionDf,TrialDfs, axes = None, **kwargs):
 
     for i, trial_type in enumerate(trial_types):
 
-        TrialDfs_type =  filter_trials_by(SessionDf, TrialDfs, ('interval_category', trial_type))
+        TrialDfs_type =  filter_trials_by(SessionDf, TrialDfs, dict(interval_category=trial_type))
 
         rts = []
         for TrialDf_type in TrialDfs_type:
@@ -461,7 +433,120 @@ def CDF_of_reaches_during_delay(SessionDf,TrialDfs, axes = None, **kwargs):
         axes[i].set_xlabel('Time since 1st cue (ms)')
         axes[i].set_ylim([0,1])
 
+def outcome_split_by_interval_category(SessionDf, axes = None):
+
+    fig, axes = plt.subplots(figsize=(6, 4))
+
+    colors = dict(correct="#72E043", incorrect="#F56057", premature="#9D5DF0", missed="#F7D379")
+    bar_width = 0.35
+
+    # labels are time intervals
+    intervals = np.sort(SessionDf['this_interval'].unique())
+    labels = [str(interval) for interval in intervals]
+
+    # there are four outcome subcategories - Correct, Incorrect, Premature, Missed
+    outcomes = SessionDf['outcome'].unique()
+
+    bottom = np.zeros(len(intervals))
+    # get fraction of each outcome relative to all trials grouped by interval 
+    for outcome in outcomes:
+
+        bar_fractions = []
+        for interval in intervals:
+
+            try:
+                # number of trials per interval category
+                interval_trials = len(SessionDf.groupby('this_interval').get_group(interval))
+
+                # number of trials with outcome per interval category
+                outcome_interval_trials = len(SessionDf.groupby(['outcome','this_interval']).get_group((outcome,interval)))
+                bar_fractions.append(outcome_interval_trials/interval_trials)
+
+            except:
+                print('Zero trials for given pair: ' + str(outcome) + ',' + str(interval))
+                bar_fractions.append(0)
+
+        bar_fractions = np.array(bar_fractions)
+        axes.bar(labels, bar_fractions, bar_width, bottom=bottom, label=outcome, color=colors[outcome])
+
+        # for stacked bars
+        bottom = bottom + bar_fractions # element-wise addition
+
+    axes.legend(loc="center", frameon = False, bbox_to_anchor=(0.5, 1.1), ncol=len(colors))
+    axes.set_ylabel('Fraction of trials')
+    axes.set_ylim([0,1])
+    axes.set_xlabel('Interval categories')
+    axes.set_title('outcome split by interval category')
+
+    return axes
+
 # Uses DLC data
+
+def plot_session_aligned_to_1st_2nd(LogDf, align_event, pre, post, how='bars', axes=None):
+    "Plots trials Fig5C of Gallinares"
+
+    # TODO Align to 2nd GO CUE
+
+    if axes is None:
+        fig, axes = plt.subplots()
+
+    # Key Events and Spans
+    key_list = ['REACH_LEFT_ON', 'REACH_RIGHT_ON', 'PRESENT_CUE_STATE', 'PRESENT_INTERVAL_STATE', 'GO_CUE_SHORT_EVENT', 'GO_CUE_LONG_EVENT']
+
+    colors = sns.color_palette('hls', n_colors=len(key_list))
+    cdict = dict(zip(key_list,colors))
+
+    t_ref = bhv.get_events_from_name(LogDf, align_event).values
+
+    for i,t in enumerate(t_ref):
+
+        Df = bhv.time_slice(LogDf,t-pre,t+post,'t')
+
+        for name in cdict:
+            # plot events
+            if name.endswith("_EVENT") or name.endswith("_STATE"):
+                event_name = name
+                times = bhv.get_events_from_name(Df, name).values - t
+                
+                if how == 'dots':
+                    axes.plot(times, [i]*len(times), '.', color=cdict[event_name], alpha=0.75) # a bar
+                
+                if how == 'bars':
+                    for time in times:
+                        axes.plot([time,time],[i-0.5,i+0.5],lw=2,color=cdict[event_name], alpha=0.75) # a bar
+            
+            # plot spans
+            if name.endswith("_ON"):
+                span_name = name.split("_ON")[0]
+                on_name = span_name + '_ON'
+                off_name = span_name + '_OFF'
+
+                SpansDf = bhv.get_spans_from_names(Df, on_name, off_name)
+
+                if 'REACH' in span_name:
+                    SpansDf = SpansDf[SpansDf['dt'] > 15] # remove reaches whose length is less than 15ms
+
+                for j, row_s in SpansDf.iterrows():
+                    time = row_s['t_on'] - t
+                    dur = row_s['dt']
+                    rect = plt.Rectangle((time,i-0.5), dur, 1, facecolor=cdict[on_name], linewidth=1)
+                    axes.add_patch(rect)
+
+    for key in cdict.keys():
+        axes.plot([0],[0],color=cdict[key],label=key,lw=4)
+
+    # Formatting
+    axes.legend(loc="center", bbox_to_anchor=(0.5, -0.2), prop={'size': 6}, ncol=len(key_list)) 
+    axes.set_title('Trials aligned to ' + str(align_event))
+    plt.setp(axes, xticks=np.arange(-pre, post+1, 500), xticklabels=np.arange(-pre/1000, post/1000+0.1, 0.5))
+    axes.set_ylim([0, len(t_ref)])
+    axes.invert_yaxis() # Needs to be after set_ylim
+    axes.set_xlabel('Time (ms)')
+    axes.set_ylabel('Trial No.')
+
+    fig.tight_layout()
+
+    return axes
 
 def plot_trajectories_with_marker(LogDf, SessionDf, labelsDf, align_event, pre, post, animal_id, axes=None):
     " Plots trajectories from align event until choice with marker"

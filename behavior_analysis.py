@@ -295,8 +295,7 @@ for log_path in tqdm(log_paths):
         for j, outcome in enumerate(outcomes):
             try:
                 # Only get filter pair combination
-                filter_pair = [('choice', choice),('outcome', outcome)]
-                TrialDfs_filt = bhv.filter_trials_by(SessionDf,TrialDfs, filter_pair)
+                TrialDfs_filt = bhv.filter_trials_by(SessionDf,TrialDfs, dict(choice=choice, outcome=outcome))
             except:
                 continue
 
@@ -574,8 +573,8 @@ bin_width = 100 # ms
 plot_choice_RT_hist(SessionDf, choice_interval, bin_width)
 
 # Trajectory plots
-TrialDfs_correct = bhv.filter_trials_by(SessionDf,TrialDfs, ('outcome', 'correct'))
-TrialDfs_incorrect = bhv.filter_trials_by(SessionDf,TrialDfs, ('outcome', 'incorrect'))
+TrialDfs_correct = bhv.filter_trials_by(SessionDf,TrialDfs, dict(outcome='correct'))
+TrialDfs_incorrect = bhv.filter_trials_by(SessionDf,TrialDfs, dict(outcome='incorrect')))
 plot_mean_trajectories(LogDf, LoadCellDf, SessionDf, TrialDfs_correct, align_event, pre, post, animal_id)
 plot_mean_trajectories(LogDf, LoadCellDf, SessionDf, TrialDfs_incorrect, align_event, pre, post, animal_id)
 
@@ -793,9 +792,8 @@ for i,path in enumerate(tqdm(paths[pretraining_sess:])):
 
     metrics = (bhv.get_start, bhv.get_stop, bhv.has_choice, bhv.get_choice, bhv.choice_RT, bhv.is_successful, bhv.get_outcome, bhv.get_instructed)
     SessionDf = bhv.parse_trials(TrialDfs, metrics)
-
-    filter_pair = ('has_choice', True)
-    TrialDfs_filt = bhv.filter_trials_by(SessionDf,TrialDfs, filter_pair)
+    
+    TrialDfs_filt = bhv.filter_trials_by(SessionDf,TrialDfs, dict(has_choice=True))
 
     _,_,Fmag = bhv.get_FxFy_window_aligned_on_event(LoadCellDf, TrialDfs_filt, align_event, pre, post)
 
