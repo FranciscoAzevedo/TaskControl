@@ -8,7 +8,6 @@
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import seaborn as sns
-import cv2
 
 # Math
 import scipy as sp
@@ -285,7 +284,7 @@ fig, axes = plt.subplots(ncols=2,sharex=True, figsize=(6,3))
 
 linspace = np.linspace(-window, window, 2*window).T
 
-X,Y = get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs, align_event, window, window) 
+X,Y = bhv_plt_reach.get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs, align_event, window, window) 
 
 # Average traces
 X_mean = np.mean(X, axis = 1)
@@ -378,7 +377,7 @@ align_event = 'TRIAL_AVAILABLE_EVENT'
 fig, axes = plt.subplots(ncols=2, figsize=(6,3))
 
 # Putative initiations obtained through LC and thresholding
-X,Y = get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs, align_event, pre, post)
+X,Y = bhv_plt_reach.get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs, align_event, pre, post)
 
 # Threshold needs to be crossed on both
 X_tresh_idx = X < -tresh
@@ -529,7 +528,7 @@ for log_path in tqdm(log_paths[-2:]):
     for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
         TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
 
-    metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_outcome, met.get_chosen_side, has_reach_left, has_reach_right)
+    metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_outcome, met.get_chosen_side, met.has_reach_left, met.has_reach_right)
     SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
     left_trials_idx = SessionDf['correct_side'] == 'left'
@@ -597,7 +596,7 @@ for j,log_path in enumerate(log_paths[-2:]):
     LogDf = bhv.get_LogDf_from_path(log_path)
 
     # ADD SINGLE GO_CUE_EVENT
-    LogDf = add_go_cue_LogDf(LogDf)
+    LogDf = bhv_plt_reach.add_go_cue_LogDf(LogDf)
 
     folder_name = os.path.basename(path)
 
@@ -607,7 +606,7 @@ for j,log_path in enumerate(log_paths[-2:]):
     for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
         TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
 
-    metrics = (get_start, get_stop, get_correct_side, get_outcome, get_interval_category, get_chosen_side, has_reach_left, has_reach_right)
+    metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_outcome, met.get_interval_category, met.get_chosen_side, met.has_reach_left, met.has_reach_right)
     SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
     bhv_plt_reach.CDF_of_reaches_during_delay(SessionDf,TrialDfs, axes = axes, color=colors[j], alpha=0.75, label='day '+str(j))
@@ -692,9 +691,9 @@ for color_no, path in enumerate(paths):
 
         go_cue = 'GO_CUE_' + side.upper() + '_EVENT'
 
-        TrialDfs_filt = filter_trials_by(SessionDf, TrialDfs, dict(correct_side=side))
+        TrialDfs_filt = bhv_plt_reach.filter_trials_by(SessionDf, TrialDfs, dict(correct_side=side))
 
-        X,Y = get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs_filt, go_cue, window, window) 
+        X,Y = bhv_plt_reach.get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs_filt, go_cue, window, window) 
 
         linspace = np.linspace(-window, window, 2*window).T
 

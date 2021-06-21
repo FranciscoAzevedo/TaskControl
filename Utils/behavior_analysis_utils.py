@@ -9,6 +9,8 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 from matplotlib.collections import LineCollection
 
+from Utils import behavior_analysis_utils as bhv
+
 """
  
  ########     ###    ########   ######  ######## ########  

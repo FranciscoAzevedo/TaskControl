@@ -906,3 +906,56 @@ def get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs, align_event, pre, post):
     Y = np.array(Y).T
 
     return X,Y
+
+def get_dist_aligned_on_event(DlcDf, TrialDfs, align_event, pre, post, func, f_arg1, f_arg2):
+    """
+        Returns dist for func and args for all trials aligned to an event in a window defined by [align-pre, align+post]
+        NOTE: we are returning NP nd.arrays so we use advanced slicing, meaning [row, col] instead of [row][col]
+    """
+
+    dist = []
+    
+    for TrialDf in TrialDfs:
+        # Get time point of align_event
+        t_align = TrialDf.loc[TrialDf['name'] == align_event, 't'].values[0]
+
+        # Slice DlcDf and compute distance according to input func and args
+        Dlc_TrialDf = bhv.time_slice(DlcDf, t_align-pre, t_align+post)
+        dist.append(func(Dlc_TrialDf,f_arg1, f_arg2, filter=True))
+
+    # Fix the fact that some arrays have different lengths (due to frame rate fluctuations)
+    dist = truncate_pad_vector(dist)
+
+    return dist
+
+def get_dist_between_events(DlcDf, TrialDfs, first_event, second_event, func, f_arg1, f_arg2, pad_with = None):
+    """
+        Returns Fx/Fy/Fmag NUMPY ND.ARRAY with dimensions (trials, max_array_len) for all trials 
+        NOTE: we are returning NP nd.arrays so we use advanced slicing, meaning [row, col] instead of [row][col]
+
+        func anf f_arg1/2 are names for a more general implementation yet to test where one can get any function 
+        between two events (does not have to be distance despite the function name)
+    """
+
+    dist = []
+    for i, TrialDf in enumerate(TrialDfs):
+        if not TrialDf.empty:
+
+            if first_event == 'first': # From start of trial
+                time_1st = float(TrialDf['t'].iloc[0])
+            else:
+                time_1st = float(TrialDf[TrialDf.name == first_event]['t'])
+
+            if second_event == 'last': # Until end of trial
+                time_2nd = float(TrialDf['t'].iloc[-1])
+            else:
+                time_2nd = float(TrialDf[TrialDf.name == second_event]['t'])
+
+            # Slice DlcDf and compute distance according to input func and args
+            Dlc_TrialDf = bhv.time_slice(DlcDf, time_1st, time_2nd)
+            dist.append(func(Dlc_TrialDf,f_arg1, f_arg2, filter=True))
+
+    # Make sure we have numpy arrays with same length, pad/truncate with given input pad_with
+    dist = bhv.truncate_pad_vector(dist, pad_with)
+
+    return dist
