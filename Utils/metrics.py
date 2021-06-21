@@ -181,7 +181,7 @@ def has_reach_right(TrialDf):
 def choice_rt_left(TrialDf):
     var_name = 'choice_rt_left'
 
-    if get_chosen_side(TrialDf).values == 'left':
+    if get_chosen_side(TrialDf).values[0] == 'left':
         var = get_choice_rt(TrialDf)
     else:
         var = np.NaN
@@ -191,7 +191,7 @@ def choice_rt_left(TrialDf):
 def choice_rt_right(TrialDf):
     var_name = 'choice_rt_right'
 
-    if get_chosen_side(TrialDf).values == 'right':
+    if get_chosen_side(TrialDf).values[0] == 'right':
         var = get_choice_rt(TrialDf)
     else:
         var = np.NaN

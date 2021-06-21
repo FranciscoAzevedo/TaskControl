@@ -7,6 +7,7 @@ import cv2
 import seaborn as sns
 from pathlib import Path
 from Utils import behavior_analysis_utils as bhv
+from Utils import metrics
 from copy import copy
 
 """
@@ -242,4 +243,3 @@ def get_speed(DlcDf, bp, p=0.99, filter=False):
     else:
         V[~good_ix] = sp.nan
         return V
-

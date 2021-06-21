@@ -10,5 +10,9 @@ old
 Animals
 configs/config.ini
 *.bonsai.layout
+<<<<<<< refs/remotes/TaskControl_Georg/master
 *src/interface.cpp
 TaskControl.py
+=======
+TaskControl-requirements.yml
+>>>>>>> Getting stuff to work after windows->Ubuntu transitionn
