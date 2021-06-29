@@ -198,7 +198,7 @@ def choice_rt_right(TrialDf):
 
     return pd.Series(var, name=var_name)
 
-def get_delay_rt(TrialDf):
+def delay_rt(TrialDf):
     " First reach RT during only the DELAY period, agnostic of chosen side or arm"
     var_name = 'delay_rt'
 
@@ -217,6 +217,22 @@ def get_delay_rt(TrialDf):
         
     return pd.Series(var, name=var_name)
 
+def get_reach_type(DLCDf,TrialDf):
+    " Classifies type of reach (contra,ipsi,double) and to each side"
+    var_name = 'reach_type'
+    var = []
+
+    #if has_reach_left(TrialDf):
+        # Check for ipsi vs contra
+
+        # Double case
+
+    #if has_reach_right(TrialDf):
+        # Check for ipsi vs contra
+
+        # Double case
+
+    return pd.Series(var, name=var_name)
 
 
 """

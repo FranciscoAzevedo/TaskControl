@@ -824,7 +824,6 @@ def plot_sessions_overview(LogDfs, paths, task_name, animal_id, axes = None):
     return axes
 
 
-
 """
  #     # ###  #####   #####
  ##   ##  #  #     # #     #

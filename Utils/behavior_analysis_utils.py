@@ -612,6 +612,7 @@ def tolerant_mean(arrs):
     #     A[:arr.shape[0],i] = arr
     # return np.nanmean(A,axis=0)
 
-    arrs=[np.pad(arr, (0, max_length-arr.shape[0]), mode='constant', constant_values=np.nan) for arr in arrs] # pad every array until max_length to obtain square matrix
+    # pad every array until max_length to obtain square matrix
+    arrs=[np.pad(arr, (0, max_length-arr.shape[0]), mode='constant', constant_values=np.nan) for arr in arrs] 
 
     return np.nanmean(arrs, axis = 0)

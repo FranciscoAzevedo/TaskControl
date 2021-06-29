@@ -49,45 +49,46 @@ plt.rcParams['figure.dpi'] = 166
 
 """
 
-# DeepLabCut data
-h5_path = utils.get_file_dialog()
+fd_path = utils.get_folder_dialog(initial_dir="/media/storage/shared-paton/georg/Animals_reaching/")
+
+## DeepLabCut data
+#h5_path = utils.get_file_dialog()
 #DlcDf = read_dlc_h5(h5_path)
 #bodyparts = sp.unique([j[0] for j in DlcDf.columns[1:]]) # all body parts
 
-# Video
-path = h5_path.parent
-#video_path = path / "bonsai_video.avi"
+## Video data
+#video_path = fd_path / "bonsai_video.avi"
 #Vid = read_video(str(video_path))
 
-# Logs
-log_path = path / 'arduino_log.txt'
+# Arduino data
+log_path = fd_path / 'arduino_log.txt'
 LogDf = bhv.get_LogDf_from_path(log_path)
 
 # LoadCell data
-LoadCellDf, t_harp = bhv.parse_bonsai_LoadCellData(path / "bonsai_LoadCellData.csv",trig_len=100, ttol=50)
+LoadCellDf = bhv.parse_bonsai_LoadCellData(fd_path / 'bonsai_LoadCellData.csv')
 
 # Moving average mean subtraction
 samples = 1000 # ms
 LoadCellDf['x'] = LoadCellDf['x'] - LoadCellDf['x'].rolling(samples).mean()
 LoadCellDf['y'] = LoadCellDf['y'] - LoadCellDf['y'].rolling(samples).mean()
 
-#  Synching 
-#video_sync_path = video_path.parent / 'bonsai_frame_stamps.csv'
-#m, b, m2, b2 = sync_arduino_w_dlc(log_path, video_sync_path)
+# %%  Synching 
 
-# writing arduino times of frames to the Dlc data
-#DlcDf['t'] = frame2time(DlcDf.index,m,b,m2,b2)
+from Utils import sync
+#cam_sync_event = sync.parse_cam_sync(fd_path / 'bonsai_frame_stamps.csv')
+lc_sync_event = sync.parse_harp_sync(fd_path / 'bonsai_harp_sync.csv')
+arduino_sync_event = sync.get_arduino_sync(fd_path / 'arduino_log.txt')
 
-# Synching arduino 
-arduino_sync = bhv.get_arduino_sync(log_path, sync_event_name="TRIAL_ENTRY_EVENT")
-t_harp = t_harp['t'].values
-t_arduino = arduino_sync['t'].values
+Sync = sync.Syncer()
+Sync.data['arduino'] = arduino_sync_event['t'].values
+Sync.data['loadcell'] = lc_sync_event['t'].values
+#Sync.data['dlc'] = cam_sync_event.index.values # the frames are the DLC
+#Sync.data['cam'] = cam_sync_event['t'].values # used for what?
+Sync.sync('arduino','loadcell')
 
-if t_harp.shape != t_arduino.shape:
-    t_arduino, t_harp = bhv.cut_timestamps(t_arduino, t_harp, verbose = True)
+#DlcDf['t'] = Sync.convert(DlcDf.index.values, 'dlc', 'arduino')
 
-m3, b3 = bhv.sync_clocks(t_harp, t_arduino, log_path = log_path)
-LogDf = pd.read_csv(path / "LogDf.csv") # re-load the LogDf (to make sure we keep the original arduino clock)
+# %% SessionDf and Go Cue
 
 # ADD SINGLE GO_CUE_EVENT
 LogDf = bhv.add_go_cue_LogDf(LogDf)
