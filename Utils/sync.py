@@ -29,15 +29,43 @@ class Syncer(object):
         self.graph = {}
 
     def check(self, A, B):
-        """ check consistency of all clock pulses """
-        if self.data[A].shape[0] != self.data[B].shape[0]:
-            print("can't sync %s and %s: unequal size" % (A,B))
-            # implement checks and fixes here
-            # attempt to fix
-            # if fix returns false
-            # if true
+        """ check consistency of all clock pulses and if possible fixes them """
+
+        if self.data[A].shape[0] == 0:
+            print(str(A) + " is an empty array - has no clock pulses")
             return False
-        return True
+
+        elif self.data[B].shape[0] == 0:
+            print(str(B) + "is an empty array - has no clock pulses")
+            return False
+
+        elif self.data[A].shape[0] != self.data[B].shape[0]:
+
+            # Decide which is the reference to cut to
+            if A.shape[0] > B.shape[0]:
+                bigger = 'A'
+                t_bigger = self.data[A]
+                t_smaller = self.data[B]
+            else:
+                bigger = 'B'
+                t_bigger = self.data[B]
+                t_smaller = self.data[A]
+
+            # Compute the difference
+            offset = np.argmax(np.correlate(np.diff(t_bigger), np.diff(t_smaller), mode='valid'))
+            print("Offset between the two clocks: ", offset)
+
+            # Cut the initial timestamps from the argument with more clock pulses
+            t_bigger = t_bigger[offset:t_smaller.shape[0]+offset]
+
+            if bigger == 'A':
+                self.data[A] = t_bigger
+                self.data[B] = t_smaller
+            else:
+                self.data[B] = t_bigger
+                self.data[A] = t_smaller
+            
+            return True
 
     def sync(self, A, B, check=True, symmetric=True):
         """ linreg sync of A to B """
