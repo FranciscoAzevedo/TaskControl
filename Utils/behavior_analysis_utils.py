@@ -33,13 +33,7 @@ def get_LogDf_from_path(log_path):
     CodesDf = utils.parse_code_map(code_map_path)
     code_map = dict(zip(CodesDf['code'], CodesDf['name']))
 
-
     LogDf = parse_arduino_log(log_path, code_map)
-    # try:
-    #     LogDf = parse_arduino_log(log_path, code_map)
-    # except ValueError:
-    #     # Dealing with the earlier LogDfs not having X_tresh/Current_zone etc.
-    #     LogDf = parse_arduino_log(log_path, code_map, parse_var=False)
 
     return LogDf
 
@@ -65,7 +59,7 @@ def parse_arduino_log(log_path, code_map=None, parse_var=True):
             invalid_lines.append(line)
             print(len(invalid_lines))
 
-    return parse_lines(lines, code_map=code_map, parse_var=parse_var)
+    return parse_lines(valid_lines, code_map=code_map, parse_var=parse_var)
 
 # TODO merge this one with the CAM reader one
 def correct_wraparound(Df, col='t'):

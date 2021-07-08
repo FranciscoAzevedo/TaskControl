@@ -657,8 +657,8 @@ def plot_timing_overview(LogDf, TrialDfs, axes=None):
         # Store information
         interval.append(int(bhv.get_interval(TrialDf)))
 
-        choice_time_left = choice_rt_left(TrialDf)
-        choice_time_right = choice_rt_right(TrialDf)
+        choice_time_left = reach_rt_left(TrialDf)
+        choice_time_right = reach_rt_right(TrialDf)
 
         choice_RT.append(float(np.min([choice_time_left,choice_time_right])))
 
