@@ -101,15 +101,16 @@ for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
     TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
 
 metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_interval_category, met.get_outcome, 
-            met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop, met.choice_rt_left, 
-            met.choice_rt_right, met.has_choice, met.get_interval, met.get_timing_trial, met.get_choice_rt)
+            met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop, met.reach_rt_left, 
+            met.reach_rt_right, met.has_choice, met.get_interval, met.get_timing_trial, met.get_choice_rt,
+            met.get_reached_side)
 
 SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
 # expand outcomes in boolean columns
 outcomes = SessionDf['outcome'].unique()
 for outcome in outcomes:
-    SessionDf['is_'+outcome] = SessionDf['outcome'] == outcome
+   SessionDf['is_'+outcome] = SessionDf['outcome'] == outcome
 
 # setup general filter
 SessionDf['exclude'] = False
@@ -155,6 +156,28 @@ for align_event,axis in zip(align_events,axes):
 fig.tight_layout()
 plt.savefig(plot_dir / ('hist_of_reaches_aligned_to_valve_opening.png'), dpi=600)
 
+# %% In how many trials do they miss because they have reaches with insufficient duration?
+# Doesnt desambiguate which reach it was, just that there was a reach that was shorter than needed
+
+missedDf = SessionDf[SessionDf['outcome'] == 'missed']
+
+# Not considering when they try both sides!
+correct_attemptsDf = missedDf[missedDf['correct_side'] == missedDf['reached_side']]
+
+# Considering they try to both
+both_side_attemptsDf = missedDf[missedDf['reached_side'] == 'both']
+
+# How many MISSED trials there are attempts below duration threshold
+corr_attempts_perc = round(len(correct_attemptsDf)/len(missedDf)*100,2)
+
+# Or attempts to both sides
+both_side_perc = round(len(both_side_attemptsDf)/len(missedDf)*100,2)
+
+print('There were ' + str(corr_attempts_perc)+ '% (putatively correct) trials with reach durations below threshold')
+print('And ' + str(both_side_perc) + '% with reaches for both sides')
+
+# %%
+
 """
  #       #######    #    ######  #     #    ####### #######     #####  #     # ####### #######  #####  #######
  #       #         # #   #     # ##    #       #    #     #    #     # #     # #     # #     # #     # #
@@ -173,19 +196,14 @@ bin_width = 100 # ms
 bhv_plt_reach.plot_choice_RT_hist(SessionDf, choice_interval, bin_width)
 plt.savefig(plot_dir / ('choice_RTs.png'), dpi=600)
 
-# %% Reaching CDF's for short and long trials (useful before learn to fixate)
-bhv_plt_reach.CDF_of_reaches_during_delay(SessionDf,TrialDfs)
-fig.suptitle('CDF of first reach split on trial type')
-plt.savefig(plot_dir / ('CDF_of_reaches_during_delay.png'), dpi=600)
-
 # %% Grasp duration distro split by outcome and choice
-bin_width = 10 # ms
-max_reach_dur = 500 # ms
+bin_width = 5 # ms
+max_reach_dur = 100 # ms
 
-percentile = 75 #th 
+perc = 25 #th 
 
-bhv_plt_reach.plot_reach_duration_distro(LogDf, bin_width, max_reach_dur, percentile)
-plt.savefig(plot_dir / ('hist_duration_of_reaches.png'), dpi=600)
+bhv_plt_reach.plot_reach_duration_distro(LogDf, bin_width, max_reach_dur, perc)
+plt.savefig(plot_dir / ('hist_duration_of_reaches_' + str(perc) + '_percentile.png'), dpi=600)
 
 # %% Are they using a sampling strategy? 
 fig, axes = plt.subplots(figsize=(3, 4))
@@ -193,37 +211,24 @@ fig, axes = plt.subplots(figsize=(3, 4))
 missesDf_idx = SessionDf['outcome'] == 'missed'
 choiceDf = SessionDf[~missesDf_idx] # drop rows with missed trials
 
-sides = ['left', 'right']
+# What is the prob if going left after going right?
+has_right_reach_Df = choiceDf[choiceDf['has_reach_right'] == True]
+lefts_after_right_df = (has_right_reach_Df['reach_rt_right'] < has_right_reach_Df['reach_rt_left'])
+perc_l_after_r = lefts_after_right_df.sum()/len(lefts_after_right_df)*100
 
-perc_r_after_l, perc_l_after_r = [],[]
-for i, side in enumerate(sides):
+# And the inverse here
+has_left_reach_Df = choiceDf[choiceDf['has_reach_left'] == True]
+rights_after_left_df = (has_left_reach_Df['reach_rt_left'] < has_left_reach_Df['reach_rt_right'])
+perc_r_after_l = rights_after_left_df.sum()/len(rights_after_left_df)*100
 
-    chosen_sideDf = choiceDf[choiceDf['chosen_side'] == side]
-
-    has_left_reach_Df = chosen_sideDf[chosen_sideDf['has_reach_left'] == True]
-    has_right_reach_Df = chosen_sideDf[chosen_sideDf['has_reach_right'] == True]
-
-    # What is the prob of going right after going left?
-    rights_after_left_df = (has_left_reach_Df['choice_rt_left'] < has_left_reach_Df['choice_rt_right'])
-    perc_r_after_l.append(sum(rights_after_left_df)/len(rights_after_left_df)*100)
-
-    # What is the prob if going left after going right?
-    lefts_after_right_df = (has_right_reach_Df['choice_rt_right'] < has_right_reach_Df['choice_rt_left'])
-    perc_l_after_r.append(sum(lefts_after_right_df)/len(lefts_after_right_df)*100)
-
-labels = ['left trials', 'right trials']
-x = np.arange(len(labels))  # the label locations
-width = 0.25  # the width of the bars
+labels = ['R after L', 'L after R']
 
 # Plotting groups
-rects1 = axes.bar(x - width/2, perc_r_after_l, width, label='R after L')
-rects2 = axes.bar(x + width/2, perc_l_after_r, width, label='L after R')
+axes.bar(labels, [perc_r_after_l,perc_l_after_r])
 
 axes.set_title('Prob of going X after Y')
 axes.set_ylabel('Prob. (%)')
 axes.set_ylim([0,75])
-axes.set_xticks(x)
-axes.set_xticklabels(labels)
 axes.legend(loc='upper left', frameon=False) 
 
 fig.tight_layout()
@@ -242,16 +247,10 @@ plt.savefig(plot_dir / ('prob_X_after_Y.png'), dpi=600)
 
 """
 
-# %% Session overview
-pre,post = 500,4000
-align_event = 'PRESENT_INTERVAL_STATE'
-
-bhv_plt_reach.plot_session_aligned_to_1st_2nd(LogDf, align_event, pre, post)
-plt.savefig(plot_dir / ('session_overview_aligned_on_' + str(align_event) + '.png'), dpi=600)
-
-# %% outcome_split_by_interval_category
-bhv_plt_reach.outcome_split_by_interval_category(SessionDf)
-plt.savefig(plot_dir / ('outcome_split_by_interval_category.png'), dpi=600)
+# %% Reaching CDF's for short and long trials (useful before learn to fixate)
+bhv_plt_reach.CDF_of_reaches_during_delay(SessionDf,TrialDfs)
+fig.suptitle('CDF of first reach split on trial type')
+plt.savefig(plot_dir / ('CDF_of_reaches_during_delay.png'), dpi=600)
 
 # %% Trials initiated moving average within session
 window_sizes = [5,10] # min
@@ -360,13 +359,6 @@ ax_histy.set_xlim([0,0.75])
 ax.set_title('Number attempts before trial init')
 plt.savefig(plot_dir / ('attempts_before_init.png'), dpi=600)
 
-# # Sanity check
-# fig, axes = plt.subplots(ncols=2,sharex=True)
-# axes[0].plot(X)
-# axes[0].plot(X_peaks, X[X_peaks], marker="o",ls="")
-# axes[1].plot(Y)
-# axes[1].plot(Y_peaks, Y[Y_peaks], marker="o",ls="")
-
 # %% Trial initiation distro
 max_range = 10000 # ms, for actual inits
 bin_width = 500 # ms for actual inits
@@ -420,7 +412,7 @@ plt.savefig(plot_dir / ('trial_init_distro.png'), dpi=600)
 
 """
 # %% Session overview aligned to 1st and 2nd
-pre,post = 500,4000
+pre,post = 500,3000
 align_event = 'PRESENT_INTERVAL_STATE'
 
 bhv_plt_reach.plot_session_aligned_to_1st_2nd(LogDf, align_event, pre, post)
@@ -463,7 +455,7 @@ plt.savefig(plot_dir / ('pseudo_psychometric_timing.png'), dpi=600)
 """
 
 # %% Obtain log_paths and plot dirs
-animal_fd_path = utils.get_folder_dialog()
+animal_fd_path = utils.get_folder_dialog(initial_dir="/media/storage/shared-paton/georg/Animals_reaching/")
 across_session_plot_dir = animal_fd_path / 'plots'
 animal_meta = pd.read_csv(animal_fd_path / 'animal_meta.csv')
 nickname = animal_meta[animal_meta['name'] == 'Nickname']['value'].values[0]
@@ -503,7 +495,7 @@ plt.savefig(across_session_plot_dir / ('weight_across_sessions.png'), dpi=600)
 SessionsDf = utils.get_sessions(animal_fd_path)
 
 # Filter sessions to the ones of the task we want to see
-task_name = ['learn_to_choose']
+task_name = ['learn_to_reach','learn_to_choose']
 FilteredSessionsDf = pd.concat([SessionsDf.groupby('task').get_group(name) for name in task_name])
 log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']]
 
@@ -511,7 +503,7 @@ log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']
 perc_reach_right, perc_reach_left, perc_correct, perc_missed, perc_pre = [],[],[],[],[]
 date,tpm,session_length = [],[],[] # Trials Per Minute (tpm)
 
-for log_path in tqdm(log_paths[-2:]):
+for log_path in tqdm(log_paths[-5:]):
     
     path = log_path.parent 
     LogDf = bhv.get_LogDf_from_path(log_path)
@@ -566,7 +558,7 @@ axes.legend(loc="center", frameon=False, bbox_to_anchor=(0.5, 1.05), prop={'size
 plt.setp(axes, xticks=np.arange(0, len(date), 1), xticklabels=date)
 plt.setp(axes, yticks=np.arange(0, 100+1, 10), yticklabels=np.arange(0, 100+1, 10))
 plt.xticks(rotation=45)
-plt.savefig(across_session_plot_dir / ('overview_across_sessions.png'), dpi=600)
+plt.savefig(across_session_plot_dir / ('overview_across_sessions' + [str(task) for task in task_name]+ '.png'), dpi=600)
 
 # %% Trials per minute
 fig , axes = plt.subplots()

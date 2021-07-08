@@ -33,13 +33,7 @@ def get_LogDf_from_path(log_path, return_check=False):
     CodesDf = utils.parse_code_map(code_map_path)
     code_map = dict(zip(CodesDf['code'], CodesDf['name']))
 
-
-    LogDf = parse_arduino_log(log_path, code_map, return_check=return_check)
-    # try:
-    #     LogDf = parse_arduino_log(log_path, code_map)
-    # except ValueError:
-    #     # Dealing with the earlier LogDfs not having X_tresh/Current_zone etc.
-    #     LogDf = parse_arduino_log(log_path, code_map, parse_var=False)
+    LogDf = parse_arduino_log(log_path, code_map)
 
     return LogDf
 
@@ -65,10 +59,7 @@ def parse_arduino_log(log_path, code_map=None, parse_var=True, return_check=Fals
             invalid_lines.append(line)
             utils.printer("bad line in log: %i: %s" % (i, line),"error")
 
-    if len(invalid_lines) == 0:
-        all_good = True
-    else:
-        all_good = False
+    return parse_lines(valid_lines, code_map=code_map, parse_var=parse_var)
 
     if return_check == True:
         if all_good == True:

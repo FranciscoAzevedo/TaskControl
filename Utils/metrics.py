@@ -178,22 +178,40 @@ def has_reach_right(TrialDf):
  
     return pd.Series(var, name=var_name)
 
-def choice_rt_left(TrialDf):
-    var_name = 'choice_rt_left'
+def get_reached_side(TrialDf):
+    var_name = 'reached_side'
 
-    if get_chosen_side(TrialDf).values[0] == 'left':
-        var = get_choice_rt(TrialDf)
+    if has_reach_left(TrialDf)[0] and has_reach_right(TrialDf)[0]:
+        var = 'both'
+    elif has_reach_left(TrialDf)[0]:
+        var = 'left'
+    elif has_reach_right(TrialDf)[0]:
+        var = 'right'
     else:
         var = np.NaN
 
     return pd.Series(var, name=var_name)
 
-def choice_rt_right(TrialDf):
-    var_name = 'choice_rt_right'
+def reach_rt_left(TrialDf):
+    " only makes sense to use if mistakes are allowed "
+    var_name = 'reach_rt_left'
 
-    if get_chosen_side(TrialDf).values[0] == 'right':
-        var = get_choice_rt(TrialDf)
-    else:
+    try:
+        Df = bhv.event_slice(TrialDf, "CHOICE_STATE", "REACH_LEFT_ON")
+        var = Df.iloc[-1]['t'] - Df.iloc[0]['t']
+    except:
+        var = np.NaN
+
+    return pd.Series(var, name=var_name)
+
+def reach_rt_right(TrialDf):
+    " only makes sense to use if mistakes are allowed "
+    var_name = 'reach_rt_right'
+
+    try:
+        Df = bhv.event_slice(TrialDf, "CHOICE_STATE", "REACH_RIGHT_ON")
+        var = Df.iloc[-1]['t'] - Df.iloc[0]['t']
+    except:
         var = np.NaN
 
     return pd.Series(var, name=var_name)
@@ -224,6 +242,7 @@ def get_reach_type(DLCDf,TrialDf):
 
     #if has_reach_left(TrialDf):
         # Check for ipsi vs contra
+        
 
         # Double case
 

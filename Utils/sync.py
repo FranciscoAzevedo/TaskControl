@@ -139,7 +139,7 @@ def get_arduino_sync(log_path, sync_event_name="TRIAL_ENTRY_EVENT"):
     SyncDf = bhv.get_events_from_name(LogDf, sync_event_name)
     return SyncDf
 
-def parse_harp_sync(csv_path, trig_len=1, ttol=0.2):
+def parse_harp_sync(csv_path, trig_len=100, ttol=2):
     harp_sync = pd.read_csv(csv_path, names=['t']).values.flatten()
     t_sync_high = harp_sync[::2]
     t_sync_low = harp_sync[1::2]
