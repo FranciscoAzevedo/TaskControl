@@ -42,7 +42,7 @@ class Syncer(object):
         elif self.data[A].shape[0] != self.data[B].shape[0]:
 
             # Decide which is the reference to cut to
-            if A.shape[0] > B.shape[0]:
+            if self.data[A].shape[0] > self.data[B].shape[0]:
                 bigger = 'A'
                 t_bigger = self.data[A]
                 t_smaller = self.data[B]

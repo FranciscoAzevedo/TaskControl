@@ -107,7 +107,9 @@ metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_interval_c
 
 SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
-# expand outcomes in boolean columns
+# expand outcomes in boolean columns and fixing jackpot rewards
+SessionDf.loc[pd.isna(SessionDf['outcome']),['outcome']] = 'jackpot'
+
 outcomes = SessionDf['outcome'].unique()
 for outcome in outcomes:
    SessionDf['is_'+outcome] = SessionDf['outcome'] == outcome
@@ -167,7 +169,7 @@ correct_attemptsDf = missedDf[missedDf['correct_side'] == missedDf['reached_side
 # Considering they try to both
 both_side_attemptsDf = missedDf[missedDf['reached_side'] == 'both']
 
-# How many MISSED trials there are attempts below duration threshold
+# In how many MISSED trials are there attempts below duration threshold
 corr_attempts_perc = round(len(correct_attemptsDf)/len(missedDf)*100,2)
 
 # Or attempts to both sides
@@ -202,8 +204,8 @@ max_reach_dur = 100 # ms
 
 perc = 25 #th 
 
-bhv_plt_reach.plot_reach_duration_distro(LogDf, bin_width, max_reach_dur, perc)
-plt.savefig(plot_dir / ('hist_duration_of_reaches_' + str(perc) + '_percentile.png'), dpi=600)
+bhv_plt_reach.plot_grasp_duration_distro(LogDf, bin_width, max_reach_dur, perc)
+plt.savefig(plot_dir / ('hist_grasp_dur_' + str(perc) + '_percentile.png'), dpi=600)
 
 # %% Are they using a sampling strategy? 
 fig, axes = plt.subplots(figsize=(3, 4))
@@ -493,9 +495,9 @@ plt.savefig(across_session_plot_dir / ('weight_across_sessions.png'), dpi=600)
 
 # %% Evolution of trial outcome 
 SessionsDf = utils.get_sessions(animal_fd_path)
-
+    
 # Filter sessions to the ones of the task we want to see
-task_name = ['learn_to_reach','learn_to_choose']
+task_name = ['learn_to_choose']
 FilteredSessionsDf = pd.concat([SessionsDf.groupby('task').get_group(name) for name in task_name])
 log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']]
 
@@ -503,7 +505,7 @@ log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']
 perc_reach_right, perc_reach_left, perc_correct, perc_missed, perc_pre = [],[],[],[],[]
 date,tpm,session_length = [],[],[] # Trials Per Minute (tpm)
 
-for log_path in tqdm(log_paths[-5:]):
+for log_path in tqdm(log_paths):
     
     path = log_path.parent 
     LogDf = bhv.get_LogDf_from_path(log_path)
@@ -530,10 +532,10 @@ for log_path in tqdm(log_paths[-5:]):
     any_reach = SessionDf.has_reach_left | SessionDf.has_reach_right
 
     # Two metrics of evolution
-    perc_reach_left.append(sum(any_reach[left_trials_idx])/len(SessionDf[left_trials_idx])*100) 
-    perc_reach_right.append(sum(any_reach[right_trials_idx])/len(SessionDf[right_trials_idx])*100)
-    perc_correct.append(sum(SessionDf.outcome == 'correct')/len(SessionDf)*100)
-    perc_missed.append(sum(SessionDf.outcome == 'missed')/len(SessionDf)*100)
+    perc_reach_left.append(any_reach[left_trials_idx].sum()/len(SessionDf[left_trials_idx])*100) 
+    perc_reach_right.append(any_reach[right_trials_idx].sum()/len(SessionDf[right_trials_idx])*100)
+    perc_correct.append((SessionDf.outcome == 'correct').sum()/len(SessionDf)*100)
+    perc_missed.append((SessionDf.outcome == 'missed').sum()/len(SessionDf)*100)
 
     if len(SessionDf[SessionDf.outcome == 'premature']) != 0:
         perc_pre.append(sum(SessionDf.outcome == 'premature')/len(SessionDf)*100)
@@ -558,7 +560,7 @@ axes.legend(loc="center", frameon=False, bbox_to_anchor=(0.5, 1.05), prop={'size
 plt.setp(axes, xticks=np.arange(0, len(date), 1), xticklabels=date)
 plt.setp(axes, yticks=np.arange(0, 100+1, 10), yticklabels=np.arange(0, 100+1, 10))
 plt.xticks(rotation=45)
-plt.savefig(across_session_plot_dir / ('overview_across_sessions' + [str(task) for task in task_name]+ '.png'), dpi=600)
+plt.savefig(across_session_plot_dir / ('overview_across_sessions' + str(task_name)+ '.png'), dpi=600)
 
 # %% Trials per minute
 fig , axes = plt.subplots()
@@ -583,7 +585,7 @@ log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']
 fig, axes = plt.subplots(ncols=2, figsize=[6, 3], sharey=True, sharex=True)
 colors = sns.color_palette(palette='turbo',n_colors=len(log_paths))
 
-for j,log_path in enumerate(log_paths[-2:]):
+for j,log_path in enumerate(log_paths):
     
     path = log_path.parent 
     LogDf = bhv.get_LogDf_from_path(log_path)
