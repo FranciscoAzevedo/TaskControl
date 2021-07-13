@@ -16,6 +16,7 @@ import os
 # Custom
 from Utils import behavior_analysis_utils as bhv
 from Utils import dlc_analysis_utils
+from Utils import metrics as met
 
 """
   #####  #######  #####   #####  ### ####### #     #
@@ -36,7 +37,8 @@ def plot_session_overview(SessionDf, axes=None):
             correct="#72E043", 
             incorrect="#F56057", 
             premature="#9D5DF0", 
-            missed="#F7D379")
+            missed="#F7D379",
+            jackpot='#FFC0CB')
     
     if axes is None:
         fig, axes = plt.subplots()
@@ -374,7 +376,7 @@ def plot_psychometric(SessionDf, N=1000, axes=None, discrete=False):
 
     return axes
 
-def plot_reach_duration_distro(LogDf, bin_width, max_reach_dur, percentile):
+def plot_grasp_duration_distro(LogDf, bin_width, max_reach_dur, percentile):
     " Plots the distribution of reach durations split by chosen side and outcome"
 
     sides = ['LEFT', 'RIGHT']
@@ -382,7 +384,7 @@ def plot_reach_duration_distro(LogDf, bin_width, max_reach_dur, percentile):
     no_bins = round(max_reach_dur/bin_width)
     kwargs = dict(bins = no_bins, range = (0, max_reach_dur), alpha=0.5, edgecolor='none')
 
-    fig, axes = plt.subplots(ncols=len(sides), figsize=[4, 3], sharex=True, sharey=True)
+    fig, axes = plt.subplots(ncols=len(sides), figsize=[6, 3], sharex=True, sharey=True)
 
     colors = sns.color_palette('hls', n_colors=len(sides))
 
@@ -401,7 +403,7 @@ def plot_reach_duration_distro(LogDf, bin_width, max_reach_dur, percentile):
         ax.legend(frameon=False, markerscale = 3)
         ax.set_xlabel('Time (ms)')
 
-    fig.suptitle("Histogram of reaches' duration split by side")    
+    fig.suptitle("Histogram of ALL grasps' duration split by side")    
     fig.tight_layout()
 
     return axes
@@ -419,7 +421,7 @@ def CDF_of_reaches_during_delay(SessionDf,TrialDfs, axes = None, **kwargs):
 
         rts = []
         for TrialDf_type in TrialDfs_type:
-            rts.append(get_delay_rt(TrialDf_type))
+            rts.append(met.get_delay_rt(TrialDf_type))
 
         rts = np.array(rts)
         count, bins_count = np.histogram(rts[~np.isnan(rts)], bins = 50)
