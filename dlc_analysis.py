@@ -21,9 +21,9 @@ from tqdm import tqdm
 from pathlib import Path
 
 # Custom
-import behavior_analysis_utils as bhv
-from dlc_analysis_utils import *
-import metrics as met
+from Utils import behavior_analysis_utils as bhv
+from Utils import dlc_analysis_utils as dlc
+from Utils import metrics as met
 import behav_plotters_reach as bhv_plt_reach
 
 # Settings
@@ -133,18 +133,18 @@ paws = ['PL','PR']
 # %% plot a single frame with DLC markers and Skeleton
 fig, axes = plt.subplots()
 i = 8000 # frame index
-Frame = get_frame(Vid, i)
-axes = plot_frame(Frame, axes=axes)
-axes = plot_bodyparts(bodyparts, DlcDf, i, axes=axes)
-axes, lines = plot_Skeleton(Skeleton, DlcDf, i , axes=axes)
+Frame = dlc.get_frame(Vid, i)
+axes = dlc.plot_frame(Frame, axes=axes)
+axes = dlc.plot_bodyparts(bodyparts, DlcDf, i, axes=axes)
+axes, lines = dlc.plot_Skeleton(Skeleton, DlcDf, i , axes=axes)
 
 # %% plot a heatmap of movement for both paws on a 2D background
 fig, axes = plt.subplots()
 
 i = 4000 # frame index
-Frame = get_frame(Vid, i)
-axes = plot_frame(Frame, axes=axes)
-axes = plot_trajectories(DlcDf, paws, axes=axes,lw=0.025)
+Frame = dlc.get_frame(Vid, i)
+axes = dlc.plot_frame(Frame, axes=axes)
+axes = dlc.plot_trajectories(DlcDf, paws, axes=axes,lw=0.025)
 axes.axis('off')
 axes.set_title('Whole session heatmap of paw placement')
 
@@ -161,19 +161,19 @@ p = 0.99
 # Background image
 fig, axes = plt.subplots()
 i = 8000 # frame index
-Frame = get_frame(Vid, i)
-axes = plot_frame(Frame, axes=axes)
+Frame = dlc.get_frame(Vid, i)
+axes = dlc.plot_frame(Frame, axes=axes)
 
 # Detection rectangle
 w = 75 # box size
-rect = box2rect(right_spout, w)
+rect = dlc.box2rect(right_spout, w)
 R = Rectangle(*rect2cart(rect),lw=1,facecolor='none',edgecolor='r')
 axes.add_patch(R)
 
 # Obtain all reaches within rectangle, convert from frame to time
 bp = 'PR'
-SpansDf = in_box_span(DlcDf, bp, rect, min_dur=5)
-SpansDf = pd.DataFrame(frame2time(SpansDf.values,m,b,m2,b2),columns=SpansDf.columns)
+SpansDf = dlc.in_box_span(DlcDf, bp, rect, min_dur=5)
+SpansDf = pd.DataFrame(dlc.frame2time(SpansDf.values,m,b,m2,b2),columns=SpansDf.columns)
 
 # Plot all reaches to given side 
 df = DlcDf[bp]
@@ -197,8 +197,8 @@ left_spout = [380, 405]
 
 line_kwargs = dict(lw=1,alpha=0.8)
 for i, bp in enumerate(bps):
-    d_to_right = calc_dist_bp_point(DlcDf, bp, right_spout, filter=True)
-    d_to_left = calc_dist_bp_point(DlcDf, bp, left_spout, filter=True)
+    d_to_right = bhv.calc_dist_bp_point(DlcDf, bp, right_spout, filter=True)
+    d_to_left = bhv.calc_dist_bp_point(DlcDf, bp, left_spout, filter=True)
     axes[i].plot(d_to_left, label='to left', **line_kwargs)
     axes[i].plot(d_to_right, label='to right', **line_kwargs)
     axes[i].set_ylabel(bp)
@@ -213,14 +213,14 @@ time_interval = 1000 # ms (for the time axis in the plot)
 
 fig, axes = plt.subplots(ncols=2,sharex=True)
 
-TrialDfs_left = filter_trials_by(SessionDf, TrialDfs, dict(trial_side='left'))
-TrialDfs_right = filter_trials_by(SessionDf, TrialDfs, dict(trial_side='right'))
+TrialDfs_left = bhv_plt_reach.filter_trials_by(SessionDf, TrialDfs, dict(trial_side='left'))
+TrialDfs_right = bhv_plt_reach.filter_trials_by(SessionDf, TrialDfs, dict(trial_side='right'))
 
 # General function to be applied 
-func = calc_dist_bp_point
+func = dlc.calc_dist_bp_point
 
-d_to_left = get_dist_aligned_on_event(DlcDf, TrialDfs_left, align_event, pre, post, func, 'PR', left_spout)
-d_to_right = get_dist_aligned_on_event(DlcDf, TrialDfs_right, align_event, pre, post, func, 'PR', right_spout)
+d_to_left = bhv.get_dist_aligned_on_event(DlcDf, TrialDfs_left, align_event, pre, post, func, 'PR', left_spout)
+d_to_right = bhv.get_dist_aligned_on_event(DlcDf, TrialDfs_right, align_event, pre, post, func, 'PR', right_spout)
 
 heat1 = axes[0].matshow(d_to_left, vmin=0, vmax=200, cmap='viridis_r', extent=[-pre,post,0,d_to_left.shape[0]])
 heat2 = axes[1].matshow(d_to_right, vmin=0, vmax=150, cmap='viridis_r', extent=[-pre,post,0,d_to_right.shape[0]])
@@ -251,8 +251,8 @@ align_event = 'PRESENT_CUE_STATE'
 
 fig, axes = plt.subplots(ncols=2, figsize=(5, 3))
 
-TrialDfs_left = filter_trials_by(SessionDf, TrialDfs, dict(choice='left'))
-TrialDfs_right = filter_trials_by(SessionDf, TrialDfs, dict(choice='right'))
+TrialDfs_left = bhv_plt_reach.filter_trials_by(SessionDf, TrialDfs, dict(choice='left'))
+TrialDfs_right = bhv_plt_reach.filter_trials_by(SessionDf, TrialDfs, dict(choice='right'))
 
 pl, pr = [],[]
 
@@ -303,9 +303,9 @@ axes[1].scatter(pr[:,0], pr[:,1], s = 1, alpha = 0.75, c = 'tab:orange', label =
 
 # Plot a single fram in the background for comparison
 i = 4000 # frame index
-Frame = get_frame(Vid, i)
-axes[0] = plot_frame(Frame, axes=axes[0])
-axes[1] = plot_frame(Frame, axes=axes[1])
+Frame = dlc.get_frame(Vid, i)
+axes[0] = dlc.plot_frame(Frame, axes=axes[0])
+axes[1] = dlc.plot_frame(Frame, axes=axes[1])
 
 # Formatting
 axes[0].set_title('Left choice')
@@ -352,7 +352,7 @@ for i,event in enumerate(events):
         D[:] = sp.nan
 
         # euclid dist
-        dists = calc_dist_bp_point(DlcDf, bp, point, p=0.1, filter=True)
+        dists = bhv.calc_dist_bp_point(DlcDf, bp, point, p=0.1, filter=True)
 
         for k in range(len(inds)):
             shape = inds[k].shape[0]
@@ -399,12 +399,12 @@ ix = list(range(572,579))
 
 fig, ax = plt.subplots()
 ax.set_aspect('equal')
-frame = get_frame(Vid, ix[0])
+frame = dlc.get_frame(Vid, ix[0])
 im = ax.imshow(frame, cmap='gray')
 # ax, lines = plot_Skeleton(Skeleton, DlcDf, ix[0], axes=ax)
 
 def update(i):
-    Frame = get_frame(Vid,i)
+    Frame = dlc.get_frame(Vid,i)
     im.set_data(Frame)
     # ax, lines_new = plot_Skeleton(Skeleton, DlcDf, i, axes=ax)
     # for j, line in enumerate(lines):
