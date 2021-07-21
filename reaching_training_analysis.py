@@ -502,7 +502,7 @@ FilteredSessionsDf = pd.concat([SessionsDf.groupby('task').get_group(name) for n
 log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']]
 
 # Obtain the perc of reaches, correct and incorrect trials
-perc_reach_right, perc_reach_left, perc_correct, perc_missed, perc_pre = [],[],[],[],[]
+perc_corr_left, perc_corr_right, perc_correct, perc_missed, perc_pre = [],[],[],[],[]
 date,tpm,session_length = [],[],[] # Trials Per Minute (tpm)
 
 for log_path in tqdm(log_paths):
@@ -526,16 +526,27 @@ for log_path in tqdm(log_paths):
     metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_outcome, met.get_chosen_side, met.has_reach_left, met.has_reach_right)
     SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
-    left_trials_idx = SessionDf['correct_side'] == 'left'
-    right_trials_idx = SessionDf['correct_side'] == 'right'
+    # expand outcomes in boolean columns and fixing jackpot rewards
+    SessionDf.loc[pd.isna(SessionDf['outcome']),['outcome']] = 'jackpot'
 
-    any_reach = SessionDf.has_reach_left | SessionDf.has_reach_right
+    try:
+        corr_left = SessionDf.groupby(['outcome','correct_side']).get_group(('correct','left'))
+    except:
+        corr_left = []
+    try:
+        corr_right = SessionDf.groupby(['outcome','correct_side']).get_group(('correct','right'))
+    except:
+        corr_right = []
+
+    jackpot_idx = SessionDf['outcome'] == 'jackpot'
+
+    # any_reach = SessionDf.has_reach_left | SessionDf.has_reach_right
 
     # Two metrics of evolution
-    perc_reach_left.append(any_reach[left_trials_idx].sum()/len(SessionDf[left_trials_idx])*100) 
-    perc_reach_right.append(any_reach[right_trials_idx].sum()/len(SessionDf[right_trials_idx])*100)
+    perc_corr_left.append(len(corr_left)/len(SessionDf[SessionDf['correct_side'] == 'left'])*100) 
+    perc_corr_right.append(len(corr_right)/len(SessionDf[SessionDf['correct_side'] == 'right'])*100)
     perc_correct.append((SessionDf.outcome == 'correct').sum()/len(SessionDf)*100)
-    perc_missed.append((SessionDf.outcome == 'missed').sum()/len(SessionDf)*100)
+    perc_missed.append((SessionDf.outcome == 'missed').sum()/len(SessionDf[~jackpot_idx])*100) # exclude jackpot rews
 
     if len(SessionDf[SessionDf.outcome == 'premature']) != 0:
         perc_pre.append(sum(SessionDf.outcome == 'premature')/len(SessionDf)*100)
@@ -547,8 +558,8 @@ for log_path in tqdm(log_paths):
 
 fig , axes = plt.subplots()
 
-axes.plot(perc_reach_left, color = 'orange', label = 'Reached L (%)', marker='o', markersize=2)
-axes.plot(perc_reach_right, color = 'blue', label = 'Reached R (%)', marker='o', markersize=2)
+axes.plot(perc_corr_left, color = 'orange', label = 'Corr L (%)', marker='o', markersize=2)
+axes.plot(perc_corr_right, color = 'blue', label = 'Corr R (%)', marker='o', markersize=2)
 axes.plot(perc_correct, color = 'green', label = 'Correct (%)', marker='o', markersize=2)
 axes.plot(perc_missed, color = 'grey', label = 'Missed (%)', marker='o', markersize=2)
 axes.plot(perc_pre, color = 'pink', label = 'Premature (%)', marker='o', markersize=2)

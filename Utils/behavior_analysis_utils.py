@@ -52,7 +52,7 @@ def parse_arduino_log(log_path, code_map=None, parse_var=True, return_check=Fals
     # test for validity
     valid_lines = []
     invalid_lines = []
-    for i, line in enumerate(lines):
+    for i,line in enumerate(lines):
         if len(line.split('\t')) == 2 or line.startswith('<'):
             valid_lines.append(line)
         else:
