@@ -12,6 +12,7 @@ import scipy as sp
 import numpy as np
 import seaborn as sns
 import os
+import tqdm
 
 # Custom
 from Utils import behavior_analysis_utils as bhv
@@ -30,7 +31,7 @@ from Utils import metrics as met
 """
  
 # Only uses LogDf
-def plot_session_overview(SessionDf, axes=None):
+def plot_session_overview(SessionDf, animal_meta, session_date, axes=None):
     
     colors = dict(success="#72E043", 
             reward="#3CE1FA", 
@@ -61,7 +62,10 @@ def plot_session_overview(SessionDf, axes=None):
                 axes.plot(i,1.0,'.',color='k')
 
         if row.in_corr_loop and not np.isnan(row.in_corr_loop):
-            axes.plot([i,i],[-0.1,1.1],color='red',alpha=0.5,zorder=-2,lw=3)
+            if row.correct_side == 'left':
+                axes.plot([i,i],[-0.1,0.1],color='red',alpha=0.5,zorder=-2,lw=3)
+            if row.correct_side == 'right':
+                axes.plot([i,i],[1,1.1],color='red',alpha=0.5,zorder=-2,lw=3)
         
         if row.timing_trial and not np.isnan(row.timing_trial):
             axes.plot([i,i],[-0.1,1.1],color='cyan',alpha=0.5,zorder=-2,lw=3)
@@ -81,85 +85,9 @@ def plot_session_overview(SessionDf, axes=None):
     axes.axhline(0.5,linestyle=':',color='k',alpha=0.5)
 
     # deco
+    axes.set_title(animal_meta['value'][5] + " - " + animal_meta['value'][0] + " - " + str(session_date))
     axes.set_xlabel('trial #')
     axes.set_ylabel('success rate')
-    return axes
-
-def plot_success_rate(LogDf, SessionDf, history): 
-    " Plots success rate with trial type and choice tickmarks "
-
-    fig, axes = plt.subplots(nrows=2,gridspec_kw=dict(height_ratios=(0.1,1)))
-
-    colors = dict(correct="#72E043", incorrect="#F56057", missed="#F7D379", premature="#FFC0CB")
-
-    # bars
-    for i, row in SessionDf.iterrows():
-        outcome = row['outcome']
-        x = i
-        y = 0
-        rect = mpl.patches.Rectangle((x,y),1,1, edgecolor='none', facecolor=colors[outcome])
-        axes[0].add_patch(rect)
-
-    axes[0].set_xlim(0.5, SessionDf.shape[0]+0.5)
-    axes[0].set_title('outcomes')
-    axes[0].set_ylim(-0.1, 1.1)
-    axes[0].set_yticks([])
-    axes[0].set_xticklabels([])
-
-    x = SessionDf.index.values+1
-    line_width = 0.04
-
-    # L/R trial types
-    left_trials = SessionDf.loc[SessionDf['correct_side'] == 'left'].index + 1
-    y_left_trials = np.zeros(left_trials.shape[0]) - line_width
-    right_trials = SessionDf.loc[SessionDf['correct_side'] == 'right'].index + 1
-    y_right_trials = np.zeros(right_trials.shape[0]) + 1 + line_width
-
-    # Some groupby keys dont always return a non-empty Df
-    try:
-        SDf = SessionDf.groupby('chosen_side').get_group('left')
-        left_choices = SDf.index.values+1
-        y_left_choices = np.zeros(left_choices.shape[0])
-        axes[1].plot(left_choices, y_left_choices, '|', color='m', label = 'left choice')
-    except:
-        pass
-
-    try:
-        SDf = SessionDf.groupby('chosen_side').get_group('right')
-        right_choices = SDf.index.values+1
-        y_right_choices = np.zeros(right_choices.shape[0]) + 1
-        axes[1].plot(right_choices, y_right_choices, '|', color='green', label = 'right choice')
-    except:
-        pass
-
-    try:
-        in_corr_loop = SessionDf.loc[SessionDf['in_corr_loop'] == True].index + 1
-        y_in_corr_loop = np.zeros(in_corr_loop.shape[0]) + 1 + 2*line_width
-        axes[1].plot(in_corr_loop, y_in_corr_loop, '|', color='r', label = 'corr. loops')
-    except:
-        pass
-
-    # Grand average rate success rate
-    y_sucess_rate = np.cumsum(SessionDf['outcome'] == 'correct') / (SessionDf.index.values+1)
-    #y_trial_prob = (SessionDf['trial_side'] == 'right').rolling(10).mean()
-
-    # Plotting in the same order as computed
-    axes[1].plot(left_trials, y_left_trials, '|', color='k')
-    axes[1].plot(right_trials, y_right_trials, '|', color='k')
-    axes[1].plot(x,y_sucess_rate, color='C0', label = 'grand average')
-    #axes[1].plot(x,y_trial_prob, color='k',alpha=0.3, label = 'R side (%)')
-
-    if history is not None:
-        y_filt = (SessionDf['outcome'] == 'correct').rolling(history).mean()
-        axes[1].plot(x,y_filt, color='C0',alpha=0.3, label = 'rolling mean')
-    
-    axes[1].axhline(0.5 ,linestyle=':',alpha=0.5,lw=1,color='k')
-    axes[1].set_ylabel('Success rate')
-    axes[1].set_xlabel('trial #')
-    axes[1].set_xlim([0, len(SessionDf)])
-    axes[1].legend(bbox_to_anchor=(0., 1, 0.95, .102), loc="upper center", handletextpad = 0.1, \
-                frameon=False, mode = "expand", ncol = 5, borderaxespad=0., handlelength = 0.5, labelspacing = 0.8)
-
     return axes
 
 def plot_choice_RT_hist(SessionDf, choice_interval, bin_width, axes=None):
@@ -388,22 +316,26 @@ def plot_grasp_duration_distro(LogDf, bin_width, max_reach_dur, percentile):
 
     colors = sns.color_palette('hls', n_colors=len(sides))
 
-    for i, side in enumerate(sides):
+    for ax,side,color in zip(axes,sides,colors):
 
         # Determine event names
         event_on, event_off = 'REACH_' + str(side) + '_ON', 'REACH_' + str(side) + '_OFF'
 
-        # Histogram with percentile vertical line
+        # Histogram 
         reaches_spansDf = bhv.get_spans_from_names(LogDf, event_on, event_off)
-        reach_durs = np.array(reaches_spansDf['dt'].values, dtype=object) 
-        axes[i].hist(reach_durs, **kwargs, color = colors[i], label = side)
-        axes[i].axvline(np.percentile(reach_durs, percentile), color = colors[i], alpha=1)
+        reach_durs = np.array(reaches_spansDf['dt'].values, dtype=object)
+        ax.hist(reach_durs, **kwargs, color = color, label = 'All reaches')
 
-    for ax in axes:
+        perc = np.percentile(reach_durs, percentile)
+        ax.axvline(perc, color = color, alpha=1) # perc line
+        ax.text(perc/max_reach_dur,0.9, perc, transform = ax.transAxes) # perc number shifted a bit
+
+    for ax,side in zip(axes,sides):
         ax.legend(frameon=False, markerscale = 3)
+        ax.set_title(side)
         ax.set_xlabel('Time (ms)')
 
-    fig.suptitle("Histogram of ALL grasps' duration split by side")    
+    fig.suptitle("Histogram of grasps' duration vert. bar is " + str(percentile) + "th percentile")    
     fig.tight_layout()
 
     return axes

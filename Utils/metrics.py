@@ -235,6 +235,12 @@ def delay_rt(TrialDf):
         
     return pd.Series(var, name=var_name)
 
+def get_choice_grasp_dur(TrialDf):
+
+    if has_choice
+
+    return
+
 def get_reach_type(DLCDf,TrialDf):
     " Classifies type of reach (contra,ipsi,double) and to each side"
     var_name = 'reach_type'
@@ -252,6 +258,7 @@ def get_reach_type(DLCDf,TrialDf):
         # Double case
 
     return pd.Series(var, name=var_name)
+
 
 
 """
@@ -284,6 +291,16 @@ def get_timing_trial(TrialDf):
     except KeyError:
         var = np.NaN
 
+    return pd.Series(var, name=var_name)
+
+def get_bias(TrialDf):
+    var_name = "bias"
+    try:
+        Df = TrialDf.groupby('var').get_group(var_name)
+        var = Df.iloc[0]['value'].astype('bool')
+    except KeyError:
+        var = np.NaN
+        
     return pd.Series(var, name=var_name)
 
 def get_autodeliver_trial(TrialDf):

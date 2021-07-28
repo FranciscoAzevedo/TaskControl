@@ -120,6 +120,7 @@ SessionDf['exclude'] = False
 #  Plots dir and animal info
 animal_meta = pd.read_csv(log_path.parent.parent / 'animal_meta.csv')
 nickname = animal_meta[animal_meta['name'] == 'Nickname']['value'].values[0]
+session_date = log_path.parent.stem.split('_')[0]
 
 plot_dir = log_path.parent / 'plots'
 os.makedirs(plot_dir, exist_ok=True)
@@ -213,20 +214,26 @@ fig, axes = plt.subplots(figsize=(3, 4))
 missesDf_idx = SessionDf['outcome'] == 'missed'
 choiceDf = SessionDf[~missesDf_idx] # drop rows with missed trials
 
-# What is the prob if going left after going right?
-has_right_reach_Df = choiceDf[choiceDf['has_reach_right'] == True]
-lefts_after_right_df = (has_right_reach_Df['reach_rt_right'] < has_right_reach_Df['reach_rt_left'])
-perc_l_after_r = lefts_after_right_df.sum()/len(lefts_after_right_df)*100
+# What is the prob if going right first in left side trials
+left_sideDf = choiceDf[choiceDf['correct_side'] == 'left']
+try:
+    reached_sideDf = choiceDf.groupby(['correct_side','reached_side']).get_group(('left','both'))
+    perc_l_after_r = len(reached_sideDf)/len(left_sideDf)*100
+except:
+    perc_l_after_r = 0
 
 # And the inverse here
-has_left_reach_Df = choiceDf[choiceDf['has_reach_left'] == True]
-rights_after_left_df = (has_left_reach_Df['reach_rt_left'] < has_left_reach_Df['reach_rt_right'])
-perc_r_after_l = rights_after_left_df.sum()/len(rights_after_left_df)*100
+right_sideDf = choiceDf[choiceDf['correct_side'] == 'right']
+try:
+    reached_sideDf = choiceDf.groupby(['correct_side','reached_side']).get_group(('right','both'))
+    perc_r_after_l = len(reached_sideDf)/len(right_sideDf)*100
+except:
+    perc_r_after_l = 0
 
-labels = ['R after L', 'L after R']
+labels = ['L after R', 'R after L']
 
 # Plotting groups
-axes.bar(labels, [perc_r_after_l,perc_l_after_r])
+axes.bar(labels, [perc_l_after_r, perc_r_after_l])
 
 axes.set_title('Prob of going X after Y')
 axes.set_ylabel('Prob. (%)')
@@ -423,7 +430,7 @@ plt.savefig(plot_dir / ('session_overview_aligned_on_1st_2nd.png'), dpi=600)
 # %% Plot simple session overview with success rate
 fig, axes = plt.subplots(figsize=[8,2])
 
-bhv_plt_reach.plot_session_overview(SessionDf, axes = axes)
+bhv_plt_reach.plot_session_overview(SessionDf, animal_meta, session_date, axes = axes)
 plt.savefig(plot_dir / ('session_overview.png'), dpi=600)
 
 # %% outcome_split_by_interval_category
@@ -497,25 +504,31 @@ plt.savefig(across_session_plot_dir / ('weight_across_sessions.png'), dpi=600)
 SessionsDf = utils.get_sessions(animal_fd_path)
     
 # Filter sessions to the ones of the task we want to see
-task_name = ['learn_to_choose']
+task_name = ['learn_to_choose','learn_to_choose_v2']
 FilteredSessionsDf = pd.concat([SessionsDf.groupby('task').get_group(name) for name in task_name])
 log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']]
 
 # Obtain the perc of reaches, correct and incorrect trials
 perc_corr_left, perc_corr_right, perc_correct, perc_missed, perc_pre = [],[],[],[],[]
-date,tpm,session_length = [],[],[] # Trials Per Minute (tpm)
+date_abbr,tpm,session_length, mondays = [],[],[],[] # Trials Per Minute (tpm)
 
-for log_path in tqdm(log_paths):
+for i,log_path in tqdm(enumerate(log_paths)):
     
     path = log_path.parent 
     LogDf = bhv.get_LogDf_from_path(log_path)
 
     # Correct date format
     folder_name = os.path.basename(path)
-    complete_date = folder_name.split('_')[0]
-    month = calendar.month_abbr[int(complete_date.split('-')[1])]
-    day = complete_date.split('-')[2]
-    date.append(month+'-'+day)
+    date_str = folder_name.split('_')[0].split('-')
+    date = [int(d) for d in date_str]
+
+    # Vertical lines on monday
+    weekday = calendar.weekday(date[0],date[1],date[2])
+    if weekday == 0:
+        mondays.append(i)
+
+    month_abbr = calendar.month_abbr[date[1]]
+    date_abbr.append(month_abbr+'-'+str(date[2]))
 
     TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_ENTRY_STATE", "ITI_STATE")
 
@@ -540,8 +553,6 @@ for log_path in tqdm(log_paths):
 
     jackpot_idx = SessionDf['outcome'] == 'jackpot'
 
-    # any_reach = SessionDf.has_reach_left | SessionDf.has_reach_right
-
     # Two metrics of evolution
     perc_corr_left.append(len(corr_left)/len(SessionDf[SessionDf['correct_side'] == 'left'])*100) 
     perc_corr_right.append(len(corr_right)/len(SessionDf[SessionDf['correct_side'] == 'right'])*100)
@@ -564,11 +575,13 @@ axes.plot(perc_correct, color = 'green', label = 'Correct (%)', marker='o', mark
 axes.plot(perc_missed, color = 'grey', label = 'Missed (%)', marker='o', markersize=2)
 axes.plot(perc_pre, color = 'pink', label = 'Premature (%)', marker='o', markersize=2)
 
+[axes.axvline(monday, color = 'k', alpha = 0.25) for monday in mondays]
+
 axes.set_ylabel('Trial outcome (%)')
 axes.set_xlabel('Session date')
 axes.legend(loc="center", frameon=False, bbox_to_anchor=(0.5, 1.05), prop={'size': 6}, ncol=5) 
 
-plt.setp(axes, xticks=np.arange(0, len(date), 1), xticklabels=date)
+plt.setp(axes, xticks=np.arange(0, len(date_abbr), 1), xticklabels=date_abbr)
 plt.setp(axes, yticks=np.arange(0, 100+1, 10), yticklabels=np.arange(0, 100+1, 10))
 plt.xticks(rotation=45)
 plt.savefig(across_session_plot_dir / ('overview_across_sessions' + str(task_name)+ '.png'), dpi=600)
@@ -579,7 +592,7 @@ axes.plot(np.array(tpm)/np.array(session_length))
 
 axes.set_ylim([0,5]) # A trial every 15s is the theoretical limit at chance level given our task settings
 plt.title('No. TPM across sessions')
-plt.setp(axes, xticks=np.arange(0, len(date), 1), xticklabels=date)
+plt.setp(axes, xticks=np.arange(0, len(date), 1), xticklabels=date_abbr)
 plt.xticks(rotation=45)
 
 plt.savefig(across_session_plot_dir / ('tpm_across_sessions.png'), dpi=600)
