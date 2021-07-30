@@ -236,10 +236,42 @@ def delay_rt(TrialDf):
     return pd.Series(var, name=var_name)
 
 def get_choice_grasp_dur(TrialDf):
+    " Grasp duration for the reach that yields the choice"
 
-    if has_choice
+    var_name = 'grasp_dur'
 
-    return
+    if has_choice(TrialDf).values:
+        
+        # the [-1] is a fix for allowing mistakes - it gets the last reach
+        choice_time = bhv.get_events_from_name(TrialDf, 'CHOICE_EVENT')['t'].values[-1]
+        
+        if get_chosen_side(TrialDf).values == 'left':
+            on_times = bhv.get_events_from_name(TrialDf, 'REACH_LEFT_ON')['t'].values
+            on_time = on_times[on_times < choice_time].max() # The one immediately preceding choice
+
+            # If it's not in the TrialDf just assume it ends with the ITI
+            off_times = bhv.get_events_from_name(TrialDf, 'REACH_LEFT_OFF')['t']
+            if len(off_times.values):
+                off_time = off_times[off_times > choice_time].min()
+            else:
+                off_time = TrialDf['t'].iloc[-1]
+        
+        elif get_chosen_side(TrialDf).values == 'right':
+            on_times = bhv.get_events_from_name(TrialDf, 'REACH_RIGHT_ON')['t'].values 
+            on_time = on_times[on_times < choice_time].max()
+
+            off_times = bhv.get_events_from_name(TrialDf, 'REACH_RIGHT_OFF')['t']
+            if len(off_times.values):
+                off_time = off_times[off_times > choice_time].min()
+            else:
+                off_time = TrialDf['t'].iloc[-1]
+
+        var = off_time - on_time
+
+    else:
+        var = np.NaN
+
+    return pd.Series(var, name=var_name)
 
 def get_reach_type(DLCDf,TrialDf):
     " Classifies type of reach (contra,ipsi,double) and to each side"
@@ -259,6 +291,15 @@ def get_reach_type(DLCDf,TrialDf):
 
     return pd.Series(var, name=var_name)
 
+def get_bias(TrialDf):
+    var_name = "bias"
+    try:
+        Df = TrialDf.groupby('var').get_group(var_name)
+        var = Df.iloc[0]['value'].astype('bool')
+    except KeyError:
+        var = np.NaN
+
+    return pd.Series(var, name=var_name)
 
 
 """

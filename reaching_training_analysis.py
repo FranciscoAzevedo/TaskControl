@@ -103,7 +103,7 @@ for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
 metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_interval_category, met.get_outcome, 
             met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop, met.reach_rt_left, 
             met.reach_rt_right, met.has_choice, met.get_interval, met.get_timing_trial, met.get_choice_rt,
-            met.get_reached_side)
+            met.get_reached_side, met.get_bias, met.get_choice_grasp_dur)
 
 SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
@@ -201,11 +201,11 @@ plt.savefig(plot_dir / ('choice_RTs.png'), dpi=600)
 
 # %% Grasp duration distro split by outcome and choice
 bin_width = 5 # ms
-max_reach_dur = 100 # ms
+max_reach_dur = 200 # ms
 
 perc = 25 #th 
 
-bhv_plt_reach.plot_grasp_duration_distro(LogDf, bin_width, max_reach_dur, perc)
+bhv_plt_reach.plot_grasp_duration_distro(LogDf, SessionDf, bin_width, max_reach_dur, perc)
 plt.savefig(plot_dir / ('hist_grasp_dur_' + str(perc) + '_percentile.png'), dpi=600)
 
 # %% Are they using a sampling strategy? 
@@ -567,6 +567,7 @@ for i,log_path in tqdm(enumerate(log_paths)):
     tpm.append(len(SessionDf))
     session_length.append((LogDf['t'].iloc[-1]-LogDf['t'].iloc[0])/(1000*60)) # convert msec. -> sec.-> min.
 
+# Plotting
 fig , axes = plt.subplots()
 
 axes.plot(perc_corr_left, color = 'orange', label = 'Corr L (%)', marker='o', markersize=2)
@@ -577,9 +578,10 @@ axes.plot(perc_pre, color = 'pink', label = 'Premature (%)', marker='o', markers
 
 [axes.axvline(monday, color = 'k', alpha = 0.25) for monday in mondays]
 
+axes.set_title(' Session overview for ' + nickname + ' ' + str(task_name))
 axes.set_ylabel('Trial outcome (%)')
 axes.set_xlabel('Session date')
-axes.legend(loc="center", frameon=False, bbox_to_anchor=(0.5, 1.05), prop={'size': 6}, ncol=5) 
+axes.legend(loc="center", frameon=False, bbox_to_anchor=(0.5, 0.98), prop={'size': 6}, ncol=5) 
 
 plt.setp(axes, xticks=np.arange(0, len(date_abbr), 1), xticklabels=date_abbr)
 plt.setp(axes, yticks=np.arange(0, 100+1, 10), yticklabels=np.arange(0, 100+1, 10))

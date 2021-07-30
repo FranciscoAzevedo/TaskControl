@@ -13,6 +13,7 @@ import numpy as np
 import seaborn as sns
 import os
 import tqdm
+import string
 
 # Custom
 from Utils import behavior_analysis_utils as bhv
@@ -304,38 +305,45 @@ def plot_psychometric(SessionDf, N=1000, axes=None, discrete=False):
 
     return axes
 
-def plot_grasp_duration_distro(LogDf, bin_width, max_reach_dur, percentile):
+def plot_grasp_duration_distro(LogDf, SessionDf, bin_width, max_grasp_dur, percentile):
     " Plots the distribution of reach durations split by chosen side and outcome"
+    " Works for allowing mistakes but doesnt plot text or percentile due to Nan's "
 
     sides = ['LEFT', 'RIGHT']
 
-    no_bins = round(max_reach_dur/bin_width)
-    kwargs = dict(bins = no_bins, range = (0, max_reach_dur), alpha=0.5, edgecolor='none')
+    no_bins = round(max_grasp_dur/bin_width)
+    kwargs = dict(bins = no_bins, range = (0, max_grasp_dur), edgecolor='none')
 
     fig, axes = plt.subplots(ncols=len(sides), figsize=[6, 3], sharex=True, sharey=True)
 
     colors = sns.color_palette('hls', n_colors=len(sides))
-
+    
     for ax,side,color in zip(axes,sides,colors):
 
-        # Determine event names
-        event_on, event_off = 'REACH_' + str(side) + '_ON', 'REACH_' + str(side) + '_OFF'
+        # For all reaches
+        event_on, event_off = 'REACH_' + str(side) + '_ON', 'REACH_' + str(side) + '_OFF' # event names
+        
+        grasp_spansDf = bhv.get_spans_from_names(LogDf, event_on, event_off)
+        grasp_durs = np.array(grasp_spansDf['dt'].values, dtype=object)
+        ax.hist(grasp_durs, **kwargs, alpha=0.25, color = color, label = 'All grasps') # Histogram 
 
-        # Histogram 
-        reaches_spansDf = bhv.get_spans_from_names(LogDf, event_on, event_off)
-        reach_durs = np.array(reaches_spansDf['dt'].values, dtype=object)
-        ax.hist(reach_durs, **kwargs, color = color, label = 'All reaches')
+        # For choice-inducing reaches
+        choiceDf = bhv.groupby_dict(SessionDf, dict(has_choice=True, chosen_side=side.lower()))
+        grasp_durs = choiceDf[~choiceDf['grasp_dur'].isna()]['grasp_dur'].values # filter out Nans
+        ax.hist(grasp_durs, **kwargs, alpha=1, color = color, label = 'Choice reaches') 
 
-        perc = np.percentile(reach_durs, percentile)
+        perc = np.percentile(grasp_durs, percentile)
         ax.axvline(perc, color = color, alpha=1) # perc line
-        ax.text(perc/max_reach_dur,0.9, perc, transform = ax.transAxes) # perc number shifted a bit
+        ax.text(perc/max_grasp_dur,0.9, perc, transform = ax.transAxes) # perc number shifted a bit
 
     for ax,side in zip(axes,sides):
-        ax.legend(frameon=False, markerscale = 3)
+        ax.legend(frameon=False, fontsize = 'small')
         ax.set_title(side)
         ax.set_xlabel('Time (ms)')
+    
+    axes[0].set_ylabel('No. of occurrences')
 
-    fig.suptitle("Histogram of grasps' duration vert. bar is " + str(percentile) + "th percentile")    
+    fig.suptitle("Histogram of grasps' duration, vertical bar is " + str(percentile) + "th percentile")    
     fig.tight_layout()
 
     return axes

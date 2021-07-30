@@ -138,29 +138,6 @@ def get_events(LogDf, event_names):
  
     return EventsDict
 
-# removal / generalize
-def filter_bad_licks(LogDf, min_time=50, max_time=200, remove=False):
-    """ 
-    Process recorded LICK_ON and LICK_OFF into realistic licks and add them as an event to the LogDf
-    TODO generalize to filter event based on duration
-    """
-    LickSpan = get_spans_from_names(LogDf, 'LICK_ON', 'LICK_OFF')
-
-    bad_licks = np.logical_or(LickSpan['dt'] < min_time , LickSpan['dt'] > max_time)
-    LickSpan = LickSpan.loc[~bad_licks]
-
-    # Add lick_event to LogDf
-    Lick_Event = pd.DataFrame(np.stack([['NA']*LickSpan.shape[0], LickSpan['t_on'].values, ['LICK_EVENT']*LickSpan.shape[0]]).T, columns=['code', 't', 'name'])
-    Lick_Event['t'] = Lick_Event['t'].astype('float')
-    LogDf = LogDf.append(Lick_Event)
-    LogDf.sort_values('t')
-
-    if remove is True:
-        # TODO
-        pass
-
-    return LogDf
-
 def add_go_cue_LogDf(LogDf):
     # Add single GO_CUE_EVENT to LogDf
     go_cue_leftDf = get_events_from_name(LogDf, 'GO_CUE_LEFT_EVENT')
@@ -178,9 +155,8 @@ def add_go_cue_LogDf(LogDf):
     return LogDf
 
 def filter_spans_to_event(LogDf, on_name, off_name, t_min=50, t_max=200, name=None):
-    """ 
-    creates an Event in the LogDf based on min / max duration of Spans
-    """
+    " Creates an Event in the LogDf filtered by min / max duration of Spans "
+    
     Spans = get_spans_from_names(LogDf, on_name, off_name)
     bad_inds = np.logical_or(Spans['dt'] < t_min , Spans['dt'] > t_max)
     Spans = Spans.loc[~bad_inds]
