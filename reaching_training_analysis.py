@@ -103,7 +103,7 @@ for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
 metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_interval_category, met.get_outcome, 
             met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop, met.reach_rt_left, 
             met.reach_rt_right, met.has_choice, met.get_interval, met.get_timing_trial, met.get_choice_rt,
-            met.get_reached_side, met.get_bias, met.get_choice_grasp_dur)
+            met.get_reached_side, met.get_bias) # , met.get_choice_grasp_dur
 
 SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
@@ -178,6 +178,48 @@ both_side_perc = round(len(both_side_attemptsDf)/len(missedDf)*100,2)
 
 print('There were ' + str(corr_attempts_perc)+ '% (putatively correct) trials with reach durations below threshold')
 print('And ' + str(both_side_perc) + '% with reaches for both sides')
+
+# %% What happens the trial after they attempt to reach but the grasp is below threshold duration
+fig, axes = plt.subplots()
+
+# Get Df of trials after attempt
+corr_attempts_idx = correct_attemptsDf.index
+trials_after_attemptDf = SessionDf.iloc[corr_attempts_idx+1]
+
+colors = dict(correct="#72E043", incorrect="#F56057", premature="#9D5DF0", missed="#F7D379", jackpot ='#FFC0CB')
+bar_width = 0.20
+
+Dfs = [trials_after_attemptDf, SessionDf]
+
+outcomes = SessionDf['outcome'].unique()
+labels = ['after_attempt', 'session']
+
+# get fraction of each outcome relative to total Session size
+bar_frac = np.zeros([len(Dfs),len(outcomes)])
+
+for i,Df in enumerate(Dfs): 
+    for j,outcome in enumerate(outcomes):
+        try:
+            # number of trials with outcome 
+            outcome_trials = len(Df.groupby(['outcome']).get_group(outcome))
+            # normalize for session len
+            bar_frac[i,j] = outcome_trials/len(Df) 
+        except:
+            bar_frac[i,j] = 0 # when there are no trials
+
+# Plotting
+y_offset =  np.zeros(len(Dfs))
+
+# For each outcome
+for col,outcome in enumerate(outcomes):
+    plt.bar(labels, bar_frac[:,col], bar_width, bottom=y_offset, label = outcome, color=colors[outcome])
+    y_offset = y_offset + bar_frac[:,col]
+
+axes.set_title('Percentage of trial outcome after attempt and overall session')
+axes.legend(loc="center", frameon = False, bbox_to_anchor=(0.5, 1.1), ncol=len(colors))
+axes.set_ylabel('Fraction of trials')
+axes.set_ylim([0,1])
+
 
 # %%
 
@@ -428,7 +470,7 @@ bhv_plt_reach.plot_session_aligned_to_1st_2nd(LogDf, align_event, pre, post)
 plt.savefig(plot_dir / ('session_overview_aligned_on_1st_2nd.png'), dpi=600)
 
 # %% Plot simple session overview with success rate
-fig, axes = plt.subplots(figsize=[8,2])
+fig, axes = plt.subplots(figsize=[10,2])
 
 bhv_plt_reach.plot_session_overview(SessionDf, animal_meta, session_date, axes = axes)
 plt.savefig(plot_dir / ('session_overview.png'), dpi=600)
@@ -504,7 +546,7 @@ plt.savefig(across_session_plot_dir / ('weight_across_sessions.png'), dpi=600)
 SessionsDf = utils.get_sessions(animal_fd_path)
     
 # Filter sessions to the ones of the task we want to see
-task_name = ['learn_to_choose','learn_to_choose_v2']
+task_name = ['learn_to_choose_v2']
 FilteredSessionsDf = pd.concat([SessionsDf.groupby('task').get_group(name) for name in task_name])
 log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']]
 
