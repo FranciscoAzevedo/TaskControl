@@ -13,11 +13,9 @@ import numpy as np
 import seaborn as sns
 import os
 import tqdm
-import string
 
 # Custom
 from Utils import behavior_analysis_utils as bhv
-from Utils import dlc_analysis_utils
 from Utils import metrics as met
 
 """
@@ -900,3 +898,40 @@ def get_dist_between_events(DlcDf, TrialDfs, first_event, second_event, func, f_
     dist = bhv.truncate_pad_vector(dist, pad_with)
 
     return dist
+
+def compute_choice_grasp_dur(LogDf, SessionDf):
+    " FIXME - LAST CHOICE GRASP DUR IS NEVER COMPUTED SINCE THERE IS NO TRIAL AVAILABLE"
+
+    # Trials spanning from choice available to end of ITI
+    TrialSpans = bhv.get_spans_from_names(LogDf, "CHOICE_STATE", "TRIAL_AVAILABLE_STATE")
+
+    TrialDfs = []
+    for i, row in TrialSpans.iterrows():
+        TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
+
+    # Compute grasp_dur for every trial
+    grasp_dur = pd.Series()
+    for TrialDf in TrialDfs:
+        if met.has_choice(TrialDf).values:
+
+            left_reach_spansDf = bhv.get_spans_from_names(TrialDf, 'REACH_LEFT_ON', 'REACH_LEFT_OFF')
+            right_reach_spansDf = bhv.get_spans_from_names(TrialDf, 'REACH_RIGHT_ON', 'REACH_RIGHT_OFF')
+
+            merge_spansDf = pd.concat([left_reach_spansDf, right_reach_spansDf]).reset_index(drop = True)
+
+            choice_time = bhv.get_events_from_name(TrialDf, 'CHOICE_EVENT')['t'].values[0]
+            
+            # Which reach triggered the choice? The one which corresponding spansDf contains choice_time
+            for row in merge_spansDf.iterrows():
+                if (row[1]['t_on'] < choice_time < row[1]['t_off']):
+                    grasp_dur = grasp_dur.append(pd.Series(row[1]['dt']))
+
+        else: grasp_dur = grasp_dur.append(pd.Series(np.NaN))
+
+    # FIXME Adding last trial manually
+    grasp_dur = grasp_dur.append(pd.Series(np.NaN))
+
+    SessionDf['grasp_dur'] = grasp_dur.reset_index(drop = True)
+
+    return SessionDf
+                

@@ -103,9 +103,12 @@ for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
 metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_interval_category, met.get_outcome, 
             met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop, met.reach_rt_left, 
             met.reach_rt_right, met.has_choice, met.get_interval, met.get_timing_trial, met.get_choice_rt,
-            met.get_reached_side, met.get_bias) # , met.get_choice_grasp_dur
+            met.get_reached_side, met.get_bias) 
 
 SessionDf = bhv.parse_trials(TrialDfs, metrics)
+
+# Add choice grasp dur metric computed differently from the other metrics
+SessionDf = bhv_plt_reach.compute_choice_grasp_dur(LogDf,SessionDf)
 
 # expand outcomes in boolean columns and fixing jackpot rewards
 SessionDf.loc[pd.isna(SessionDf['outcome']),['outcome']] = 'jackpot'
