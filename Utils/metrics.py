@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+from Utils import behavior_analysis_utils as bhv
+from Utils import dlc_analysis_utils as dlc_utils
 from Utils.behavior_analysis_utils import event_slice
 from Utils import utils
 
@@ -144,10 +146,19 @@ def get_interval(TrialDf):
 def get_outcome(TrialDf):
     var_name = "outcome"
 
+    # Order matters due to allowing mistakes
+    if "CHOICE_INCORRECT_EVENT" in TrialDf['name'].values:
+        var = "incorrect"
     if "PREMATURE_CHOICE_EVENT" in TrialDf['name'].values:
         var = "premature"
     elif "CHOICE_CORRECT_EVENT" in TrialDf['name'].values:
         var = "correct"
+    elif "CHOICE_MISSED_EVENT" in TrialDf['name'].values:
+        var = "missed"
+    elif "PREMATURE_CHOICE_EVENT" in TrialDf['name'].values:
+        var = "premature"
+    elif "REWARD_AUTODELIVERED_EVENT" in TrialDf['name'].values:
+        var = "jackpot"
     elif "CHOICE_INCORRECT_EVENT" in TrialDf['name'].values:
         var = "incorrect"
     elif "CHOICE_MISSED_EVENT" in TrialDf['name'].values:
@@ -216,7 +227,7 @@ def reach_rt_right(TrialDf):
 
     return pd.Series(var, name=var_name)
 
-def delay_rt(TrialDf):
+def get_delay_rt(TrialDf):
     " First reach RT during ONLY the DELAY period, agnostic of chosen side or arm"
     var_name = 'delay_rt'
 
@@ -236,20 +247,28 @@ def delay_rt(TrialDf):
     return pd.Series(var, name=var_name)
 
 def get_reach_type(DLCDf,TrialDf):
-    " Classifies type of reach (contra,ipsi,double) and to each side"
+    " TODO "
+
+    " Classifies type of reach (contra,ipsi) for given trial"
     var_name = 'reach_type'
+    sides = ['left','right']
+    spouts = ['SL','SR']
     var = []
 
-    #if has_reach_left(TrialDf):
-        # Check for ipsi vs contra
-        
+    if has_choice(TrialDf):
+        choice_rt = get_choice_rt(TrialDf)
+        t_choice = TrialDf['t'][0] + choice_rt
 
-        # Double case
+        for spout, side in zip(spouts,sides):
+            if get_chosen_side(TrialDf).values == side:
+                
+                d_left_paw = dlc_utils.calc_dist_bp_bp(DLCDf, 'PL', spout)
+                d_right_paw = dlc_utils.calc_dist_bp_bp(DLCDf, 'PR', spout)
 
-    #if has_reach_right(TrialDf):
-        # Check for ipsi vs contra
+                var = 'stuff'
 
-        # Double case
+    else:
+        var = np.NaN
 
     return pd.Series(var, name=var_name)
 
@@ -257,12 +276,23 @@ def get_bias(TrialDf):
     var_name = "bias"
     try:
         Df = TrialDf.groupby('var').get_group(var_name)
-        var = Df.iloc[0]['value'].astype('bool')
+        var = Df.iloc[0]['value']
     except KeyError:
         var = np.NaN
 
     return pd.Series(var, name=var_name)
 
+def is_anticipatory(TrialDf):
+    " Only works for non contingent version of the task with autodeliver ON"
+
+    var_name = "anticipatory"
+
+    if "ANTICIPATORY_REACH_EVENT" in TrialDf['name'].values:
+        var = True
+    else:
+        var = False
+
+    return pd.Series(var, name=var_name)
 
 """
  

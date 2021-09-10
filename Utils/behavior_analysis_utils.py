@@ -267,53 +267,6 @@ def parse_trials(TrialDfs, Metrics):
     SessionDf = SessionDf.reset_index(drop=True)
   
     return SessionDf
-  
-"""
- 
-  ######  ########  ######   ######  ####  #######  ##    ##  ######  
- ##    ## ##       ##    ## ##    ##  ##  ##     ## ###   ## ##    ## 
- ##       ##       ##       ##        ##  ##     ## ####  ## ##       
-  ######  ######    ######   ######   ##  ##     ## ## ## ##  ######  
-       ## ##             ##       ##  ##  ##     ## ##  ####       ## 
- ##    ## ##       ##    ## ##    ##  ##  ##     ## ##   ### ##    ## 
-  ######  ########  ######   ######  ####  #######  ##    ##  ######  
- 
-"""
-
-def get_SessionDf(LogDf, metrics, trial_entry_event="TRIAL_AVAILABLE_STATE", trial_exit_event="ITI_STATE"):
-
-    TrialSpans = get_spans_from_names(LogDf, trial_entry_event, trial_exit_event)
-
-    TrialDfs = []
-    for i, row in tqdm(TrialSpans.iterrows()):
-        TrialDfs.append(time_slice(LogDf, row['t_on'], row['t_off']))
-    
-    SessionDf = parse_trials(TrialDfs, metrics)
-    return SessionDf, TrialDfs
-
-def parse_session(SessionDf, Metrics):
-    """ Applies 2nd level metrics to a session """
-
-    # Session is input to Metrics - list of callable functions, each a "Metric"
-    metrics = [Metric(SessionDf) for Metric in Metrics]
-    SessionMetricsDf = pd.DataFrame(metrics).T
-
-    # correcting dtype
-    for metric in metrics:
-        SessionMetricsDf[metric.name] = SessionMetricsDf[metric.name].astype(metric.dtype)
-
-    return SessionMetricsDf
-
-def parse_sessions(SessionDfs, Metrics):
-    """ helper to run parse_session on multiple sessions.
-    SessionDfs is a list of SessionDf """
-
-    PerformanceDf = pd.concat([parse_session(SessionDf, Metrics) for SessionDf in SessionDfs])
-    PerformanceDf = PerformanceDf.reset_index(drop = 'True')
-
-    return PerformanceDf
-    
-        
 
 """
  

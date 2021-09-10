@@ -1,4 +1,4 @@
-import sys, os
+import sys
 sys.path.append('..')
 from pathlib import Path
 from copy import copy
@@ -45,9 +45,11 @@ class Syncer(object):
             # Decide which is the reference to cut to
             if self.data[A].shape[0] > self.data[B].shape[0]:
                 bigger = 'A'
+                print("Clock A has more pulses")
                 t_bigger = self.data[A]
                 t_smaller = self.data[B]
             else:
+                print("Clock B has more pulses")
                 bigger = 'B'
                 t_bigger = self.data[B]
                 t_smaller = self.data[A]
@@ -156,8 +158,6 @@ def parse_cam_sync(csv_path):
 
     Df = pd.read_csv(csv_path, names=['frame','t','GPIO'])
 
-    # wraparound correct
-    # Df = bhv.correct_wraparound(Df)
     _Df = copy(Df)
     while np.any(np.diff(Df['t']) < 0):
         reversal_ind = np.where(np.diff(Df['t']) < 0)[0][0]

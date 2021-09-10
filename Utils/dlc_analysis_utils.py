@@ -68,8 +68,7 @@ def plot_frame(Frame, axes=None, **im_kwargs):
     axes.imshow(Frame, **im_kwargs)
     return axes
 
-def plot_bodyparts(bodyparts, DlcDf, i, colors=None, axes=None, **marker_kwargs):
-    """ i = frame_ix """
+def plot_bodyparts(bodyparts, DlcDf, frame_ix, colors=None, axes=None, **marker_kwargs):
     if axes is None:
         fig, axes = plt.subplots()
 
@@ -77,7 +76,7 @@ def plot_bodyparts(bodyparts, DlcDf, i, colors=None, axes=None, **marker_kwargs)
         c = sns.color_palette('viridis', n_colors=len(bodyparts))
         colors = dict(zip(bodyparts,c))
 
-    df = DlcDf.loc[i]
+    df = DlcDf.loc[frame_ix]
     for bp in bodyparts:
         axes.plot(df[bp].x, df[bp].y, 'o', color=colors[bp], **marker_kwargs)
 
