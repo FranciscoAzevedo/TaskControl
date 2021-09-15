@@ -13,6 +13,7 @@ conda activate TaskControl
 echo 'Plotting daily figures'
 for animal_fd_path in "${animal_fd_paths[@]}"
 do
+    echo "$animal_fd_path"
     # Get the path to the latest session
     python3 /media/paco/Data/TaskControl/daily_plot.py "$animal_fd_path"
 done

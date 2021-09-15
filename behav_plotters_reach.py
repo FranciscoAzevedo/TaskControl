@@ -29,10 +29,14 @@ from Utils import metrics as met
 
 """
  
-# Only uses LogDf
+#  %% Only uses LogDf
+
+# General functions
 def plot_session_overview(SessionDf, animal_meta, session_date, axes=None):
     
-    colors = dict(correct="#72E043",incorrect="#F56057",premature="#9D5DF0",missed="#F7D379",jackpot='#FFC0CB')
+    hist=10
+    colors = dict(  correct="#72E043",incorrect="#F56057",premature="#9D5DF0",
+                    missed="#F7D379",jackpot='#FFC0CB', anticipatory="#CB9F45")
     
     if axes is None:
         fig, axes = plt.subplots()
@@ -61,17 +65,15 @@ def plot_session_overview(SessionDf, animal_meta, session_date, axes=None):
         if row.timing_trial and not np.isnan(row.timing_trial):
             axes.plot([i,i],[-0.1,1.1],color='cyan',alpha=0.5,zorder=-2,lw=3)
 
-    # success rate
-    hist=10
-    for outcome in ['missed']:
-        srate = (SessionDf.outcome == outcome).rolling(hist).mean()
-        axes.plot(range(SessionDf.shape[0]),srate,lw=1.5,color='black',alpha=0.75)
-        axes.plot(range(SessionDf.shape[0]),srate,lw=1,color=colors[outcome],alpha=0.75)
+    # miss rate
+    miss_rate = (SessionDf.outcome == 'missed').rolling(hist).mean()
+    axes.plot(range(SessionDf.shape[0]),miss_rate,lw=1.5,color='black',alpha=0.75)
+    axes.plot(range(SessionDf.shape[0]),miss_rate,lw=1,color=colors['missed'],alpha=0.75)
 
     # valid trials
     SDf = SessionDf.groupby('is_missed').get_group(False)
     srate = (SDf.outcome == 'correct').rolling(hist).mean()
-    axes.plot(SDf.index,srate,lw=1.5,color='k')
+    axes.plot(SDf.index,srate,lw=1,color='k')
 
     axes.axhline(0.5,linestyle=':',color='k',alpha=0.5)
 
@@ -267,6 +269,7 @@ def plot_choice_RT_hist(SessionDf, choice_interval, bin_width, axes=None):
 
     return axes  
 
+# Learn to reach
 def plot_reaches_between_events(SessionDf, LogDf, TrialDfs, event_1, event_2, bin_width):
     " Plots the reaches during between two events split by trial side and outcome "
 
@@ -354,71 +357,7 @@ def plot_reaches_window_aligned_on_event(LogDf, align_event, pre, post, bin_widt
 
     return axes
 
-def plot_psychometric(SessionDf, N=1000, axes=None, discrete=False):
-    if axes is None:
-        fig, axes = plt.subplots()
-
-    # Get subset of timing trials with choices outside correction loops
-    try:
-        SDf = bhv.groupby_dict(SessionDf, dict(has_choice=True,in_corr_loop=False,timing_trial=True))
-    except KeyError:
-        print('No trials fulfil criteria')
-
-    y = SDf['chosen_side'].values == 'right'
-    x = SDf['this_interval'].values
-
-    # plot the choices
-    if not discrete:
-        axes.plot(x,y,'.',color='k',alpha=0.5)
-
-    axx = plt.twinx(axes)
-    axx.set_yticks([0,1])
-    axx.set_yticklabels(['short','long'])
-    axx.set_ylabel('choice')
-    w = 0.05
-    axx.set_ylim(0-w, 1+w)
-    axes.set_ylim(0-w, 1+w)
-    axes.set_ylabel('p')
-    
-    axes.axvline(1500,linestyle=':',alpha=0.5,lw=1,color='k')
-    axes.axhline(0.5,linestyle=':',alpha=0.5,lw=1,color='k')
-
-    # plot the fit
-    x_fit = np.linspace(0,3000,100)
-    axes.plot(x_fit, bhv.log_reg(x, y, x_fit),color='red', linewidth=2,alpha=0.75)
-
-    # plot the random models based on the choice bias
-    bias = (SDf['chosen_side'] == 'right').sum() / SDf.shape[0]
-    R = []
-    for i in tqdm(range(N)):
-        rand_choices = np.random.rand(SDf.shape[0]) < bias
-        try:
-            R.append(bhv.log_reg(x, rand_choices,x_fit))
-        except ValueError:
-            # thrown when all samples are true or false
-            print("all true or false")
-            pass
-    R = np.array(R)
-
-    # Several statistical boundaries
-    alphas = [5, 0.5, 0.05]
-    opacities = [0.2, 0.2, 0.2]
-    for alpha, a in zip(alphas, opacities):
-        R_pc = sp.percentile(R, (alpha, 100-alpha), 0)
-        axes.fill_between(x_fit, R_pc[0], R_pc[1], color='blue', alpha=a, linewidth=0)
-
-    axes.set_xlabel('time (ms)')
-
-    if discrete:
-        intervals = list(SessionDf.groupby('this_interval').groups.keys())
-        correct_sides = ['right']*len(intervals)
-        for i, interval in enumerate(intervals):
-            SDf = bhv.groupby_dict(SessionDf, dict(this_interval=interval,has_choice=True,in_corr_loop=False,timing_trial=True))
-            f = (SDf['chosen_side'] == correct_sides[i]).sum() / SDf.shape[0]
-            axes.plot(interval,f,'o',color='r')
-
-    return axes
-
+# Learn to choose
 def plot_grasp_duration_distro(LogDf, SessionDf, bin_width, max_grasp_dur, percentile):
     " Plots the distribution of reach durations split by chosen side and outcome"
     " Works for allowing mistakes but doesnt plot text or percentile due to Nan's "
@@ -508,6 +447,95 @@ def plot_hist_no_reaches_per_trial(LogDf, reach_crop):
 
     return axes
 
+# Learn to init
+def plot_init_times(SessionDf, colors, axes=None):
+    
+    if axes is None:
+        fig, axes = plt.subplots(figsize=(5, 3))
+
+    x = range(SessionDf.shape[0])
+    y = SessionDf['init_rt'] / 1000
+
+    y_max = round(np.max(y))
+
+    dot_colors = [colors[outcome] for outcome in SessionDf.outcome]
+    axes.scatter(x , y, color=dot_colors, s=8)
+    axes.axhline(0,linestyle=':',color='k',alpha=0.5)
+
+    axes.set_title('Scatter of time to initiate trial across session')
+    axes.set_ylim(-1,y_max+5) # added 5 just to avoid cropping
+    axes.set_ylabel('time to init (s)')
+    axes.set_xlabel('trial #')
+
+    fig.tight_layout()
+
+    return axes
+
+def plot_no_init_attempts(LoadCellDf, TrialDfs, init_tresh, axes=None):
+    
+    if axes is None:
+        fig = plt.figure(figsize=(6,4))
+
+    sub_tresh = 0.66*init_tresh # About two thirds the original
+
+    attempts = []
+    for TrialDf in TrialDfs:
+
+        # Slice when trial is available but not initiated
+        Df = bhv.event_slice(TrialDf, "TRIAL_AVAILABLE_EVENT", "TRIAL_ENTRY_EVENT")
+        
+        if not Df.empty:
+            LCDf = bhv.time_slice(LoadCellDf, Df.iloc[0]['t'], Df.iloc[-1]['t'])
+
+            X = LCDf['x'].values
+            Y = LCDf['y'].values
+
+            # sub thresh pulling peaks
+            X_peaks , _ = sp.signal.find_peaks(X, height = sub_tresh, width = 50) # 50 ms
+            Y_peaks , _ = sp.signal.find_peaks(Y, height = sub_tresh, width = 50)
+
+            # Computes distance between all X_peaks and all Y_peaks
+            dist = np.abs(X_peaks[:, np.newaxis] - Y_peaks)
+
+            # If its empty
+            if len(dist) == 0:
+                attempts.append(0)
+            else:
+                min_dist = np.min(dist, axis = 0)
+                
+                # If time difference between peaks is lower than 50 ms, they coincide in time
+                no_attempts = min_dist[np.where(min_dist < 50)].shape[0]
+                attempts.append(no_attempts)
+
+        # Instant initiation 
+        else:
+            attempts.append(0)
+
+    # Plotting settings
+    left, width = 0.1, 0.65
+    bottom, height = 0.1, 0.65
+    spacing = 0.005
+    rect_scatter = [left, bottom, width, height]
+    rect_histy = [left + width + spacing, bottom, 0.2, height]
+
+    ax = fig.add_axes(rect_scatter)
+    ax_histy = fig.add_axes(rect_histy, sharey=ax)
+
+    # Formatting
+    ax.scatter(np.arange(len(TrialDfs)), attempts, s = 2)
+    ax.set_ylim([0,10])
+    ax.set_ylabel('No of init attempts')
+    ax.set_xlabel('Trial No.')
+
+    n, bins, _ = ax_histy.hist(attempts, bins=20, range= (0,20), density = True, orientation='horizontal')
+    ax_histy.tick_params(axis="y", labelleft=False)
+    ax_histy.set_xlabel('Perc. of trials (%)')
+    ax_histy.set_xlim([0,1])
+
+    ax.set_title('Number attempts before trial init')
+
+    return ax
+
 def CDF_of_reaches_during_delay(SessionDf,TrialDfs, axes = None, **kwargs):
 
     trial_types = ['short','long']
@@ -536,6 +564,72 @@ def CDF_of_reaches_during_delay(SessionDf,TrialDfs, axes = None, **kwargs):
         axes[i].set_title(trial_type)
         axes[i].set_xlabel('Time since 1st cue (ms)')
         axes[i].set_ylim([0,1])
+
+# Learn to time
+def plot_psychometric(SessionDf, N=1000, axes=None, discrete=False):
+    if axes is None:
+        fig, axes = plt.subplots()
+
+    # Get subset of timing trials with choices outside correction loops
+    try:
+        SDf = bhv.groupby_dict(SessionDf, dict(has_choice=True,in_corr_loop=False,timing_trial=True))
+    except KeyError:
+        print('No trials fulfil criteria')
+
+    y = SDf['chosen_side'].values == 'right'
+    x = SDf['this_interval'].values
+
+    # plot the choices
+    if not discrete:
+        axes.plot(x,y,'.',color='k',alpha=0.5)
+
+    axx = plt.twinx(axes)
+    axx.set_yticks([0,1])
+    axx.set_yticklabels(['short','long'])
+    axx.set_ylabel('choice')
+    w = 0.05
+    axx.set_ylim(0-w, 1+w)
+    axes.set_ylim(0-w, 1+w)
+    axes.set_ylabel('p')
+    
+    axes.axvline(1500,linestyle=':',alpha=0.5,lw=1,color='k')
+    axes.axhline(0.5,linestyle=':',alpha=0.5,lw=1,color='k')
+
+    # plot the fit
+    x_fit = np.linspace(0,3000,100)
+    axes.plot(x_fit, bhv.log_reg(x, y, x_fit),color='red', linewidth=2,alpha=0.75)
+
+    # plot the random models based on the choice bias
+    bias = (SDf['chosen_side'] == 'right').sum() / SDf.shape[0]
+    R = []
+    for i in tqdm(range(N)):
+        rand_choices = np.random.rand(SDf.shape[0]) < bias
+        try:
+            R.append(bhv.log_reg(x, rand_choices,x_fit))
+        except ValueError:
+            # thrown when all samples are true or false
+            print("all true or false")
+            pass
+    R = np.array(R)
+
+    # Several statistical boundaries
+    alphas = [5, 0.5, 0.05]
+    opacities = [0.2, 0.2, 0.2]
+    for alpha, a in zip(alphas, opacities):
+        R_pc = sp.percentile(R, (alpha, 100-alpha), 0)
+        axes.fill_between(x_fit, R_pc[0], R_pc[1], color='blue', alpha=a, linewidth=0)
+
+    axes.set_xlabel('time (ms)')
+
+    if discrete:
+        intervals = list(SessionDf.groupby('this_interval').groups.keys())
+        correct_sides = ['right']*len(intervals)
+        for i, interval in enumerate(intervals):
+            SDf = bhv.groupby_dict(SessionDf, dict(this_interval=interval,has_choice=True,in_corr_loop=False,timing_trial=True))
+            f = (SDf['chosen_side'] == correct_sides[i]).sum() / SDf.shape[0]
+            axes.plot(interval,f,'o',color='r')
+
+    return axes
 
 def outcome_split_by_interval_category(SessionDf, axes = None):
 
@@ -584,30 +678,7 @@ def outcome_split_by_interval_category(SessionDf, axes = None):
 
     return axes
 
-def plot_init_times(SessionDf, colors, axes=None):
-    
-    if axes is None:
-        fig, axes = plt.subplots(figsize=(5, 3))
-
-    x = range(SessionDf.shape[0])
-    y = SessionDf['init_rt'] / 1000
-
-    y_max = round(np.max(y))
-
-    dot_colors = [colors[outcome] for outcome in SessionDf.outcome]
-    axes.scatter(x , y, color=dot_colors, s=8)
-    axes.axhline(0,linestyle=':',color='k',alpha=0.5)
-
-    axes.set_title('Scatter of time to initiate trial across session')
-    axes.set_ylim(-1,y_max+5) # added 5 just to avoid cropping
-    axes.set_ylabel('time to init (s)')
-    axes.set_xlabel('trial #')
-
-    fig.tight_layout()
-
-    return axes
-
-# Uses DLC data
+# %% Uses DLC data
 def caracterize_missed_trials(LogDf,LoadCellDf,DlcDf,axes=None):
     """ 
         Caraterizes missed trials into classes of increasing proximity to a successful choice:
@@ -694,7 +765,8 @@ def plot_mean_trajectories(LogDf, LoadCellDf, SessionDf, TrialDfs, align_event, 
 
     return axes
 
-# Uses Cam data
+# %% Uses Cam data
+
 
 """
     #    #     # ### #     #    #    #
@@ -875,8 +947,8 @@ def get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs, align_event, pre, post):
         Y.append(LCDf['y'].values)
 
     # Turn into numpy arrays
-    X = np.array(X).T
-    Y = np.array(Y).T
+    X = np.array(X, dtype=object).T
+    Y = np.array(Y, dtype=object).T
 
     return X,Y
 

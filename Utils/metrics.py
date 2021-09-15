@@ -81,10 +81,23 @@ def get_chosen_side(TrialDf):
     var_name = "chosen_side"
 
     if "CHOICE_EVENT" in TrialDf['name'].values:
-        if "CHOICE_LEFT_EVENT" in TrialDf['name'].values:
-            var = "left"
-        elif "CHOICE_RIGHT_EVENT" in TrialDf['name'].values:
-            var = "right"
+
+        choice_leftDf = bhv.get_events_from_name(TrialDf, 'CHOICE_LEFT_EVENT')
+        choice_rightDf = bhv.get_events_from_name(TrialDf, 'CHOICE_RIGHT_EVENT')
+
+        if len(choice_leftDf) != 0 and len(choice_rightDf) == 0:
+            var = 'left'
+
+        elif len(choice_leftDf) == 0 and len(choice_rightDf) != 0:
+            var = 'right'
+        
+        # Both sides clock choices fast
+        elif len(choice_leftDf) != 0 and len(choice_rightDf) != 0:
+            if choice_leftDf.iloc[0]['t'] < choice_rightDf.iloc[0]['t']:
+                var = 'left'
+            else:
+                var = 'right'
+
     else:
         var = np.NaN
 
@@ -146,8 +159,9 @@ def get_interval(TrialDf):
 def get_outcome(TrialDf):
     var_name = "outcome"
 
-    # Order matters due to allowing mistakes
-    if "CHOICE_INCORRECT_EVENT" in TrialDf['name'].values:
+    if "ANTICIPATORY_REACH_EVENT" in TrialDf['name'].values:
+        var = "anticipatory"
+    elif "CHOICE_INCORRECT_EVENT" in TrialDf['name'].values:
         var = "incorrect"
     if "PREMATURE_CHOICE_EVENT" in TrialDf['name'].values:
         var = "premature"

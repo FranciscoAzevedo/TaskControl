@@ -4,26 +4,25 @@
 %load_ext autoreload
 %autoreload 2
 
+# System libs
+import os
+import cv2
+from tqdm import tqdm
+from pathlib import Path
+
+# Plotting and math libs
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import scipy as sp
 import scipy.signal
 import numpy as np
 import pandas as pd
-import cv2
-import utils
-import calendar
-import os
-import calendar
-import seaborn as sns
-
-from tqdm import tqdm
-from pathlib import Path
 
 # Custom
 from Utils import behavior_analysis_utils as bhv
 from Utils import dlc_analysis_utils as dlc
 from Utils import metrics as met
+from Utils import utils
 import behav_plotters_reach as bhv_plt_reach
 
 # Settings
@@ -44,80 +43,91 @@ plt.rcParams['figure.dpi'] = 166
  ####### ####### #     # ######  ### #     #  #####
 
 """
-
 # %% read all four data sources (Video, DLC markers, Loadcells and Logs)
+fd_path = utils.get_folder_dialog(initial_dir="/media/storage/shared-paton/georg/Animals_reaching/")
 
-# DeepLabCut data
-h5_path = utils.get_file_dialog()
-DlcDf = read_dlc_h5(h5_path)
-bodyparts = sp.unique([j[0] for j in DlcDf.columns[1:]]) # all body parts
+# DeepLabCut data and settings
+try:
+    h5_path = fd_path / [fname for fname in os.listdir(fd_path) if fname.endswith('filtered.h55')][0]
+except IndexError:
+    h5_path = fd_path / [fname for fname in os.listdir(fd_path) if fname.endswith('.h5')][0]
 
-# Video
-path = h5_path.parent
-video_path = path / "bonsai_video.avi"
-Vid = read_video(str(video_path))
+h5_path = utils.get_file_dialog(initial_dir=fd_path)
+DlcDf = dlc.read_dlc_h5(h5_path)
+bodyparts = np.unique([j[0] for j in DlcDf.columns[1:]]) # all body parts
+spouts = ['SL','SR']
+paws = ['PL','PR']
 
-# Logs
-log_path = path / 'arduino_log.txt'
+# Video data
+video_path = fd_path / "bonsai_video.avi"
+Vid = dlc.read_video(str(video_path))
+
+# Arduino data
+log_path = fd_path / 'arduino_log.txt'
 LogDf = bhv.get_LogDf_from_path(log_path)
 
 # LoadCell data
-LoadCellDf, t_harp = bhv.parse_bonsai_LoadCellData(path / "bonsai_LoadCellData.csv",trig_len=100, ttol=50)
+#LoadCellDf = bhv.parse_bonsai_LoadCellData(fd_path / 'bonsai_LoadCellData.csv')
 
-# Moving average mean subtraction
+## Synching 
+
+from Utils import sync
+
+# Parse sync events/triggers
+cam_sync_event = sync.parse_cam_sync(fd_path / 'bonsai_frame_stamps.csv')
+lc_sync_event = sync.parse_harp_sync(fd_path / 'bonsai_harp_sync.csv')
+arduino_sync_event = sync.get_arduino_sync(fd_path / 'arduino_log.txt')
+
+# Get the values out of them
+Sync = sync.Syncer()
+Sync.data['arduino'] = arduino_sync_event['t'].values
+Sync.data['loadcell'] = lc_sync_event['t'].values
+Sync.data['dlc'] = cam_sync_event.index.values # the frames are the DLC
+Sync.data['cam'] = cam_sync_event['t'].values # used for what?
+
+# Sync them all to master clock (arduino [FSM?] at ~1Khz) and convert
+#LoadCellDf['t_loadcell'] = LoadCellDf['t'] # keeps the original
+
+Sync.sync('loadcell','arduino')
+Sync.sync('dlc','arduino')
+
+#LoadCellDf['t'] = Sync.convert(LoadCellDf['t'].values, 'loadcell', 'arduino')
+DlcDf['t'] = Sync.convert(DlcDf.index.values, 'dlc', 'arduino')
+
+## SessionDf and Go cue
+
+# Add single GO_CUE_EVENT
+LogDf = bhv.add_go_cue_LogDf(LogDf)
+
+# Moving average mean subtraction (need to do after synching)
 samples = 1000 # ms
-LoadCellDf['x'] = LoadCellDf['x'] - LoadCellDf['x'].rolling(samples).mean()
-LoadCellDf['y'] = LoadCellDf['y'] - LoadCellDf['y'].rolling(samples).mean()
+#LoadCellDf['x'] = LoadCellDf['x'] - LoadCellDf['x'].rolling(samples).mean()
+#LoadCellDf['y'] = LoadCellDf['y'] - LoadCellDf['y'].rolling(samples).mean()
 
-# %% Synching 
-video_sync_path = video_path.parent / 'bonsai_frame_stamps.csv'
-m, b, m2, b2 = sync_arduino_w_dlc(log_path, video_sync_path)
-
-# writing arduino times of frames to the Dlc data
-DlcDf['t'] = frame2time(DlcDf.index,m,b,m2,b2)
-
-# Synching arduino 
-arduino_sync = bhv.get_arduino_sync(log_path, sync_event_name="TRIAL_ENTRY_EVENT")
-t_harp = t_harp['t'].values
-t_arduino = arduino_sync['t'].values
-
-if t_harp.shape != t_arduino.shape:
-    t_arduino, t_harp = bhv.cut_timestamps(t_arduino, t_harp, verbose = True)
-
-m3, b3 = bhv.sync_clocks(t_harp, t_arduino, log_path = log_path)
-LogDf = pd.read_csv(path / "LogDf.csv") # re-load the LogDf (to make sure we keep the original arduino clock)
-
-# ADD SINGLE GO_CUE_EVENT
-LogDf = add_go_cue_LogDf(LogDf)
-
-# %% Create SessionDf
+#  Create SessionDf 
 TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_AVAILABLE_STATE", "ITI_STATE")
 
 TrialDfs = []
 for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
     TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
 
-metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_interval_category, met.get_outcome, 
-            met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop, met.reach_rt_left, 
-            met.reach_rt_right, met.has_choice, met.get_interval, met.get_timing_trial, met.get_choice_rt)
+metrics = ( met.get_start, met.get_stop, met.get_correct_side, met.get_interval_category, met.get_outcome, 
+            met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop,  
+            met.reach_rt_left, met.reach_rt_right, met.has_choice, met.get_interval, met.get_timing_trial,
+            met.get_choice_rt, met.get_reached_side, met.get_bias, met.is_anticipatory, met.get_init_rt) 
 
 SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
-# %% Plots dir and animal info
+# Add choice grasp dur metric computed differently from the other metrics
+SessionDf = bhv_plt_reach.compute_choice_grasp_dur(LogDf,SessionDf)
+
+#  Plots dir and animal info
 animal_meta = pd.read_csv(log_path.parent.parent / 'animal_meta.csv')
 nickname = animal_meta[animal_meta['name'] == 'Nickname']['value'].values[0]
+session_date = log_path.parent.stem.split('_')[0]
 
 plot_dir = log_path.parent / 'plots'
 os.makedirs(plot_dir, exist_ok=True)
-
-# %% defining some stuff
-Skeleton   = (('D1L','J1L'),('D2L','J2L'),('D3L','J3L'),('D4L','J4L'),('D5L','J5L'),
-             ('PR','J1R'),('PR','J2R'),('PR','J3R'),('PR','J4R'),('PR','J5R'),
-             ('D1R','J1R'),('D2R','J2R'),('D3R','J3R'),('D4R','J4R'),('D5R','J5R'),
-             ('PL','J1L'),('PL','J2L'),('PL','J3L'),('PL','J4L'),('PL','J5L'))
-
-paws = ['PL','PR']
-
 
 """
   #####  #######  #####   #####  ### ####### #     #             #     # ### ######  ####### #######
@@ -136,7 +146,6 @@ i = 8000 # frame index
 Frame = dlc.get_frame(Vid, i)
 axes = dlc.plot_frame(Frame, axes=axes)
 axes = dlc.plot_bodyparts(bodyparts, DlcDf, i, axes=axes)
-axes, lines = dlc.plot_Skeleton(Skeleton, DlcDf, i , axes=axes)
 
 # %% plot a heatmap of movement for both paws on a 2D background
 fig, axes = plt.subplots()
@@ -167,7 +176,7 @@ axes = dlc.plot_frame(Frame, axes=axes)
 # Detection rectangle
 w = 75 # box size
 rect = dlc.box2rect(right_spout, w)
-R = Rectangle(*rect2cart(rect),lw=1,facecolor='none',edgecolor='r')
+R = dlc.Rectangle(*dlc.rect2cart(rect),lw=1,facecolor='none',edgecolor='r')
 axes.add_patch(R)
 
 # Obtain all reaches within rectangle, convert from frame to time

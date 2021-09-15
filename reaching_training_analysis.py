@@ -372,13 +372,16 @@ linspace = np.linspace(-window, window, 2*window).T
 
 X,Y = bhv_plt_reach.get_LC_slice_aligned_on_event(LoadCellDf, TrialDfs, align_event, window, window) 
 
-# Average traces
-X_mean = np.mean(X)
-Y_mean = np.mean(Y)
+X = bhv_plt_reach.truncate_pad_vector(X)
+Y = bhv_plt_reach.truncate_pad_vector(Y)
 
-axes[0].plot(linspace, X, alpha=0.25, c = 'tab:orange')
+# Average traces
+X_mean = np.mean(X, axis=0)
+Y_mean = np.mean(Y, axis=0)
+
+axes[0].plot(linspace, X.T, alpha=0.25, c = 'tab:orange')
 axes[0].plot(linspace, X_mean, c = 'k')
-axes[1].plot(linspace, Y, alpha=0.25, c = 'tab:blue')
+axes[1].plot(linspace, Y.T, alpha=0.25, c = 'tab:blue')
 axes[1].plot(linspace, Y_mean, c = 'k')
 
 # Formatting
@@ -395,56 +398,9 @@ plt.savefig(plot_dir / ('trial_init_forces.png'), dpi=600)
 
 # %% Plots no. of attempts before actual init over session
 init_tresh = 300
-sub_tresh = 0.66*init_tresh # About two thirds the original
 
-fig = plt.figure(figsize=(6,4))
+bhv_plt_reach.plot_no_init_attempts(LoadCellDf, TrialDfs, init_tresh)
 
-attempts = []
-for TrialDf in TrialDfs:
-
-    # Slice when trial is available but not initiated
-    Df = bhv.event_slice(TrialDf, "TRIAL_AVAILABLE_EVENT", "TRIAL_ENTRY_EVENT")
-    
-    if not Df.empty:
-        LCDf = bhv.time_slice(LoadCellDf, Df.iloc[0]['t'], Df.iloc[-1]['t'])
-
-        X = LCDf['x'].values
-        Y = LCDf['y'].values
-
-        # sub thresh pulling peaks
-        X_peaks , _ = scipy.signal.find_peaks(X, height = sub_tresh, width = 50) # 50 ms
-        Y_peaks , _ = scipy.signal.find_peaks(Y, height = sub_tresh, width = 50)
-
-        # check if peaks coincide in time 
-
-        attempts.append(max(len(X_peaks),len(Y_peaks)))
-
-    # Instant initiation 
-    else:
-        attempts.append(0)
-
-# Plotting settings
-left, width = 0.1, 0.65
-bottom, height = 0.1, 0.65
-spacing = 0.005
-rect_scatter = [left, bottom, width, height]
-rect_histy = [left + width + spacing, bottom, 0.2, height]
-
-ax = fig.add_axes(rect_scatter)
-ax_histy = fig.add_axes(rect_histy, sharey=ax)
-
-# Formatting
-ax.scatter(np.arange(len(TrialDfs)), attempts, s = 2)
-ax.set_ylim([0,10])
-ax.set_ylabel('No of init attempts')
-ax.set_xlabel('Trial No.')
-
-n, bins, _ = ax_histy.hist(attempts, bins=20, range= (0,20), density = True, orientation='horizontal')
-ax_histy.tick_params(axis="y", labelleft=False)
-ax_histy.set_xlabel('Perc. of trials (%)')
-ax_histy.set_xlim([0,1])
-
-ax.set_title('Number attempts before trial init')
 plt.savefig(plot_dir / ('attempts_before_init.png'), dpi=600)
 
 # %% Trial initiation distro
@@ -563,7 +519,8 @@ FilteredSessionsDf = pd.concat([SessionsDf.groupby('task').get_group(name) for n
 log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']]
 
 # Obtain the perc of reaches, correct and incorrect trials
-perc_corr_left, perc_corr_right, perc_correct, perc_missed, perc_pre = [],[],[],[],[]
+perc_corr_left, perc_corr_right, perc_correct, perc_pre = [],[],[],[]
+perc_missed, perc_missed_left, perc_missed_right = [],[],[]
 date_abbr,no_trials,session_length, mondays = [],[],[],[]
 
 for i,log_path in enumerate(log_paths):
@@ -584,34 +541,46 @@ for i,log_path in enumerate(log_paths):
     month_abbr = calendar.month_abbr[date[1]]
     date_abbr.append(month_abbr+'-'+str(date[2]))
 
+    # Getting metrics
     TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_ENTRY_STATE", "ITI_STATE")
 
     TrialDfs = []
     for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
         TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
 
-    metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_outcome, met.get_chosen_side, met.has_reach_left, met.has_reach_right)
+    metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_outcome, met.get_chosen_side, met.has_choice)
     SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
-    # expand outcomes in boolean columns and fixing jackpot rewards
-    SessionDf.loc[pd.isna(SessionDf['outcome']),['outcome']] = 'jackpot'
+    # Session metrics
+    MissedDf = SessionDf[SessionDf['outcome'] == 'missed']
+    choiceDf = SessionDf[SessionDf['has_choice'] == True]
+    left_trials_missedDf = bhv.groupby_dict(SessionDf, dict(outcome='missed', correct_side='left'))
+    right_trials_missedDf = bhv.groupby_dict(SessionDf, dict(outcome='missed', correct_side='right'))
 
-    try:
-        corr_left = SessionDf.groupby(['outcome','correct_side']).get_group(('correct','left'))
-    except:
-        corr_left = []
-    try:
-        corr_right = SessionDf.groupby(['outcome','correct_side']).get_group(('correct','right'))
-    except:
-        corr_right = []
+    corr_leftDf = bhv.groupby_dict(SessionDf, dict(outcome='correct', correct_side='left'))
+    left_trials_with_choiceDf = bhv.groupby_dict(SessionDf, dict(has_choice=True, correct_side='left'))
+    corr_rightDf = bhv.groupby_dict(SessionDf, dict(outcome='correct', correct_side='right'))
+    right_trials_with_choiceDf = bhv.groupby_dict(SessionDf, dict(has_choice=True, correct_side='right'))
 
     jackpot_idx = SessionDf['outcome'] == 'jackpot'
+    no_jackpotDf = SessionDf[~jackpot_idx]
 
-    # Two metrics of evolution
-    perc_corr_left.append(len(corr_left)/len(SessionDf[SessionDf['correct_side'] == 'left'])*100) 
-    perc_corr_right.append(len(corr_right)/len(SessionDf[SessionDf['correct_side'] == 'right'])*100)
-    perc_correct.append((SessionDf.outcome == 'correct').sum()/len(SessionDf)*100)
-    perc_missed.append((SessionDf.outcome == 'missed').sum()/len(SessionDf[~jackpot_idx])*100) # exclude jackpot rews
+    # Metrics of evolution
+    try:
+        perc_corr_left.append(len(corr_leftDf)/len(left_trials_with_choiceDf)*100)
+    except:
+        perc_corr_left.append(np.NaN)
+
+    try:
+        perc_corr_right.append(len(corr_rightDf)/len(right_trials_with_choiceDf)*100)
+    except:
+        perc_corr_right.append(np.NaN)
+
+    perc_correct.append((SessionDf.outcome == 'correct').sum()/len(choiceDf)*100)
+
+    perc_missed.append(len(MissedDf)/len(no_jackpotDf)*100) # exclude jackpot rews
+    perc_missed_left.append(len(left_trials_missedDf)/len(no_jackpotDf[no_jackpotDf['correct_side'] == 'left'])*100)
+    perc_missed_right.append(len(right_trials_missedDf)/len(no_jackpotDf[no_jackpotDf['correct_side'] == 'right'])*100)
 
     if len(SessionDf[SessionDf.outcome == 'premature']) != 0:
         perc_pre.append(sum(SessionDf.outcome == 'premature')/len(SessionDf)*100)
@@ -622,12 +591,16 @@ for i,log_path in enumerate(log_paths):
     session_length.append((LogDf['t'].iloc[-1]-LogDf['t'].iloc[0])/(1000*60)) # convert msec. -> sec.-> min.
 
 # Plotting
-fig , axes = plt.subplots()
+fig , axes = plt.subplots(figsize=(10,4))
 
-axes.plot(perc_corr_left, color = 'orange', label = 'Corr L (%)', marker='o', markersize=2)
-axes.plot(perc_corr_right, color = 'blue', label = 'Corr R (%)', marker='o', markersize=2)
+axes.plot(perc_corr_left, color = 'orange', label = 'Corr L (%)',alpha = 0.25)
+axes.plot(perc_corr_right, color = 'blue', label = 'Corr R (%)',alpha = 0.25)
 axes.plot(perc_correct, color = 'green', label = 'Correct (%)', marker='o', markersize=2)
-axes.plot(perc_missed, color = 'grey', label = 'Missed (%)', marker='o', markersize=2)
+
+axes.plot(perc_missed_left, linestyle='dashed', color = 'orange', label = 'Missed L (%)',alpha = 0.25)
+axes.plot(perc_missed_right, linestyle='dashed', color = 'blue', label = 'Missed R (%)',alpha = 0.25)
+axes.plot(perc_missed, linestyle='dashed', color = 'grey', label = 'Missed (%)', marker='o', markersize=2)
+
 axes.plot(perc_pre, color = 'pink', label = 'Premature (%)', marker='o', markersize=2)
 
 [axes.axvline(monday, color = 'k', alpha = 0.25) for monday in mondays]
@@ -635,11 +608,12 @@ axes.plot(perc_pre, color = 'pink', label = 'Premature (%)', marker='o', markers
 axes.set_title(' Session overview for ' + nickname + ' ' + str(task_name))
 axes.set_ylabel('Trial outcome (%)')
 axes.set_xlabel('Session date')
-axes.legend(loc="center", frameon=False, bbox_to_anchor=(0.5, 0.98), prop={'size': 6}, ncol=5) 
+axes.legend(loc="center", frameon=False, bbox_to_anchor=(0.5, 0.98), prop={'size': 7}, ncol=7) 
 
 plt.setp(axes, xticks=np.arange(0, len(date_abbr), 1), xticklabels=date_abbr)
 plt.setp(axes, yticks=np.arange(0, 100+1, 10), yticklabels=np.arange(0, 100+1, 10))
-plt.xticks(rotation=45)
+plt.xticks(rotation=90)
+fig.tight_layout()
 plt.savefig(across_session_plot_dir / ('overview_across_sessions' + str(task_name)+ '.png'), dpi=600)
 
 # %% Trial init day
@@ -669,7 +643,7 @@ task_name = ['learn_to_choose_v2']
 FilteredSessionsDf = pd.concat([SessionsDf.groupby('task').get_group(name) for name in task_name])
 log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']]
 
-fig, axes = plt.subplots(ncols=2, figsize=[6, 3], sharey=True, sharex=True)
+fig, axes = plt.subplots(ncols=2, figsize=[6, 4], sharey=True, sharex=True)
 colors = sns.color_palette(palette='turbo',n_colors=len(log_paths))
 
 for j,log_path in enumerate(log_paths[init_day_idx:]):

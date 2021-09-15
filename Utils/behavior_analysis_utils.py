@@ -328,8 +328,10 @@ def event_based_time_slice(Df, event, pre, post, col='name', on='t', Df_to_slice
     # return Dfs
 
 def groupby_dict(Df, Dict):
-    """ will turn obsolete ... """
-    return Df.groupby(list(Dict.keys())).get_group(tuple(Dict.values()))
+    try:
+        return Df.groupby(list(Dict.keys())).get_group(tuple(Dict.values()))
+    except:
+        return []
 
 def intersect(Df, **kwargs):
     """ helper to slice pd.DataFrame, keys select columns, values select rows at columns

@@ -14,7 +14,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.patches import Rectangle
-import seaborn as sns
 
 # Computational libs
 import scipy as sp
@@ -173,12 +172,9 @@ for i, TrialDf in enumerate(TrialDfs):
         t = TrialDf.loc[TrialDf['name'] == event].iloc[0]['t']
         # frame_ix = sp.argmin(sp.absolute(DlcDf['t'].values - t))
         frame_ix = Sync.convert(t,'arduino','dlc')
-        for bp in bodyparts:
     
     else:
         value = np.NaN
-    try:
-        SessionDf.loc[i,'paw_resting'] = DlcDf['PAW_L'].loc[frame_ix]['y'] < th
     
     SessionDf.loc[i,'paw_resting'] = sp.nan
 """

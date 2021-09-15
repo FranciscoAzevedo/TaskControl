@@ -50,18 +50,8 @@ Sync = sync.Syncer()
 Sync.data['arduino'] = arduino_sync_event['t'].values
 Sync.data['loadcell'] = lc_sync_event['t'].values
 
-# Sync them all to master clock (arduino [FSM?] at ~1Khz)
-LoadCellDf['t_loadcell'] = LoadCellDf['t'] # keeps the original
-Sync.sync('loadcell','arduino')
-LoadCellDf['t'] = Sync.convert(LoadCellDf['t'].values, 'loadcell', 'arduino')
-
 # Add single GO_CUE_EVENT
 LogDf = bhv.add_go_cue_LogDf(LogDf)
-
-# Moving average mean subtraction (need to do after synching)
-samples = 1000 # ms
-LoadCellDf['x'] = LoadCellDf['x'] - LoadCellDf['x'].rolling(samples).mean()
-LoadCellDf['y'] = LoadCellDf['y'] - LoadCellDf['y'].rolling(samples).mean()
 
 #  Create SessionDf 
 TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_AVAILABLE_STATE", "ITI_STATE")
@@ -81,7 +71,8 @@ SessionDf = bhv.parse_trials(TrialDfs, metrics)
 SessionDf = bhv_plt_reach.compute_choice_grasp_dur(LogDf,SessionDf)
 
 # Create boolean vars for each outcome 
-outcomes = SessionDf['outcome'].unique()
+outcomes_raw = SessionDf['outcome'].unique()
+outcomes = [outcome_raw for outcome_raw in outcomes_raw if isinstance(outcome_raw, str)]
 for outcome in outcomes:
    SessionDf['is_'+outcome] = SessionDf['outcome'] == outcome
 
