@@ -3,6 +3,9 @@ import pandas as pd
 import scipy as sp 
 import pathlib
 from pathlib import Path
+from Utils import behavior_analysis_utils as bhv
+from Utils import metrics as met
+from tqdm import tqdm
 from colorama import init, Fore
 init(autoreset=True)
 
@@ -173,7 +176,21 @@ def get_folder_dialog(initial_dir="D:/TaskControl/Animals"):
     root.destroy()
 
     return path
+
+# %% prep and general analysis
+def get_SessionDf(LogDf, metrics, trial_entry_event="TRIAL_AVAILABLE_STATE", trial_exit_event="ITI_STATE"):
+
+    TrialSpans = bhv.get_spans_from_names(LogDf, trial_entry_event, trial_exit_event)
+
+    TrialDfs = []
+    for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
+        TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
     
+    SessionDf = bhv.parse_trials(TrialDfs, metrics)
+
+    SessionDf = met.compute_choice_grasp_dur(LogDf,SessionDf)
+
+    return SessionDf, TrialDfs
 
 """
  
@@ -323,3 +340,21 @@ def scale_Widgets(Widgets, how="vertical", mode="max"):
         if mode == "min":
             min_width = min(widths)
             [widget.resize(min_width,widget.sizeHint().height()) for widget in Widgets]
+
+"""
+.########.##.....##..######..########.########..########.####..#######..##....##..######.
+.##........##...##..##....##.##.......##.....##....##.....##..##.....##.###...##.##....##
+.##.........##.##...##.......##.......##.....##....##.....##..##.....##.####..##.##......
+.######......###....##.......######...########.....##.....##..##.....##.##.##.##..######.
+.##.........##.##...##.......##.......##...........##.....##..##.....##.##..####.......##
+.##........##...##..##....##.##.......##...........##.....##..##.....##.##...###.##....##
+.########.##.....##..######..########.##...........##....####..#######..##....##..######.
+"""
+class CustomError(Exception):
+    """Base class for other exceptions"""
+    pass
+
+
+class NoFiltPairError(CustomError):
+    """Raised when no trials satisfy input pairs' conditions """
+    pass

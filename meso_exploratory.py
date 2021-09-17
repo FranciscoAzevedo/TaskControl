@@ -50,7 +50,6 @@ plt.rcParams['figure.dpi'] = 166
 
 fd_path = utils.get_folder_dialog(initial_dir="/media/storage/shared-paton/georg/mesoscope_testings/behavior")
 
-
 # Video data
 video_path = fd_path / "bonsai_video.avi"
 Vid = dlc_utils.read_video(str(video_path))
@@ -90,26 +89,19 @@ Sync.data['loadcell'] = lc_sync_event['t'].values
 LogDf = bhv.add_go_cue_LogDf(LogDf)
 
 #  Create SessionDf - For LEARN_TO_CHOOSE onwards
-TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_AVAILABLE_STATE", "ITI_STATE")
+LogDf = bhv.add_go_cue_LogDf(LogDf)
 
-TrialDfs = []
-for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
-    TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
+session_metrics = ( met.get_start, met.get_stop, met.get_correct_side, met.get_interval_category, met.get_outcome, 
+            met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop,  
+            met.reach_rt_left, met.reach_rt_right, met.has_choice, met.get_interval, met.get_timing_trial,
+            met.get_choice_rt, met.get_reached_side, met.get_bias, met.is_anticipatory, met.get_init_rt,
+            met.rew_collected) 
 
-metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_interval_category, met.get_outcome, 
-            met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop, met.reach_rt_left, 
-            met.reach_rt_right, met.has_choice, met.get_interval, met.get_timing_trial, met.get_choice_rt,
-            met.get_reached_side, met.get_bias, met.is_anticipatory, met.get_init_rt) 
-
-SessionDf = bhv.parse_trials(TrialDfs, metrics)
-
-# Add choice grasp dur metric computed differently from the other metrics
-SessionDf = bhv_plt_reach.compute_choice_grasp_dur(LogDf,SessionDf)
+SessionDf, TrialDfs = utils.get_SessionDf(LogDf, session_metrics, "TRIAL_ENTRY_EVENT", "ITI_STATE")
 
 outcomes = SessionDf['outcome'].unique()
 for outcome in outcomes:
    SessionDf['is_'+outcome] = SessionDf['outcome'] == outcome
-
 
 #  Plots dir and animal info
 animal_meta = pd.read_csv(log_path.parent.parent / 'animal_meta.csv')

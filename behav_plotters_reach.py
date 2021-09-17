@@ -2,21 +2,23 @@
 #%load_ext autoreload
 #%autoreload 2
 
+from logging import error
 import matplotlib as mpl
 mpl.rcParams['figure.dpi'] = 166
 from matplotlib import pyplot as plt
 import pandas as pd
 import itertools
 from pathlib import Path
+import seaborn as sns
 import scipy as sp
 import numpy as np
-import seaborn as sns
 import os
 from tqdm import tqdm
 
 # Custom
 from Utils import behavior_analysis_utils as bhv
 from Utils import metrics as met
+from Utils import utils
 
 """
   #####  #######  #####   #####  ### ####### #     #
@@ -45,23 +47,35 @@ def plot_session_overview(SessionDf, animal_meta, session_date, axes=None):
         axes.plot([i,i],[0,1],lw=2.5,color=colors[row.outcome],zorder=-1)
 
         w = 0.05
+
+        # correct side tick mark
         if row.correct_side == 'left':
             axes.plot([i,i],[0-w,0+w],lw=1,color='k')
         if row.correct_side == 'right':
             axes.plot([i,i],[1-w,1+w],lw=1,color='k')
 
+        # chosen side dot
         if row.has_choice:
             if row.chosen_side == 'left':
                 axes.plot(i,-0.0,'.',color='k')
             if row.chosen_side == 'right':
                 axes.plot(i,1.0,'.',color='k')
 
+        # reward collected to one side
+        if row.rew_collect == True:
+            if row.correct_side == 'left':
+                axes.plot(i,-0.0,'.',color='cyan',alpha=0.75)
+            if row.correct_side == 'right':
+                axes.plot(i,1.0,'.',color='cyan',alpha=0.75)
+
+        # correction loops to one side
         if row.in_corr_loop and not np.isnan(row.in_corr_loop):
             if row.correct_side == 'left':
                 axes.plot([i,i],[-0.1,0.1],color='red',alpha=0.5,zorder=-2,lw=3)
             if row.correct_side == 'right':
                 axes.plot([i,i],[1,1.1],color='red',alpha=0.5,zorder=-2,lw=3)
         
+        # Timing trials
         if row.timing_trial and not np.isnan(row.timing_trial):
             axes.plot([i,i],[-0.1,1.1],color='cyan',alpha=0.5,zorder=-2,lw=3)
 
@@ -78,6 +92,10 @@ def plot_session_overview(SessionDf, animal_meta, session_date, axes=None):
     axes.axhline(0.5,linestyle=':',color='k',alpha=0.5)
 
     # deco
+    axes2 = plt.twinx(axes)
+    axes2.set_yticks([0,1])
+    axes2.set_yticklabels(['left','right'])
+
     axes.set_title(animal_meta['value'][5] + " - " + animal_meta['value'][0] + " - " + str(session_date))
     axes.set_xlabel('trial #')
     axes.set_ylabel('success rate')
@@ -895,14 +913,14 @@ def filter_trials_by(SessionDf, TrialDfs, filter_dict):
 
         try:
             SDf = SessionDf.groupby(groupby_keys).get_group(getgroup_keys)
-        except:
-            print('No trials with given input filter_pair combination')
+        except utils.NoFiltPairError:
+            error('No trials with given input filter_pair combination')
             
     else: # more than 1 pair
         try:
             SDf = bhv.groupby_dict(SessionDf, filter_dict)
-        except:
-            print('No trials with given input filter_pair combination')
+        except utils.NoFiltPairError:
+            error('No trials with given input filter_pair combination')
 
     TrialDfs_filt = [TrialDfs[i] for i in SDf.index.values.astype(int)]
 
@@ -1004,40 +1022,4 @@ def get_dist_between_events(DlcDf, TrialDfs, first_event, second_event, func, f_
     dist = bhv.truncate_pad_vector(dist, pad_with)
 
     return dist
-
-def compute_choice_grasp_dur(LogDf, SessionDf):
-    " FIXME - LAST CHOICE GRASP DUR IS NEVER COMPUTED SINCE THERE IS NO TRIAL AVAILABLE"
-
-    # Trials spanning from choice available to end of ITI
-    TrialSpans = bhv.get_spans_from_names(LogDf, "CHOICE_STATE", "TRIAL_AVAILABLE_STATE")
-
-    TrialDfs = []
-    for i, row in TrialSpans.iterrows():
-        TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
-
-    # Compute grasp_dur for every trial
-    grasp_dur = pd.Series()
-    for TrialDf in TrialDfs:
-        if met.has_choice(TrialDf).values:
-
-            left_reach_spansDf = bhv.get_spans_from_names(TrialDf, 'REACH_LEFT_ON', 'REACH_LEFT_OFF')
-            right_reach_spansDf = bhv.get_spans_from_names(TrialDf, 'REACH_RIGHT_ON', 'REACH_RIGHT_OFF')
-
-            merge_spansDf = pd.concat([left_reach_spansDf, right_reach_spansDf]).reset_index(drop = True)
-
-            choice_time = bhv.get_events_from_name(TrialDf, 'CHOICE_EVENT')['t'].values[0]
-            
-            # Which reach triggered the choice? The one which corresponding spansDf contains choice_time
-            for row in merge_spansDf.iterrows():
-                if (row[1]['t_on'] < choice_time < row[1]['t_off']):
-                    grasp_dur = grasp_dur.append(pd.Series(row[1]['dt']))
-
-        else: grasp_dur = grasp_dur.append(pd.Series(np.NaN))
-
-    # FIXME Adding last trial manually
-    grasp_dur = grasp_dur.append(pd.Series(np.NaN))
-
-    SessionDf['grasp_dur'] = grasp_dur.reset_index(drop = True)
-
-    return SessionDf
                 

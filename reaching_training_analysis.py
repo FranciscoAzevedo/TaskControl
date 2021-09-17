@@ -57,8 +57,8 @@ fd_path = utils.get_folder_dialog(initial_dir="/media/storage/shared-paton/georg
 #bodyparts = sp.unique([j[0] for j in DlcDf.columns[1:]]) # all body parts
 
 # Video data
-video_path = fd_path / "bonsai_video.avi"
-Vid = dlc_utils.read_video(str(video_path))
+#video_path = fd_path / "bonsai_video.avi"
+#Vid = dlc_utils.read_video(str(video_path))
 
 # Arduino data
 log_path = fd_path / 'arduino_log.txt'
@@ -96,27 +96,18 @@ LoadCellDf['t'] = Sync.convert(LoadCellDf['t'].values, 'loadcell', 'arduino')
 # Add single GO_CUE_EVENT
 LogDf = bhv.add_go_cue_LogDf(LogDf)
 
+session_metrics = ( met.get_start, met.get_stop, met.get_correct_side, met.get_interval_category, met.get_outcome, 
+            met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop,  
+            met.reach_rt_left, met.reach_rt_right, met.has_choice, met.get_interval, met.get_timing_trial,
+            met.get_choice_rt, met.get_reached_side, met.get_bias, met.is_anticipatory, met.get_init_rt,
+            met.rew_collected) 
+
+SessionDf, TrialDfs = utils.get_SessionDf(LogDf, session_metrics, "TRIAL_ENTRY_EVENT", "ITI_STATE")
+
 # Moving average mean subtraction (need to do after synching)
 samples = 1000 # ms
 LoadCellDf['x'] = LoadCellDf['x'] - LoadCellDf['x'].rolling(samples).mean()
 LoadCellDf['y'] = LoadCellDf['y'] - LoadCellDf['y'].rolling(samples).mean()
-
-#  Create SessionDf 
-TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_AVAILABLE_STATE", "ITI_STATE")
-
-TrialDfs = []
-for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
-    TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
-
-metrics = ( met.get_start, met.get_stop, met.get_correct_side, met.get_interval_category, met.get_outcome, 
-            met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop,  
-            met.reach_rt_left, met.reach_rt_right, met.has_choice, met.get_interval, met.get_timing_trial,
-            met.get_choice_rt, met.get_reached_side, met.get_bias, met.is_anticipatory, met.get_init_rt) 
-
-SessionDf = bhv.parse_trials(TrialDfs, metrics)
-
-# Add choice grasp dur metric computed differently from the other metrics
-SessionDf = bhv_plt_reach.compute_choice_grasp_dur(LogDf,SessionDf)
 
 # Create boolean vars for each outcome 
 outcomes = SessionDf['outcome'].unique()

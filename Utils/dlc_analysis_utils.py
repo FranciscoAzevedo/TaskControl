@@ -1,13 +1,18 @@
+# %%
+# Plotting and math
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+import seaborn as sns
 import scipy as sp
 import numpy as np
 import pandas as pd
 import cv2
-import seaborn as sns
-from pathlib import Path
-from Utils import behavior_analysis_utils as bhv
+
+# Custom
+from Utils import dlc_analysis_utils as dlc
 from Utils import metrics
+
+# Misc
 from copy import copy
 
 """
@@ -121,6 +126,54 @@ def plot_trajectories(DlcDf, bodyparts, axes=None, colors=None, p=0.99, **line_k
     return axes
 
 """
+
+    ###    ##    ## #### ##     ##    ###    ######## ####  #######  ##    ## 
+   ## ##   ###   ##  ##  ###   ###   ## ##      ##     ##  ##     ## ###   ## 
+  ##   ##  ####  ##  ##  #### ####  ##   ##     ##     ##  ##     ## ####  ## 
+ ##     ## ## ## ##  ##  ## ### ## ##     ##    ##     ##  ##     ## ## ## ## 
+ ######### ##  ####  ##  ##     ## #########    ##     ##  ##     ## ##  #### 
+ ##     ## ##   ###  ##  ##     ## ##     ##    ##     ##  ##     ## ##   ### 
+ ##     ## ##    ## #### ##     ## ##     ##    ##    ####  #######  ##    ## 
+
+"""
+
+from matplotlib.animation import FuncAnimation
+
+def update(Vid, im, i):
+    """
+        Vid is video object
+        im is canvas for frame
+        i is idx number
+    """
+
+    Frame = dlc.get_frame(Vid,i)
+    im.set_data(Frame)
+
+    return im
+
+def play_trial(SessionDf, Vid, Sync, trial_no):
+    " Plays a video of input trial together with cues and time"
+
+    # Obtains beggining and end and converts to frame idxs
+    t_on = SessionDf.iloc[trial_no]['t_on']
+    t_off = SessionDf.iloc[trial_no]['t_off']
+
+    idx_on = Sync.convert(t_on, 'arduino', 'dlc')
+    idx_off = Sync.convert(t_off, 'arduino', 'dlc')
+
+    ixs = list(range(idx_on,idx_off))
+
+    fig, ax = plt.subplots()
+    ax.set_aspect('equal')
+    frame = dlc.get_frame(Vid, ixs[0])
+    im = ax.imshow(frame, cmap='gray')
+
+    ani = FuncAnimation(fig, update, frames=ixs, blit=True, interval=2)
+    plt.show()
+
+    ani.save('test.avi',fps=30,dpi=300)
+
+"""
  
     ###    ##    ##    ###    ##       ##    ##  ######  ####  ######  
    ## ##   ###   ##   ## ##   ##        ##  ##  ##    ##  ##  ##    ## 
@@ -199,7 +252,7 @@ def in_box_span(DlcDf, bp, rect, p=0.99, min_dur=20, convert_to_time=True):
  
 """
 
-def calc_dist_bp_point(DlcDf, bp, point, p=0.99, filter=False):
+def calc_dist_bp_point(DlcDf, bp, point, p=0.90, filter=False):
     """ euclidean distance bodypart to point """
     df = DlcDf[bp]
     D = sp.sqrt(sp.sum((df[['x','y']].values - sp.array(point))**2,axis=1))
@@ -210,7 +263,7 @@ def calc_dist_bp_point(DlcDf, bp, point, p=0.99, filter=False):
         D[~good_ix] = sp.nan
         return D
 
-def calc_dist_bp_bp(DlcDf, bp1, bp2, p=0.99, filter=False):
+def calc_dist_bp_bp(DlcDf, bp1, bp2, p=0.90, filter=False):
     """ euclidean distance between bodyparts """
 
     df1 = DlcDf[bp1]
