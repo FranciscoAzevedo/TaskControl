@@ -296,18 +296,6 @@ def get_bias(TrialDf):
 
     return pd.Series(var, name=var_name)
 
-def is_anticipatory(TrialDf):
-    " Only works for non contingent version of the task with autodeliver ON"
-
-    var_name = "anticipatory"
-
-    if "ANTICIPATORY_REACH_EVENT" in TrialDf['name'].values:
-        var = True
-    else:
-        var = False
-
-    return pd.Series(var, name=var_name)
-
 def rew_collected(TrialDf):
     " Only works for jackpot rewards"
     var_name = "rew_collect"

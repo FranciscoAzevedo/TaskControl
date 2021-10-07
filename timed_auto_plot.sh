@@ -1,9 +1,11 @@
 # Shell script to run plots everyday for last session of given animals
-declare -a animal_fd_paths=("/media/storage/shared-paton/georg/Animals_reaching/JJP-02630" 
-                            "/media/storage/shared-paton/georg/Animals_reaching/JJP-02633"
-                            "/media/storage/shared-paton/georg/Animals_reaching/JJP-02385"
-                            "/media/storage/shared-paton/georg/Animals_reaching/JJP-02396"
-                            "/media/storage/shared-paton/georg/Animals_reaching/JJP-02398")
+declare -a animal_fd_paths=("/media/storage/shared-paton/georg/Animals_reaching/JJP-02909"
+                            "/media/storage/shared-paton/georg/Animals_reaching/JJP-02911"
+                            "/media/storage/shared-paton/georg/Animals_reaching/JJP-02912"
+                            "/media/storage/shared-paton/georg/Animals_reaching/JJP-02994"
+                            "/media/storage/shared-paton/georg/Animals_reaching/JJP-02995"
+                            "/media/storage/shared-paton/georg/Animals_reaching/JJP-02996"
+                            "/media/storage/shared-paton/georg/Animals_reaching/JJP-02997")
 
 echo 'Changed Conda Env'
 source /home/paco/anaconda3/etc/profile.d/conda.sh

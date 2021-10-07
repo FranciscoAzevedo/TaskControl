@@ -1,19 +1,21 @@
-# %%
-# Plotting and math
+# %% Imports
+
+# Plotting
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import seaborn as sns
+import cv2
+
+# Computational 
 import scipy as sp
 import numpy as np
 import pandas as pd
-import cv2
+
+# Misc
+from tqdm import tqdm
 
 # Custom
 from Utils import dlc_analysis_utils as dlc
-from Utils import metrics
-
-# Misc
-from copy import copy
 
 """
  
@@ -63,7 +65,7 @@ def get_frame(Vid, i):
 
 def plot_frame(Frame, axes=None, **im_kwargs):
     if axes is None:
-        fig, axes = plt.subplots()
+        _ , axes = plt.subplots()
         axes.set_aspect('equal')
     
     defaults  = dict(cmap='gray')
@@ -89,7 +91,7 @@ def plot_bodyparts(bodyparts, DlcDf, frame_ix, colors=None, axes=None, **marker_
 
 def plot_Skeleton(Skeleton, DlcDf, i, axes=None,**line_kwargs):
     if axes is None:
-        fig, axes = plt.subplots()
+        _ , axes = plt.subplots()
 
     defaults  = dict(lw=1,alpha=0.5,color='k')
     for k,v in defaults.items():
@@ -126,52 +128,32 @@ def plot_trajectories(DlcDf, bodyparts, axes=None, colors=None, p=0.99, **line_k
     return axes
 
 """
-
-    ###    ##    ## #### ##     ##    ###    ######## ####  #######  ##    ## 
-   ## ##   ###   ##  ##  ###   ###   ## ##      ##     ##  ##     ## ###   ## 
-  ##   ##  ####  ##  ##  #### ####  ##   ##     ##     ##  ##     ## ####  ## 
- ##     ## ## ## ##  ##  ## ### ## ##     ##    ##     ##  ##     ## ## ## ## 
- ######### ##  ####  ##  ##     ## #########    ##     ##  ##     ## ##  #### 
- ##     ## ##   ###  ##  ##     ## ##     ##    ##     ##  ##     ## ##   ### 
- ##     ## ##    ## #### ##     ## ##     ##    ##    ####  #######  ##    ## 
-
+.##.....##.########.##.......########..########.########.
+.##.....##.##.......##.......##.....##.##.......##.....##
+.##.....##.##.......##.......##.....##.##.......##.....##
+.#########.######...##.......########..######...########.
+.##.....##.##.......##.......##........##.......##...##..
+.##.....##.##.......##.......##........##.......##....##.
+.##.....##.########.########.##........########.##.....##
 """
 
-from matplotlib.animation import FuncAnimation
+def interpolate_bodypart_pos(DlcDf, bodyparts, p, kind='linear', fill_value=np.NaN):
+    """ interpolates x and y positions for bodyparts where likelihood is below p """
+    for bp in tqdm(bodyparts):
+        good_inds = DlcDf[bp]['likelihood'].values > p
+        ix = DlcDf[bp].loc[good_inds].index
 
-def update(Vid, im, i):
-    """
-        Vid is video object
-        im is canvas for frame
-        i is idx number
-    """
+        bad_inds = DlcDf[bp]['likelihood'].values < p
+        bix = DlcDf[bp].loc[bad_inds].index
 
-    Frame = dlc.get_frame(Vid,i)
-    im.set_data(Frame)
+        x = DlcDf[bp].loc[good_inds]['x'].values
+        interp = sp.interpolate.interp1d(ix, x, kind=kind, fill_value=fill_value)
+        DlcDf[(bp,'x')].loc[bix] = interp(bix)
 
-    return im
-
-def play_trial(SessionDf, Vid, Sync, trial_no):
-    " Plays a video of input trial together with cues and time"
-
-    # Obtains beggining and end and converts to frame idxs
-    t_on = SessionDf.iloc[trial_no]['t_on']
-    t_off = SessionDf.iloc[trial_no]['t_off']
-
-    idx_on = Sync.convert(t_on, 'arduino', 'dlc')
-    idx_off = Sync.convert(t_off, 'arduino', 'dlc')
-
-    ixs = list(range(idx_on,idx_off))
-
-    fig, ax = plt.subplots()
-    ax.set_aspect('equal')
-    frame = dlc.get_frame(Vid, ixs[0])
-    im = ax.imshow(frame, cmap='gray')
-
-    ani = FuncAnimation(fig, update, frames=ixs, blit=True, interval=2)
-    plt.show()
-
-    ani.save('test.avi',fps=30,dpi=300)
+        y = DlcDf[bp].loc[good_inds]['y'].values
+        interp = sp.interpolate.interp1d(ix, y, kind=kind, fill_value=fill_value)
+        DlcDf[(bp,'y')].loc[bix] = interp(bix)
+    return DlcDf
 
 """
  
@@ -202,9 +184,9 @@ def get_in_box(DlcDf, bp, rect, p=0.99, filter=False):
     rect and returns boolean index for above pred above likelihood """
 
     df = DlcDf[bp]
-    x_true = sp.logical_and((df.x > rect[0]).values, (df.x < rect[2]).values)
-    y_true = sp.logical_and((df.y > rect[1]).values, (df.y < rect[3]).values)
-    in_box = sp.logical_and(x_true, y_true)
+    x_true = np.logical_and((df.x > rect[0]).values, (df.x < rect[2]).values)
+    y_true = np.logical_and((df.y > rect[1]).values, (df.y < rect[3]).values)
+    in_box = np.logical_and(x_true, y_true)
     good_ix = (df.likelihood > p).values
     if filter is False:
         return in_box, good_ix
@@ -219,8 +201,8 @@ def in_box_span(DlcDf, bp, rect, p=0.99, min_dur=20, convert_to_time=True):
 
     df = pd.DataFrame(columns=['t_on','t_off'])
 
-    ons = sp.where(sp.diff(in_box.astype('int32')) == 1)[0]
-    offs = sp.where(sp.diff(in_box.astype('int32')) == -1)[0]
+    ons = np.where(np.diff(in_box.astype('int32')) == 1)[0]
+    offs = np.where(np.diff(in_box.astype('int32')) == -1)[0]
 
     ts = []
     for t_on in ons:
@@ -255,7 +237,7 @@ def in_box_span(DlcDf, bp, rect, p=0.99, min_dur=20, convert_to_time=True):
 def calc_dist_bp_point(DlcDf, bp, point, p=0.90, filter=False):
     """ euclidean distance bodypart to point """
     df = DlcDf[bp]
-    D = sp.sqrt(sp.sum((df[['x','y']].values - sp.array(point))**2,axis=1))
+    D = sp.sqrt(np.sum((df[['x','y']].values - sp.array(point))**2,axis=1))
     good_ix = (df.likelihood > p).values
     if filter is False:
         return D, good_ix
@@ -272,9 +254,9 @@ def calc_dist_bp_bp(DlcDf, bp1, bp2, p=0.90, filter=False):
     c1 = df1[['x','y']].values
     c2 = df2[['x','y']].values
 
-    good_ix = sp.logical_and((df1.likelihood > p).values,(df2.likelihood > p).values)
+    good_ix = np.logical_and((df1.likelihood > p).values,(df2.likelihood > p).values)
 
-    d = sp.sqrt(sp.sum((c1-c2)**2,axis=1))
+    d = np.sqrt(np.sum((c1-c2)**2,axis=1))
     if filter is False:
         return d, good_ix
     else:
@@ -283,11 +265,11 @@ def calc_dist_bp_bp(DlcDf, bp1, bp2, p=0.90, filter=False):
 
 def get_speed(DlcDf, bp, p=0.99, filter=False):
     """ bodypart speed over time in px/ms """
-    Vxy = sp.diff(DlcDf[bp][['x','y']].values,axis=0) / DlcDf['t'][:-1].values[:,sp.newaxis]
-    V = sp.sqrt(sp.sum(Vxy**2,axis=1)) # euclid vector norm
-    V = V / sp.diff(DlcDf['t'].values) # -> to speed
+    Vxy = np.diff(DlcDf[bp][['x','y']].values,axis=0) / DlcDf['t'][:-1].values[:,sp.newaxis]
+    V = np.sqrt(np.sum(Vxy**2,axis=1)) # euclid vector norm
+    V = V / np.diff(DlcDf['t'].values) # -> to speed
 
-    V = sp.concatenate([[sp.nan],V]) # pad first to nan (speed undefined)
+    V = np.concatenate([[sp.nan],V]) # pad first to nan (speed undefined)
     good_ix = (DlcDf[bp].likelihood > p).values
 
     if filter is False:

@@ -14,6 +14,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.patches import Rectangle
+import seaborn as sns
 
 # Computational libs
 import scipy as sp
@@ -26,53 +27,59 @@ sys.path.append('..')
 # Custom libs
 from Utils import behavior_analysis_utils as bhv
 from Utils import dlc_analysis_utils as dlc
+from Utils import utils
 from Utils.metrics import *
 from Utils import sync
 
-colors = dict(success="#72E043", 
-              reward="#3CE1FA", 
-              correct="#72E043", 
-              incorrect="#F56057", 
-              premature="#9D5DF0", 
-              missed="#F7D379",
-              left=mpl.cm.PiYG(0.05),
-              right=mpl.cm.PiYG(0.95))
+"""
+ #       #######    #    ######  ### #     #  #####
+ #       #     #   # #   #     #  #  ##    # #     #
+ #       #     #  #   #  #     #  #  # #   # #
+ #       #     # #     # #     #  #  #  #  # #  ####
+ #       #     # ####### #     #  #  #   # # #     #
+ #       #     # #     # #     #  #  #    ## #     #
+ ####### ####### #     # ######  ### #     #  #####
+
+"""
 
 # %% read all three data sources
-# folder = Path("/media/georg/htcondor/shared-paton/georg/Animals_reaching/JJP-01975/2021-04-29_11-16-15_learn_to_fixate_discrete_v1")
-# folder = Path("/media/georg/htcondor/shared-paton/georg/Animals_reaching/JJP-01975/2021-04-27_10-39-35_learn_to_fixate_discrete_v1")
-# folder = Path("/media/georg/data/reaching_dlc/JJP-01642/2021-02-19_21-13-04_learn_to_reach")
-# folder = Path("/media/georg/data/reaching/2021-06-21_11-00-51_learn_to_choose")  # the first session of hope
-folder = Path("//media/georg/data/reaching/2021-06-22_12-53-07_learn_to_choose") # hope 2
-os.chdir(folder)
+fd_path = Path("/media/storage/shared-paton/georg/Animals_reaching/JJP-01975/2021-04-29_11-16-15_learn_to_fixate_discrete_v1")
+#fd_path = utils.get_folder_dialog(initial_dir="/media/storage/shared-paton/georg/")
 
-### DeepLabCut data
-# if filtered is present take it, otherwise default to unfiltered
-try:
-    h5_path = folder / [fname for fname in os.listdir(folder) if fname.endswith('filtered.h55')][0]
+# DLC data
+try: # if filtered is present take it, otherwise default to unfiltered
+    h5_path = fd_path / [fname for fname in os.listdir(fd_path) if fname.endswith('filtered.h55')][0]
 except IndexError:
-    h5_path = folder / [fname for fname in os.listdir(folder) if fname.endswith('.h5')][0]
+    h5_path = fd_path / [fname for fname in os.listdir(fd_path) if fname.endswith('.h5')][0]
 DlcDf = dlc.read_dlc_h5(h5_path)
 
- # getting all dlc body parts
-bodyparts = sp.unique([j[0] for j in DlcDf.columns[1:]])
+# getting all dlc body parts
+bodyparts = np.unique([j[0] for j in DlcDf.columns[1:]])
 
-### Camera data
-video_path = folder / "bonsai_video.avi"
+# Camera data
+video_path = fd_path / "bonsai_video.avi"
 Vid = dlc.read_video(str(video_path))
 
-### Arduino data
-log_path = folder / 'arduino_log.txt'
+# Arduino data
+log_path = fd_path / 'arduino_log.txt'
 LogDf = bhv.get_LogDf_from_path(log_path)
 
-### LoadCell Data
-# LoadCellDf = bhv.parse_bonsai_LoadCellData(folder / 'bonsai_LoadCellData.csv')
+session_metrics = [has_choice, get_chosen_side, get_chosen_interval, get_correct_side,
+                    get_interval_category, get_interval, get_outcome, get_in_corr_loop,
+                    get_timing_trial, get_start, get_stop, get_init_rt, get_premature_rt,
+                    get_choice_rt]
 
-# %% Syncer
+SessionDf, TrialDfs = utils.get_SessionDf(LogDf, session_metrics, "TRIAL_ENTRY_EVENT")
+
+
+# LoadCell Data
+# LoadCellDf = bhv.parse_bonsai_LoadCellData(fd_path / 'bonsai_LoadCellData.csv')
+
+# %% Synching
 from Utils import sync
-cam_sync_event = sync.parse_cam_sync(folder / 'bonsai_frame_stamps.csv')
-# lc_sync_event = sync.parse_harp_sync(folder / 'bonsai_harp_sync.csv')
-arduino_sync_event = sync.get_arduino_sync(folder / 'arduino_log.txt')
+cam_sync_event = sync.parse_cam_sync(fd_path / 'bonsai_frame_stamps.csv')
+# lc_sync_event = sync.parse_harp_sync(fd_path / 'bonsai_harp_sync.csv')
+arduino_sync_event = sync.get_arduino_sync(fd_path / 'arduino_log.txt')
 
 Sync = sync.Syncer()
 Sync.data['arduino'] = arduino_sync_event['t'].values
@@ -84,7 +91,17 @@ Sync.sync('arduino','cam')
 
 DlcDf['t'] = Sync.convert(DlcDf.index.values, 'dlc', 'arduino')
 
-# %% Dlc preprocessing
+# %%
+"""
+.########..########..########.########..########...#######...######..########..######.
+.##.....##.##.....##.##.......##.....##.##.....##.##.....##.##....##.##.......##....##
+.##.....##.##.....##.##.......##.....##.##.....##.##.....##.##.......##.......##......
+.########..########..######...########..########..##.....##.##.......######....######.
+.##........##...##...##.......##........##...##...##.....##.##.......##.............##
+.##........##....##..##.......##........##....##..##.....##.##....##.##.......##....##
+.##........##.....##.########.##........##.....##..#######...######..########..######.
+"""
+
 def calc_bodypart_speed(DlcDf, bodyparts):
     for i,bp in enumerate(tqdm(bodyparts)):
         Vxy = sp.diff(DlcDf[bp][['x','y']].values,axis=0) / DlcDf['t'][:-1].values[:,sp.newaxis]
@@ -113,83 +130,6 @@ def interpolate_bodypart_pos(DlcDf, bodyparts, p, kind='linear', fill_value=np.N
         DlcDf[(bp,'y')].loc[bix] = interp(bix)
     return DlcDf
 
-DlcDf = interpolate_bodypart_pos(DlcDf, bodyparts, p=0.99)
-DlcDf = calc_bodypart_speed(DlcDf, bodyparts)
-
-"""
- 
- ######## ########  ####    ###    ##        ######  
-    ##    ##     ##  ##    ## ##   ##       ##    ## 
-    ##    ##     ##  ##   ##   ##  ##       ##       
-    ##    ########   ##  ##     ## ##        ######  
-    ##    ##   ##    ##  ######### ##             ## 
-    ##    ##    ##   ##  ##     ## ##       ##    ## 
-    ##    ##     ## #### ##     ## ########  ######  
- 
-"""
-# %% prep and general analysis
-def get_SessionDf(LogDf, metrics, trial_entry_event="TRIAL_AVAILABLE_STATE", trial_exit_event="ITI_STATE"):
-
-    TrialSpans = bhv.get_spans_from_names(LogDf, trial_entry_event, trial_exit_event)
-
-    TrialDfs = []
-    for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
-        TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
-    
-    SessionDf = bhv.parse_trials(TrialDfs, metrics)
-    return SessionDf, TrialDfs
-
-session_metrics = [has_choice, get_chosen_side, get_chosen_interval, get_correct_side,
-                    get_interval_category, get_interval, get_outcome, get_in_corr_loop,
-                    get_timing_trial, get_start, get_stop, get_init_rt, get_premature_rt,
-                    get_choice_rt]
-
-SessionDf, TrialDfs = get_SessionDf(LogDf, session_metrics, "TRIAL_ENTRY_EVENT")
-
-# %%
-# expand categorical columns into boolean
-# categorial_cols = ['outcome']
-# for category_col in categorial_cols:
-#     categories = SessionDf[category_col].unique()
-#     for category in categories:
-#         SessionDf['is_'+category] = SessionDf[category_col] == category
-
-# expand outcomes in boolean columns
-# outcomes = SessionDf['outcome'].unique()
-# for outcome in outcomes:
-#     SessionDf['is_'+outcome] = SessionDf['outcome'] == outcome
-
-# setup general filter
-SessionDf['exclude'] = False
-
-# %% DlcDf based metrics
-
-# hand pos at event
-event = "CHOICE_STATE"
-y_thresh = 150
-for i, TrialDf in enumerate(TrialDfs):
-    if event in TrialDf['name']:
-        t = TrialDf.loc[TrialDf['name'] == event].iloc[0]['t']
-        # frame_ix = sp.argmin(sp.absolute(DlcDf['t'].values - t))
-        frame_ix = Sync.convert(t,'arduino','dlc')
-    
-    else:
-        value = np.NaN
-    
-    SessionDf.loc[i,'paw_resting'] = sp.nan
-"""
- 
- ########  ##        #######  ######## ######## ######## ########   ######  
- ##     ## ##       ##     ##    ##       ##    ##       ##     ## ##    ## 
- ##     ## ##       ##     ##    ##       ##    ##       ##     ## ##       
- ########  ##       ##     ##    ##       ##    ######   ########   ######  
- ##        ##       ##     ##    ##       ##    ##       ##   ##         ## 
- ##        ##       ##     ##    ##       ##    ##       ##    ##  ##    ## 
- ##        ########  #######     ##       ##    ######## ##     ##  ######  
- 
-"""
-# %%
-### helpers
 def make_bodypart_colors(bodyparts):
     bp_left = [bp for bp in bodyparts if bp.endswith('L')]
     bp_right = [bp for bp in bodyparts if bp.endswith('R')]
@@ -197,6 +137,10 @@ def make_bodypart_colors(bodyparts):
     c_r = sns.color_palette('magma', n_colors=len(bp_right))
     bp_cols = dict(zip(bp_left+bp_right,c_l+c_r))
     return bp_cols
+
+# Interpolate missing labels, compute speeds and add to DlcDf
+DlcDf = interpolate_bodypart_pos(DlcDf, bodyparts, p=0.99)
+DlcDf = calc_bodypart_speed(DlcDf, bodyparts)
 
 # %%
 """
@@ -284,53 +228,40 @@ for i in tqdm(SDf.index):
  
 """
 
-# %% display video of trial
+# %% Settings
+import matplotlib as mpl
+from matplotlib.animation import FFMpegWriter
 
-# trial selection
-SDf = bhv.groupby_dict(SessionDf, dict(outcome='correct', correct_side='right'))
+mpl.rcParams['animation.ffmpeg_path']="/usr/local/bin/ffmpeg"
 
-TrialDf = TrialDfs[SDf.index[0]]
+pre,post = 100, 500
+save = True
 
-Df = bhv.event_slice(TrialDf,'TRIAL_ENTRY_EVENT','CHOICE_EVENT')
-Df = bhv.event_slice(TrialDf,'CHOICE_STATE','CHOICE_EVENT')
-t_on = Df.iloc[0]['t'] - 250
-t_off = Df.iloc[-1]['t'] + 2000
+key_values = [('outcome','correct'),('chosen_side','left')]
 
-# %% 
-Df = TrialDfs[18]
-# Df = TrialDfs[0]
-t_on = Df.iloc[0]['t'] - 50
-t_off = Df.iloc[-1]['t'] + 100
+trial_idxs = bhv.groupby_dict(SessionDf, dict(key_values)).index.values
 
-# Df = bhv.get_spans_from_names(LogDf,'REACH_LEFT_ON','REACH_LEFT_OFF')
-# Df = bhv.get_spans_from_names(LogDf,'REACH_RIGHT_ON','REACH_RIGHT_OFF')
-# i = 3
-# t_on = Df.iloc[i]['t_on'] - 500
-# t_off = Df.iloc[i]['t_off'] + 500 
+# %% Display video of trial
+t_ons = SessionDf.iloc[trial_idxs]['t_on'] - pre
+t_offs = SessionDf.iloc[trial_idxs]['t_off'] + post
 
-LogDfSlice = bhv.time_slice(LogDf, t_on, t_off)
-DlcDfSlice = bhv.time_slice(DlcDf, t_on, t_off)
+LogDfSlice, DlcDfSlice = [],[]
+for t_on, t_off in zip(t_ons,t_offs):
+    LogDfSlice.append(bhv.time_slice(LogDf, t_on, t_off))
+    DlcDfSlice.append(bhv.time_slice(DlcDf, t_on, t_off))
 
-# what events to display
-display_events = list(LogDfSlice.name.unique())
-if sp.nan in display_events:
-    display_events.remove(sp.nan)
-
-frame_on = DlcDfSlice.index[0]
-frame_off = DlcDfSlice.index[-1]
-ix = list(range(frame_on, frame_off))
+LogDfSlice = pd.concat(LogDfSlice)
+DlcDfSlice = pd.concat(DlcDfSlice)
+ix = list(DlcDfSlice.index)
 
 # plotting
 fig, ax = plt.subplots()
 ax.axis('off')
 
-# import matplotlib as mpl
-# from matplotlib.animation import FFMpegWriter as AniWriter
-# Writer = AniWriter(fps=20, bitrate=7500, codec="h264", extra_args=['-pix_fmt','yuv420p'])
-# Writer = AniWriter(fps=20, bitrate=10000, codec="h264")
-# from matplotlib.animation import FFMpegFileWriter as AniWriter
-# Writer = AniWriter(fps=20)
-# mpl.rcParams['animation.ffmpeg_path'] = "/usr/bin/ffmpeg"
+# what events to display
+display_events = list(LogDfSlice.name.unique())
+if sp.nan in display_events:
+    display_events.remove(sp.nan)
 
 # image
 ax.set_aspect('equal')
@@ -353,15 +284,15 @@ for i, bp in enumerate(bodyparts):
 from matplotlib.collections import LineCollection
 n_segments = 10
 trace_len = 3
-lws = sp.linspace(0,5,n_segments)
+lws = np.linspace(0,5,n_segments)
 bp_traces = []
 for i, bp in enumerate(bodyparts):
     segments = []
     for j in range(n_segments):
-        segment = sp.zeros((trace_len,2))
+        segment = np.zeros((trace_len,2))
         segments.append(segment)
     
-    lc = LineCollection(sp.array(segments),linewidths=lws,color=bp_cols[bp], alpha=0.75)
+    lc = LineCollection(np.array(segments),linewidths=lws,color=bp_cols[bp], alpha=0.75)
     bp_traces.append(lc)
     ax.add_artist(lc)
 p = 0.0
@@ -426,7 +357,7 @@ def update(i):
 
     for j, event in enumerate(display_events):
         t = Sync.convert(i, 'dlc', 'arduino')
-        if sp.any(sp.logical_and(t > event_times[j], t < event_times[j] + event_display_dur)):
+        if np.any(np.logical_and(t > event_times[j], t < event_times[j] + event_display_dur)):
             event_texts[j].set_color(event_colors[event])
         else:
             event_texts[j].set_color(inactive_color)
@@ -434,12 +365,12 @@ def update(i):
     return (im, frame_counter, time_counter) + tuple(bp_markers) + tuple(bp_traces) + tuple(event_texts)
 
 ani = FuncAnimation(fig, update, frames=ix, blit=True, interval=1)
-# ani.save('short_10x_slow.mp4', writer=Writer)
 
-# plt.show()
+if save == True:
+    plot_dir = fd_path / 'videos'
+    os.makedirs(plot_dir, exist_ok=True)
 
-
+    Writer = FFMpegWriter(fps=20, codec='h264', extra_args=['-pix_fmt','yuv420p'])
+    ani.save(plot_dir / ('10x_slow.mp4'), writer=Writer)
 
 # %%
-
-

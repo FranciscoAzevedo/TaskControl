@@ -107,7 +107,7 @@ samples = 1000 # ms
 session_metrics = ( met.get_start, met.get_stop, met.get_correct_side, met.get_interval_category, met.get_outcome, 
             met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop,  
             met.reach_rt_left, met.reach_rt_right, met.has_choice, met.get_interval, met.get_timing_trial,
-            met.get_choice_rt, met.get_reached_side, met.get_bias, met.is_anticipatory, met.get_init_rt) 
+            met.get_choice_rt, met.get_reached_side, met.get_bias, met.get_init_rt) 
 
 SessionDf, TrialDfs = utils.get_SessionDf(LogDf, session_metrics, "TRIAL_ENTRY_EVENT", "ITI_STATE")
 

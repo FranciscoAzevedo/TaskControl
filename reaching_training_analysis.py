@@ -97,10 +97,9 @@ LoadCellDf['t'] = Sync.convert(LoadCellDf['t'].values, 'loadcell', 'arduino')
 LogDf = bhv.add_go_cue_LogDf(LogDf)
 
 session_metrics = ( met.get_start, met.get_stop, met.get_correct_side, met.get_interval_category, met.get_outcome, 
-            met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop,  
+            met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop,
             met.reach_rt_left, met.reach_rt_right, met.has_choice, met.get_interval, met.get_timing_trial,
-            met.get_choice_rt, met.get_reached_side, met.get_bias, met.is_anticipatory, met.get_init_rt,
-            met.rew_collected) 
+            met.get_choice_rt, met.get_reached_side, met.get_bias, met.get_init_rt, met.rew_collected) 
 
 SessionDf, TrialDfs = utils.get_SessionDf(LogDf, session_metrics, "TRIAL_ENTRY_EVENT", "ITI_STATE")
 
@@ -158,7 +157,7 @@ fig.tight_layout()
 plt.savefig(plot_dir / ('hist_of_reaches_aligned_to_valve_opening.png'), dpi=600)
 
 # %% Percentage of anticipatory reaches
-n_anticipatory = round(len(SessionDf[SessionDf['anticipatory'] == True])/len(SessionDf)*100, 1)
+n_anticipatory = round(len(SessionDf[SessionDf['outcome'] == 'anticipatory'])/len(SessionDf)*100, 1)
 
 print('\n Performing ' + str(n_anticipatory) + "% anticipatory reaches")
 
@@ -184,11 +183,11 @@ plt.savefig(plot_dir / ('choice_RTs.png'), dpi=600)
 
 # %% Grasp duration distro split by outcome and choice
 bin_width = 5 # ms
-max_reach_dur = 250 # ms
+max_grasp_dur = 250 # ms
 
 perc = 25 #th 
 
-bhv_plt_reach.plot_grasp_duration_distro(LogDf, SessionDf, bin_width, max_reach_dur, perc)
+bhv_plt_reach.plot_grasp_duration_distro(LogDf, SessionDf, bin_width, max_grasp_dur, perc)
 plt.savefig(plot_dir / ('hist_grasp_dur_' + str(perc) + '_percentile.png'), dpi=600)
 
 # %% Histogram of number of reaches per trial 
@@ -513,6 +512,7 @@ log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']
 perc_corr_left, perc_corr_right, perc_correct, perc_pre = [],[],[],[]
 perc_missed, perc_missed_left, perc_missed_right = [],[],[]
 date_abbr,no_trials,session_length, mondays = [],[],[],[]
+n_rewards = []
 
 for i,log_path in enumerate(log_paths):
     
@@ -553,9 +553,6 @@ for i,log_path in enumerate(log_paths):
     corr_rightDf = bhv.groupby_dict(SessionDf, dict(outcome='correct', correct_side='right'))
     right_trials_with_choiceDf = bhv.groupby_dict(SessionDf, dict(has_choice=True, correct_side='right'))
 
-    jackpot_idx = SessionDf['outcome'] == 'jackpot'
-    no_jackpotDf = SessionDf[~jackpot_idx]
-
     # Metrics of evolution
     try:
         perc_corr_left.append(len(corr_leftDf)/len(left_trials_with_choiceDf)*100)
@@ -569,14 +566,16 @@ for i,log_path in enumerate(log_paths):
 
     perc_correct.append((SessionDf.outcome == 'correct').sum()/len(choiceDf)*100)
 
-    perc_missed.append(len(MissedDf)/len(no_jackpotDf)*100) # exclude jackpot rews
-    perc_missed_left.append(len(left_trials_missedDf)/len(no_jackpotDf[no_jackpotDf['correct_side'] == 'left'])*100)
-    perc_missed_right.append(len(right_trials_missedDf)/len(no_jackpotDf[no_jackpotDf['correct_side'] == 'right'])*100)
+    perc_missed.append(len(MissedDf)/len(SessionDf)*100) # exclude jackpot rews
+    perc_missed_left.append(len(left_trials_missedDf)/len(SessionDf[SessionDf['correct_side'] == 'left'])*100)
+    perc_missed_right.append(len(right_trials_missedDf)/len(SessionDf[SessionDf['correct_side'] == 'right'])*100)
 
     if len(SessionDf[SessionDf.outcome == 'premature']) != 0:
         perc_pre.append(sum(SessionDf.outcome == 'premature')/len(SessionDf)*100)
     else:
         perc_pre.append(0)
+
+    n_rewards.append(len(bhv.get_events_from_name(LogDf,'REWARD_STATE')))
 
     no_trials.append(len(SessionDf))
     session_length.append((LogDf['t'].iloc[-1]-LogDf['t'].iloc[0])/(1000*60)) # convert msec. -> sec.-> min.
@@ -619,52 +618,38 @@ tpm = np.array(no_trials)/np.array(session_length)
 axes.plot(tpm[init_day_idx:])
 
 axes.set_ylim([0,5]) # A trial every 15s is the theoretical limit at chance level given our task settings
+axes.set_title(' Session overview for ' + nickname + ' ' + str(task_name))
 plt.title('No. TPM across sessions')
 plt.setp(axes, xticks=np.arange(0,len(date_abbr[init_day_idx:]),1), xticklabels=date_abbr[init_day_idx:])
 plt.xticks(rotation=45)
 
 plt.savefig(across_session_plot_dir / ('tpm_across_sessions.png'), dpi=600)
 
-# %% Reaches during delay across sessions
-SessionsDf = utils.get_sessions(animal_fd_path)
-Df = pd.read_csv(animal_fd_path / 'animal_meta.csv')
+# %% Reward rate across sessions
+fig , axes = plt.subplots(figsize=(10,4))
 
-# Filter sessions to the ones of the task we want to see
-task_name = ['learn_to_choose_v2']
-FilteredSessionsDf = pd.concat([SessionsDf.groupby('task').get_group(name) for name in task_name])
-log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']]
+axes.plot(date_abbr, n_rewards/np.array(session_length))
+axes.set_xlabel('Session date')
+axes.set_ylabel('Rewards per minute')
+plt.title('Reward rate across sessions')
+plt.xticks(rotation=90)
 
-fig, axes = plt.subplots(ncols=2, figsize=[6, 4], sharey=True, sharex=True)
-colors = sns.color_palette(palette='turbo',n_colors=len(log_paths))
+[axes.axvline(monday, color = 'k', alpha = 0.25) for monday in mondays]
 
-for j,log_path in enumerate(log_paths[init_day_idx:]):
-    
-    path = log_path.parent 
-    LogDf = bhv.get_LogDf_from_path(log_path)
-
-    # ADD SINGLE GO_CUE_EVENT
-    LogDf = bhv.add_go_cue_LogDf(LogDf)
-
-    folder_name = os.path.basename(path)
-
-    TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_ENTRY_STATE", "ITI_STATE")
-
-    TrialDfs = []
-    for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
-        TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
-
-    metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_outcome, met.get_interval_category, met.get_chosen_side, met.has_reach_left, met.has_reach_right)
-    SessionDf = bhv.parse_trials(TrialDfs, metrics)
-
-    bhv_plt_reach.CDF_of_reaches_during_delay(SessionDf,TrialDfs, axes = axes, color=colors[j], alpha=0.75, label='day '+str(j+1))
-    fig.suptitle('CDF of first reach split on trial type')
-
-axes[0].set_ylabel('Fraction of trials')
-axes[0].legend(frameon=False, fontsize='x-small')
+axes.set_title(' Session overview for ' + nickname + ' ' + str(task_name))
 fig.tight_layout()
+plt.savefig(across_session_plot_dir / ('rew_rate_across_sessions.png'), dpi=600)
 
-plt.savefig(across_session_plot_dir / ('CDF_first_reach_across_sessions.png'), dpi=600)
+# %% Reaches during delay across sessions
+tasks_names = ['learn_to_choose_v2']
+bhv_plt_reach.reaches_during_delay_across_sess(animal_fd_path, tasks_names, init_day_idx)
 
+plt.savefig(across_session_plot_dir / ('CDF_reach_during_delay_sessions.png'), dpi=600)
+
+# %% Grasp duration across sessions
+bhv_plt_reach.grasp_dur_across_sess(date_abbr)
+
+plt.savefig(across_session_plot_dir / ('grasp_dur_sessions.png'), dpi=600)
 
 """
   #####  ####### ####### #     # ######

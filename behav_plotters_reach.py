@@ -4,6 +4,8 @@
 
 from logging import error
 import matplotlib as mpl
+
+from daily_plot import SessionDf
 mpl.rcParams['figure.dpi'] = 166
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -12,7 +14,6 @@ from pathlib import Path
 import seaborn as sns
 import scipy as sp
 import numpy as np
-import os
 from tqdm import tqdm
 
 # Custom
@@ -85,7 +86,8 @@ def plot_session_overview(SessionDf, animal_meta, session_date, axes=None):
     axes.plot(range(SessionDf.shape[0]),miss_rate,lw=1,color=colors['missed'],alpha=0.75)
 
     # valid trials
-    SDf = SessionDf.groupby('is_missed').get_group(False)
+    missDf = SessionDf.outcome == 'missed'
+    SDf = SessionDf[~missDf]
     srate = (SDf.outcome == 'correct').rolling(hist).mean()
     axes.plot(SDf.index,srate,lw=1,color='k')
 
@@ -421,7 +423,7 @@ def plot_grasp_duration_distro(LogDf, SessionDf, bin_width, max_grasp_dur, perce
 
 def plot_hist_no_reaches_per_trial(LogDf, reach_crop):
 
-    fig, axes = plt.subplots(figsize=[4, 3])
+    fig, axes = plt.subplots(figsize=[6, 4], ncols=2)
     kwargs = dict(bins = reach_crop, range = (0, reach_crop), edgecolor='none', alpha=0.5, density = True)
 
     # Trials spanning from choice available to end of ITI
@@ -431,9 +433,20 @@ def plot_hist_no_reaches_per_trial(LogDf, reach_crop):
     for i, row in TrialSpans.iterrows():
         TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
 
-    no_reaches, choice_reach_idx = [],[]
+    sides = ['left', 'right']
+    no_reaches_dict = {'left': [], 'right': []}
+    choice_reach_idx_dict = {'left': [], 'right': []}
+    key = []
+
+    # Obtain no of reaches before choice and total for each trial 
     for TrialDf in TrialDfs:
         if met.has_choice(TrialDf).values:
+
+            # Can't use metric due to cutting between choice and end of ITI
+            if "GO_CUE_LEFT_EVENT" in TrialDf['name'].values:
+                key = 'left'
+            if "GO_CUE_RIGHT_EVENT" in TrialDf['name'].values:
+                key = 'right'
 
             left_reach_spansDf = bhv.get_spans_from_names(TrialDf, 'REACH_LEFT_ON', 'REACH_LEFT_OFF')
             right_reach_spansDf = bhv.get_spans_from_names(TrialDf, 'REACH_RIGHT_ON', 'REACH_RIGHT_OFF')
@@ -445,22 +458,24 @@ def plot_hist_no_reaches_per_trial(LogDf, reach_crop):
             # Which reach triggered the choice? The one which corresponding spansDf contains choice_time
             for i,row in enumerate(merge_spansDf.iterrows()):
                 if (row[1]['t_on'] < choice_time < row[1]['t_off']):
-                    choice_reach_idx.append(i+1)
+                    choice_reach_idx_dict[key].append(i+1)
             
-            no_reaches.append(len(merge_spansDf))
+            no_reaches_dict[key].append(len(merge_spansDf))
             
     # Plotting
-    axes.hist(no_reaches, color = 'r', label = 'No. reaches', **kwargs)
-    axes.axvline(np.percentile(no_reaches, 75), color = 'r')
-    axes.hist(choice_reach_idx, color = 'y', label = 'No. reaches \n before choice', **kwargs)
-    axes.axvline(np.percentile(choice_reach_idx, 75), color = 'y')
+    for ax,side in zip(axes,sides):
+        ax.hist(no_reaches_dict[side], color = 'r', label = 'No. reaches', **kwargs)
+        ax.axvline(np.percentile(no_reaches_dict[side], 75), color = 'r')
+        ax.hist(choice_reach_idx_dict[side], color = 'y', label = 'No. reaches \n before choice', **kwargs)
+        ax.axvline(np.percentile(choice_reach_idx_dict[side], 75), color = 'y')
+        ax.legend(frameon=False, fontsize = 'small')
+        ax.set_title(side + ' trials')
+        ax.set_xlabel('No. Reaches')
+        ax.set_xlim([1,reach_crop]) # Can never be below 1
 
     # Formatting
-    axes.legend(frameon=False, fontsize = 'small')
-    axes.set_xlabel('No. Reaches')
-    axes.set_xlim([1,reach_crop]) # Can never be below 1
-    axes.set_ylabel('Ratio of trials')
-    axes.set_title('Histogram of no. of reaches per trial ')
+    axes[0].set_ylabel('Ratio of trials')
+    fig.suptitle('Histogram of no. of reaches per trial ')
     fig.tight_layout()
 
     return axes
@@ -797,98 +812,89 @@ def plot_mean_trajectories(LogDf, LoadCellDf, SessionDf, TrialDfs, align_event, 
 
 """
 
-def plot_sessions_overview(LogDfs, paths, task_name, animal_id, axes = None):
-    " Plots trials performed together with every trial outcome plus sucess rate and weight across sessions"
+def reaches_during_delay_across_sess(animal_fd_path, tasks_names, init_day_idx):
 
-    if axes is None:
-        fig , axes = plt.subplots(ncols=2, sharex=True, figsize=(9, 4))
+    SessionsDf = utils.get_sessions(animal_fd_path)
+    animal_meta = pd.read_csv(animal_fd_path / 'animal_meta.csv')
 
-    trials_performed = []
-    trials_correct = []
-    trials_incorrect = []
-    trials_missed = []
-    trials_premature = []
-    weight = []
-    date = []
+    # Filter sessions to the ones of the task we want to see
+    FilteredSessionsDf = pd.concat([SessionsDf.groupby('task').get_group(name) for name in tasks_names])
+    log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']]
 
-    # Obtaining number of trials of X
-    for LogDf,path in zip(LogDfs, paths):
+    fig, axes = plt.subplots(ncols=2, figsize=[6, 4], sharey=True, sharex=True)
+    colors = sns.color_palette(palette='turbo',n_colors=len(log_paths))
 
-        # Correct date format
-        folder_name = os.path.basename(path)
-        complete_date = folder_name.split('_')[0]
-        month = calendar.month_abbr[int(complete_date.split('-')[1])]
-        day = complete_date.split('-')[2]
-        date.append(month+'-'+day)
-
-        # Total time
-        session_dur = round((LogDf['t'].iat[-1]-LogDf['t'].iat[0])/60000) # convert to min
-
-        # Total number of trials performed
-        event_times = bhv.get_events_from_name(LogDf,"TRIAL_ENTRY_STATE")
-        trials_performed.append(len(event_times)/session_dur)
-
-        # Missed trials
-        missed_choiceDf = bhv.get_events_from_name(LogDf,"CHOICE_MISSED_EVENT")
-        trials_missed.append(len(missed_choiceDf)/session_dur)
-
-        # Premature trials
-        try:
-            premature_choiceDf = bhv.get_events_from_name(LogDf,"PREMATURE_CHOICE_EVENT")
-            trials_premature.append(len(premature_choiceDf)/session_dur)
-        except:
-            trials_premature.append(None)
-
-        # Correct trials 
-        correct_choiceDf = bhv.get_events_from_name(LogDf,'CHOICE_CORRECT_EVENT')
-        trials_correct.append(len(correct_choiceDf)/session_dur)
+    for j,log_path in enumerate(log_paths[init_day_idx:]):
         
-        # Incorrect trials 
-        incorrect_choiceDf = bhv.get_events_from_name(LogDf,'CHOICE_INCORRECT_EVENT')
-        trials_incorrect.append(len(incorrect_choiceDf)/session_dur)
+        LogDf = bhv.get_LogDf_from_path(log_path)
 
-        # Weight
-        try:
-            animal_meta = pd.read_csv(path.joinpath('animal_meta.csv'))
-            weight.append(round(float(animal_meta.at[6, 'value'])/float(animal_meta.at[4, 'value']),2))
-        except:
-            weight.append(None)
+        # ADD SINGLE GO_CUE_EVENT
+        LogDf = bhv.add_go_cue_LogDf(LogDf)
+        TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_ENTRY_STATE", "ITI_STATE")
 
-    sucess_rate = np.multiply(np.divide(trials_correct,trials_performed),100)
+        TrialDfs = []
+        for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
+            TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
 
-    # Subplot 1
-    axes[0].plot(trials_performed, color = 'blue', label = 'Performed')
-    axes[0].plot(trials_correct, color = 'green', label = 'Correct')
-    axes[0].plot(trials_incorrect, color = 'red', label = 'Incorrect')
-    axes[0].plot(trials_missed, color = 'black', label = 'Missed')
-    axes[0].plot(trials_premature, color = 'pink', label = 'Premature')
+        metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_outcome, met.get_interval_category, met.get_chosen_side, met.has_reach_left, met.has_reach_right)
+        SessionDf = bhv.parse_trials(TrialDfs, metrics)
+
+        CDF_of_reaches_during_delay(SessionDf,TrialDfs, axes = axes, color=colors[j], alpha=0.75, label='day '+str(j+1))
     
-    axes[0].set_ylabel('Trial count per minute')
-    axes[0].set_xlabel('Session number')
-    axes[0].legend(loc='upper left', frameon=False) 
+    fig.suptitle('CDF of first reach split on trial type \n' + animal_meta['value'][5] + '-'+ animal_meta['value'][0])
 
-    fig.suptitle('Sessions overview in ' + task_name + ' for mouse ' + animal_id)
-    plt.setp(axes[0], xticks=np.arange(0, len(date), 1), xticklabels=date)
-    plt.xticks(rotation=45)
-    plt.setp(axes[0], yticks=np.arange(0, max(trials_performed), 1), yticklabels=np.arange(0,  max(trials_performed), 1))
-      
-    # Two sided axes Subplot 2
-    axes[1].plot(sucess_rate, color = 'green', label = 'Sucess rate')
-    axes[1].legend(loc='upper left', frameon=False) 
-    axes[1].set_ylabel('a.u. (%)')
-    plt.setp(axes[1], yticks=np.arange(0,100,10), yticklabels=np.arange(0,100,10))
-
-    weight = np.multiply(weight,100)
-    twin_ax = axes[1].twinx()
-    twin_ax.plot(weight, color = 'gray')
-    twin_ax.set_ylabel('Normalized Weight to max (%)', color = 'gray')
-    plt.setp(twin_ax, yticks=np.arange(75,100+1,5), yticklabels=np.arange(75,100+1,5))
-
-    fig.autofmt_xdate()
-    plt.show()
+    axes[0].set_ylabel('Fraction of trials')
+    axes[0].legend(frameon=False, fontsize='x-small')
+    fig.tight_layout()
 
     return axes
 
+def grasp_dur_across_sess(animal_fd_path, tasks_names):
+
+    SessionsDf = utils.get_sessions(animal_fd_path)
+    animal_meta = pd.read_csv(animal_fd_path / 'animal_meta.csv')
+
+    # Filter sessions to the ones of the task we want to see
+    FilteredSessionsDf = pd.concat([SessionsDf.groupby('task').get_group(name) for name in tasks_names])
+    log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']]
+
+    fig, axes = plt.subplots(ncols=2, figsize=[8, 4], sharey=True, sharex=True)
+    sides = ['LEFT', 'RIGHT']
+
+    Df = []
+    # gather data
+    for day, log_path in enumerate(log_paths):
+
+        LogDf = bhv.get_LogDf_from_path(log_path)
+        TrialSpans = bhv.get_spans_from_names(LogDf, "TRIAL_ENTRY_STATE", "ITI_STATE")
+
+        TrialDfs = []
+        for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
+            TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
+
+        metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_outcome, met.get_interval_category, met.get_chosen_side, met.has_reach_left, met.has_reach_right)
+        SessionDf = bhv.parse_trials(TrialDfs, metrics)
+
+        for side in sides:
+            event_on, event_off = 'REACH_' + str(side) + '_ON', 'REACH_' + str(side) + '_OFF' # event names
+            
+            # reaches
+            grasp_spansDf = bhv.get_spans_from_names(LogDf, event_on, event_off)
+            reach_durs = np.array(grasp_spansDf['dt'].values, dtype=object)
+            Df.append([reach_durs, 'r', side], columns = ['durs','type','side'])
+
+            # grasps
+            choiceDf = bhv.groupby_dict(SessionDf, dict(has_choice=True, chosen_side=side.lower()))
+            grasp_durs = choiceDf[~choiceDf['grasp_dur'].isna()]['grasp_dur'].values # filter out Nans
+            Df.append([grasp_durs, 'g', side], columns = ['durs','type','side'])
+
+        sns.violinplot(data = Df[Df['type'] == 'r'], x = day, y = 'durs', hue = 'side', split = True, cut = 0, legend = 'reaches')
+        sns.violinplot(data = Df[Df['type'] == 'g'], x = day, y = 'durs', hue = 'side', split = True, cut = 0, legend = 'grasps')
+
+    fig.suptitle('CDF of first reach split on trial type \n' + animal_meta['value'][5] + '-'+ animal_meta['value'][0])
+    axes.legend
+
+    return axes
 
 """
  #     # ###  #####   #####

@@ -57,8 +57,7 @@ LogDf = bhv.add_go_cue_LogDf(LogDf)
 session_metrics = ( met.get_start, met.get_stop, met.get_correct_side, met.get_interval_category, met.get_outcome, 
             met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop,  
             met.reach_rt_left, met.reach_rt_right, met.has_choice, met.get_interval, met.get_timing_trial,
-            met.get_choice_rt, met.get_reached_side, met.get_bias, met.is_anticipatory, met.get_init_rt,
-            met.rew_collected) 
+            met.get_choice_rt, met.get_reached_side, met.get_bias, met.get_init_rt, met.rew_collected)
 
 SessionDf, TrialDfs = utils.get_SessionDf(LogDf, session_metrics, "TRIAL_ENTRY_EVENT", "ITI_STATE")
 
@@ -75,6 +74,12 @@ session_date = log_path.parent.stem.split('_')[0]
 
 plot_dir = log_path.parent / 'plots'
 os.makedirs(plot_dir, exist_ok=True)
+
+# Session overview with outcome on background
+fig, axes = plt.subplots(figsize=[10,2])
+
+bhv_plt_reach.plot_session_overview(SessionDf, animal_meta, session_date, axes = axes)
+plt.savefig(plot_dir / ('session_overview.png'), dpi=600)
 
 # 1st reach choice RT
 choice_interval = 3000 # ms
@@ -97,11 +102,5 @@ reach_crop = 12
 
 bhv_plt_reach.plot_hist_no_reaches_per_trial(LogDf, reach_crop)
 plt.savefig(plot_dir / ('hist_no_reaches_per_trial.png'), dpi=600)
-
-# Session overview with outcome on background
-fig, axes = plt.subplots(figsize=[10,2])
-
-bhv_plt_reach.plot_session_overview(SessionDf, animal_meta, session_date, axes = axes)
-plt.savefig(plot_dir / ('session_overview.png'), dpi=600)
 
 plt.close('all')
