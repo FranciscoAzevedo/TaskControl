@@ -159,14 +159,14 @@ def get_interval(TrialDf):
 def get_outcome(TrialDf):
     var_name = "outcome"
 
-    if "ANTICIPATORY_REACH_EVENT" in TrialDf['name'].values:
-        var = "anticipatory"
-    elif "CHOICE_INCORRECT_EVENT" in TrialDf['name'].values:
+    if "CHOICE_INCORRECT_EVENT" in TrialDf['name'].values:
         var = "incorrect"
     if "PREMATURE_CHOICE_EVENT" in TrialDf['name'].values:
         var = "premature"
     elif "CHOICE_CORRECT_EVENT" in TrialDf['name'].values:
         var = "correct"
+    elif "ANTICIPATORY_REACH_EVENT" in TrialDf['name'].values:
+        var = "anticipatory"
     elif "CHOICE_MISSED_EVENT" in TrialDf['name'].values:
         var = "missed"
     elif "PREMATURE_CHOICE_EVENT" in TrialDf['name'].values:
@@ -201,6 +201,16 @@ def has_reach_right(TrialDf):
     else:
         var = False    
  
+    return pd.Series(var, name=var_name)
+
+def has_any_reach(TrialDf):
+    var_name = 'any_reach'
+
+    if has_reach_left(TrialDf)[0] or has_reach_right(TrialDf)[0]:
+        var = True
+    else:
+        var = False
+
     return pd.Series(var, name=var_name)
 
 def get_reached_side(TrialDf):
@@ -297,16 +307,13 @@ def get_bias(TrialDf):
     return pd.Series(var, name=var_name)
 
 def rew_collected(TrialDf):
-    " Only works for jackpot rewards"
+    " Only works for autodelivered rewards"
     var_name = "rew_collect"
-    
-    if "REWARD_AUTODELIVERED_EVENT" in TrialDf['name'].values:
-        if "REWARD_COLLECTED_EVENT" in TrialDf['name'].values:
-            var = True
-        else:
-            var = False
+
+    if "REWARD_COLLECTED_EVENT" in TrialDf['name'].values:
+        var = True
     else:
-        var = np.NaN
+        var = False
 
     return pd.Series(var, name=var_name) 
 

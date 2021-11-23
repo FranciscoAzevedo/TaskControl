@@ -97,11 +97,10 @@ LoadCellDf['t'] = Sync.convert(LoadCellDf['t'].values, 'loadcell', 'arduino')
 LogDf = bhv.add_go_cue_LogDf(LogDf)
 
 session_metrics = ( met.get_start, met.get_stop, met.get_correct_side, met.get_interval_category, met.get_outcome, 
-            met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.get_in_corr_loop,
-            met.reach_rt_left, met.reach_rt_right, met.has_choice, met.get_interval, met.get_timing_trial,
+            met.get_chosen_side, met.has_reach_left, met.has_reach_right, met.reach_rt_left, met.reach_rt_right, met.has_choice, met.get_interval, met.get_timing_trial,
             met.get_choice_rt, met.get_reached_side, met.get_bias, met.get_init_rt, met.rew_collected) 
 
-SessionDf, TrialDfs = utils.get_SessionDf(LogDf, session_metrics, "TRIAL_ENTRY_EVENT", "ITI_STATE")
+SessionDf, TrialDfs = utils.get_SessionDf(LogDf, session_metrics, "TRIAL_AVAILABLE_EVENT", "ITI_STATE")
 
 # Moving average mean subtraction (need to do after synching)
 samples = 1000 # ms
@@ -157,7 +156,7 @@ fig.tight_layout()
 plt.savefig(plot_dir / ('hist_of_reaches_aligned_to_valve_opening.png'), dpi=600)
 
 # %% Percentage of anticipatory reaches
-n_anticipatory = round(len(SessionDf[SessionDf['outcome'] == 'anticipatory'])/len(SessionDf)*100, 1)
+n_anticipatory = round((len(SessionDf[SessionDf['outcome'] == 'anticipatory']) + len(SessionDf[SessionDf['outcome'] == 'incorrect']))/len(SessionDf)*100, 1)
 
 print('\n Performing ' + str(n_anticipatory) + "% anticipatory reaches")
 
@@ -175,7 +174,7 @@ print('\n Performing ' + str(n_anticipatory) + "% anticipatory reaches")
 """
 
 # %% 1st reach choice RT
-choice_interval = 3000 # ms
+choice_interval = 2000 # ms
 bin_width = 100 # ms
 
 bhv_plt_reach.plot_choice_RT_hist(SessionDf, choice_interval, bin_width)
@@ -191,10 +190,16 @@ bhv_plt_reach.plot_grasp_duration_distro(LogDf, SessionDf, bin_width, max_grasp_
 plt.savefig(plot_dir / ('hist_grasp_dur_' + str(perc) + '_percentile.png'), dpi=600)
 
 # %% Histogram of number of reaches per trial 
-reach_crop = 12
+reach_crop = 10
 
 bhv_plt_reach.plot_hist_no_reaches_per_trial(LogDf, reach_crop)
 plt.savefig(plot_dir / ('hist_no_reaches_per_trial.png'), dpi=600)
+
+# %% Inter reach Interval (IRI) histogram
+max_IRI = 2500 # ms
+
+bhv_plt_reach.plot_inter_reach_interval(LogDf, max_IRI)
+plt.savefig(plot_dir / ('inter_reach_interval.png'), dpi=600)
 
 # %% Are they using a sampling strategy? 
 fig, axes = plt.subplots(figsize=(3, 4))
@@ -243,40 +248,24 @@ sampled_frac_session = round(len(sampled_trialsDf)/len(SessionDf)*100,1) # again
 
 print('Perc of sampled trials against correct: ' +str(sampled_frac)+ '% \n And against all: '+ str(sampled_frac_session) + '%')
 
-# %% In how many trials do they miss because they have reaches with insufficient duration?
-# Doesnt desambiguate which reach it was, just that there was a reach that was shorter than needed
+# %% What happens the trial after they attempt to reach but the grasp is below threshold duration
+fig, axes = plt.subplots()
 
 missedDf = SessionDf[SessionDf['outcome'] == 'missed']
 
-# Not considering when they try both sides!
 correct_attemptsDf = missedDf[missedDf['correct_side'] == missedDf['reached_side']]
-
-# Considering they try to both
-both_side_attemptsDf = missedDf[missedDf['reached_side'] == 'both']
-
-# In how many trials are there attempts below duration threshold
-corr_attempts_perc = round(len(correct_attemptsDf)/len(SessionDf)*100,2)
-
-# Or attempts to both sides
-both_side_perc = round(len(both_side_attemptsDf)/len(SessionDf)*100,2)
-
-print('There were ' + str(corr_attempts_perc)+ '% (putatively correct) trials with reach durations below threshold')
-print('And ' + str(both_side_perc) + '% with reaches for both sides')
-
-# %% What happens the trial after they attempt to reach but the grasp is below threshold duration
-fig, axes = plt.subplots()
 
 # Get Df of trials after attempt
 corr_attempts_idx = correct_attemptsDf.index
 trials_after_attemptDf = SessionDf.iloc[corr_attempts_idx+1]
 
-colors = dict(correct="#72E043", incorrect="#F56057", premature="#9D5DF0", missed="#F7D379", jackpot ='#FFC0CB')
+outcomes = SessionDf['outcome'].unique()
+labels = ['after_attempt', 'session']
+
+colors = sns.color_palette(palette='turbo', n_colors=len(outcomes))
 bar_width = 0.20
 
 Dfs = [trials_after_attemptDf, SessionDf]
-
-outcomes = SessionDf['outcome'].unique()
-labels = ['after_attempt', 'session']
 
 # get fraction of each outcome relative to total Session size
 bar_frac = np.zeros([len(Dfs),len(outcomes)])
@@ -296,7 +285,7 @@ y_offset =  np.zeros(len(Dfs))
 
 # For each outcome
 for col,outcome in enumerate(outcomes):
-    plt.bar(labels, bar_frac[:,col], bar_width, bottom=y_offset, label = outcome, color=colors[outcome])
+    plt.bar(labels, bar_frac[:,col], bar_width, bottom=y_offset, label = outcome, color=colors[col])
     y_offset = y_offset + bar_frac[:,col]
 
 for label,Df in zip(labels, Dfs):
@@ -328,7 +317,7 @@ fig.suptitle('CDF of first reach split on trial type')
 fig.tight_layout()
 plt.savefig(plot_dir / ('CDF_of_reaches_during_delay.png'), dpi=600)
 
-# %% Trials initiated moving average within session
+#  Trials initiated moving average within session
 window_sizes = [5,10] # min
 ylims = [0,6]
 fig, axes = plt.subplots(figsize=(5, 4))
@@ -352,7 +341,7 @@ axes.legend(loc='upper right', frameon=False, title = 'window (min)')
 axes.set_title('Rolling mean of trial initiations')
 plt.savefig(plot_dir / ('trial_init_rolling_mean.png'), dpi=600)
 
-# %% How hard do they push to initiate trials?
+#  How hard do they push to initiate trials?
 window = 300 # ms
 ylims = [-2000,2000]
 align_event = 'TRIAL_ENTRY_EVENT'
@@ -386,15 +375,17 @@ fig.suptitle('LC forces aligned to ' + str(align_event))
 fig.tight_layout()
 plt.savefig(plot_dir / ('trial_init_forces.png'), dpi=600)
 
-# %% Plots no. of attempts before actual init over session
-init_tresh = 300
+#  Plots no. of attempts before actual init over session
+peaks_coincidence = 50 # how distant can two peaks be until they are not considered simultaneous anymore
+hist_crop = 5
 
-bhv_plt_reach.plot_no_init_attempts(LoadCellDf, TrialDfs, init_tresh)
+bhv_plt_reach.plot_no_init_attempts(LoadCellDf, TrialDfs, log_path, peaks_coincidence, hist_crop)
 
 plt.savefig(plot_dir / ('attempts_before_init.png'), dpi=600)
 
-# %% Trial initiation distro
-colors = dict(correct="#72E043", incorrect="#F56057", premature="#9D5DF0", missed="#F7D379", jackpot='#f05dc9')
+#  Trial initiation distro
+colors = dict(  correct="#72E043", incorrect="#F56057", premature="#9D5DF0", 
+                missed="#F7D379", jackpot='#f05dc9', anticipatory="#CB9F45")
 
 bhv_plt_reach.plot_init_times(SessionDf, colors)
 
@@ -437,18 +428,14 @@ plt.savefig(plot_dir / ('outcome_split_by_interval_category.png'), dpi=600)
 
 # %% Psychometric timing trials
 
-# filter out jackpot
-jackpot_idx = SessionDf['outcome'] == 'jackpot'
-cleanDf = SessionDf[~jackpot_idx]
-
 # identify premature
-pre_idx = cleanDf['outcome'] == 'premature'
+pre_idx = SessionDf['outcome'] == 'premature'
 
-bhv_plt_reach.plot_psychometric(cleanDf[~pre_idx], discrete=True)
+bhv_plt_reach.plot_psychometric(SessionDf[~pre_idx], discrete=True)
 plt.savefig(plot_dir / ('psychometric_timing.png'), dpi=600)
 
 # Pseudo-Psychometric with premature timing trials
-bhv_plt_reach.plot_psychometric(cleanDf[pre_idx], discrete=True)
+bhv_plt_reach.plot_psychometric(SessionDf[pre_idx], discrete=True)
 plt.savefig(plot_dir / ('pseudo_psychometric_timing.png'), dpi=600)
 
 
@@ -512,7 +499,7 @@ log_paths = [Path(path)/'arduino_log.txt' for path in FilteredSessionsDf['path']
 perc_corr_left, perc_corr_right, perc_correct, perc_pre = [],[],[],[]
 perc_missed, perc_missed_left, perc_missed_right = [],[],[]
 date_abbr,no_trials,session_length, mondays = [],[],[],[]
-n_rewards = []
+n_rewards, perc_trials_right, bias, bias_set, left_attempts, right_attempts = [], [], [], [] , [], []
 
 for i,log_path in enumerate(log_paths):
     
@@ -539,14 +526,25 @@ for i,log_path in enumerate(log_paths):
     for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
         TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
 
-    metrics = (met.get_start, met.get_stop, met.get_correct_side, met.get_outcome, met.get_chosen_side, met.has_choice)
+    metrics = ( met.get_start, met.get_stop, met.get_correct_side, met.get_outcome, met.get_chosen_side, 
+                met.has_choice, met.get_bias, met.has_any_reach)
     SessionDf = bhv.parse_trials(TrialDfs, metrics)
 
     # Session metrics
-    MissedDf = SessionDf[SessionDf['outcome'] == 'missed']
-    choiceDf = SessionDf[SessionDf['has_choice'] == True]
+    MissedDf = bhv.groupby_dict(SessionDf, dict(outcome='missed'))
+    choiceDf = bhv.groupby_dict(SessionDf, dict(has_choice=True))
     left_trials_missedDf = bhv.groupby_dict(SessionDf, dict(outcome='missed', correct_side='left'))
     right_trials_missedDf = bhv.groupby_dict(SessionDf, dict(outcome='missed', correct_side='right'))
+
+    try:
+        left_attempts.append(len(left_trials_missedDf[left_trials_missedDf['any_reach'] == True])/len(MissedDf))
+    except:
+        left_attempts.append(np.NaN)
+
+    try:   
+        right_attempts.append(len(right_trials_missedDf[right_trials_missedDf['any_reach'] == True])/len(MissedDf))
+    except:
+        right_attempts.append(np.NaN)
 
     corr_leftDf = bhv.groupby_dict(SessionDf, dict(outcome='correct', correct_side='left'))
     left_trials_with_choiceDf = bhv.groupby_dict(SessionDf, dict(has_choice=True, correct_side='left'))
@@ -566,7 +564,7 @@ for i,log_path in enumerate(log_paths):
 
     perc_correct.append((SessionDf.outcome == 'correct').sum()/len(choiceDf)*100)
 
-    perc_missed.append(len(MissedDf)/len(SessionDf)*100) # exclude jackpot rews
+    perc_missed.append(len(MissedDf)/len(SessionDf)*100)
     perc_missed_left.append(len(left_trials_missedDf)/len(SessionDf[SessionDf['correct_side'] == 'left'])*100)
     perc_missed_right.append(len(right_trials_missedDf)/len(SessionDf[SessionDf['correct_side'] == 'right'])*100)
 
@@ -577,7 +575,16 @@ for i,log_path in enumerate(log_paths):
 
     n_rewards.append(len(bhv.get_events_from_name(LogDf,'REWARD_STATE')))
 
+    try:
+        bias_set.append(utils.get_interface_var(path,'p_left'))
+    except:
+        bias_set.append(0.5)   
+
+    bias.append(np.mean(SessionDf['bias'].values))
     no_trials.append(len(SessionDf))
+
+    perc_trials_right.append(len(SessionDf[SessionDf['correct_side'] == 'right'])/len(SessionDf)*100)
+
     session_length.append((LogDf['t'].iloc[-1]-LogDf['t'].iloc[0])/(1000*60)) # convert msec. -> sec.-> min.
 
 # Plotting
@@ -607,13 +614,14 @@ fig.tight_layout()
 plt.savefig(across_session_plot_dir / ('overview_across_sessions' + str(task_name)+ '.png'), dpi=600)
 
 # %% Trial init day
-trial_init_day = 'ago-25'
+trial_init_day = 'out-19'
 init_day_idx = [i for i,day in enumerate(date_abbr) if day == trial_init_day][0]
 
 # %% Trials per minute
 fig , axes = plt.subplots()
+#init_day_idx = 0
 
-tpm = np.array(no_trials)/np.array(session_length)
+tpm = np.array(perc_trials_right)/np.array(session_length)
 
 axes.plot(tpm[init_day_idx:])
 
@@ -624,6 +632,30 @@ plt.setp(axes, xticks=np.arange(0,len(date_abbr[init_day_idx:]),1), xticklabels=
 plt.xticks(rotation=45)
 
 plt.savefig(across_session_plot_dir / ('tpm_across_sessions.png'), dpi=600)
+
+# %% Is there bias in trial sampling in a session? Does it impact animal behavior?
+fig , axes = plt.subplots()
+plt.xticks(rotation=45)
+
+axes.plot(1-np.array(bias_set), label = 'p(right) set')
+axes.plot(np.divide(perc_trials_right,100), label = 'p(right) arduino')
+axes.plot(bias, label = 'animal bias')
+axes.set_ylabel('p(right)')
+axes.set_xlabel('date')
+axes.set_ylim([0,1])
+axes.axhline(0.5,linestyle='dashed',alpha=0.5,color='k')
+axes.axhline(0.45,linestyle='dashed',alpha=0.25,color='red')
+axes.axhline(0.55,linestyle='dashed',alpha=0.25,color='red')
+
+axes2 = plt.twinx(axes)
+axes2.set_yticks([0,1])
+axes2.set_yticklabels(['left','right'])
+
+axes.set_title('Animal bias and arduino bias ' + nickname)
+axes.legend(frameon = False)
+
+plt.setp(axes, xticks=np.arange(0,len(date_abbr),1), xticklabels=date_abbr)
+plt.savefig(across_session_plot_dir / ('arduino_bias_across_sessions.png'), dpi=600)
 
 # %% Reward rate across sessions
 fig , axes = plt.subplots(figsize=(10,4))
@@ -636,9 +668,22 @@ plt.xticks(rotation=90)
 
 [axes.axvline(monday, color = 'k', alpha = 0.25) for monday in mondays]
 
+axes.set_ylim([0,6])
 axes.set_title(' Session overview for ' + nickname + ' ' + str(task_name))
 fig.tight_layout()
 plt.savefig(across_session_plot_dir / ('rew_rate_across_sessions.png'), dpi=600)
+
+# %% In how many trials do they miss because they have reaches with insufficient duration?
+
+# Mean over missed
+axes.plot(perc_left_attempts, c = 'yellow', label = 'left')
+axes.plot(perc_right_attempts, c = 'blue', label = 'right')
+
+axes.plot(perc_missed, c = 'gray', label = 'missed rate')
+
+axes.set_ylim([0,100])
+axes.set_title('Percentage of trials missed due to insufficient grasp dur')
+axes.legend(frameon = False)
 
 # %% Reaches during delay across sessions
 tasks_names = ['learn_to_choose_v2']
@@ -647,7 +692,8 @@ bhv_plt_reach.reaches_during_delay_across_sess(animal_fd_path, tasks_names, init
 plt.savefig(across_session_plot_dir / ('CDF_reach_during_delay_sessions.png'), dpi=600)
 
 # %% Grasp duration across sessions
-bhv_plt_reach.grasp_dur_across_sess(date_abbr)
+tasks_names = ['learn_to_choose_v2']
+bhv_plt_reach.grasp_dur_across_sess(animal_fd_path, tasks_names)
 
 plt.savefig(across_session_plot_dir / ('grasp_dur_sessions.png'), dpi=600)
 

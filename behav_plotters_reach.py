@@ -2,19 +2,22 @@
 #%load_ext autoreload
 #%autoreload 2
 
-from logging import error
+# Plotting
+import seaborn as sns
+from matplotlib import pyplot as plt
 import matplotlib as mpl
 
-from daily_plot import SessionDf
-mpl.rcParams['figure.dpi'] = 166
-from matplotlib import pyplot as plt
+# Math
+import scipy as sp
+import scipy.signal
+import numpy as np
 import pandas as pd
+
+# Misc
+from tqdm import tqdm
 import itertools
 from pathlib import Path
-import seaborn as sns
-import scipy as sp
-import numpy as np
-from tqdm import tqdm
+from logging import error
 
 # Custom
 from Utils import behavior_analysis_utils as bhv
@@ -68,13 +71,6 @@ def plot_session_overview(SessionDf, animal_meta, session_date, axes=None):
                 axes.plot(i,-0.0,'.',color='cyan',alpha=0.75)
             if row.correct_side == 'right':
                 axes.plot(i,1.0,'.',color='cyan',alpha=0.75)
-
-        # correction loops to one side
-        if row.in_corr_loop and not np.isnan(row.in_corr_loop):
-            if row.correct_side == 'left':
-                axes.plot([i,i],[-0.1,0.1],color='red',alpha=0.5,zorder=-2,lw=3)
-            if row.correct_side == 'right':
-                axes.plot([i,i],[1,1.1],color='red',alpha=0.5,zorder=-2,lw=3)
         
         # Timing trials
         if row.timing_trial and not np.isnan(row.timing_trial):
@@ -402,8 +398,9 @@ def plot_grasp_duration_distro(LogDf, SessionDf, bin_width, max_grasp_dur, perce
 
         # For choice-inducing reaches
         choiceDf = bhv.groupby_dict(SessionDf, dict(has_choice=True, chosen_side=side.lower()))
-        grasp_durs = choiceDf[~choiceDf['grasp_dur'].isna()]['grasp_dur'].values # filter out Nans
-        ax.hist(grasp_durs, **kwargs, alpha=1, color = color, label = 'Choice grasps') 
+        if len(choiceDf) != 0:
+            grasp_durs = choiceDf[~choiceDf['grasp_dur'].isna()]['grasp_dur'].values # filter out Nans
+            ax.hist(grasp_durs, **kwargs, alpha=1, color = color, label = 'Choice grasps') 
 
         perc = np.percentile(grasp_durs, percentile)
         ax.axvline(perc, color = color, alpha=1) # perc line
@@ -424,10 +421,10 @@ def plot_grasp_duration_distro(LogDf, SessionDf, bin_width, max_grasp_dur, perce
 def plot_hist_no_reaches_per_trial(LogDf, reach_crop):
 
     fig, axes = plt.subplots(figsize=[6, 4], ncols=2)
-    kwargs = dict(bins = reach_crop, range = (0, reach_crop), edgecolor='none', alpha=0.5, density = True)
+    kwargs = dict(bins = np.arange(reach_crop)-0.5, range = (0, reach_crop), edgecolor='none', alpha=0.5, density = True)
 
     # Trials spanning from choice available to end of ITI
-    TrialSpans = bhv.get_spans_from_names(LogDf, "CHOICE_STATE", "TRIAL_AVAILABLE_STATE")
+    TrialSpans = bhv.get_spans_from_names(LogDf, "GO_CUE_EVENT", "TRIAL_AVAILABLE_STATE")
 
     TrialDfs = []
     for i, row in TrialSpans.iterrows():
@@ -435,7 +432,7 @@ def plot_hist_no_reaches_per_trial(LogDf, reach_crop):
 
     sides = ['left', 'right']
     no_reaches_dict = {'left': [], 'right': []}
-    choice_reach_idx_dict = {'left': [], 'right': []}
+    choice_reach_no_dict = {'left': [], 'right': []}
     key = []
 
     # Obtain no of reaches before choice and total for each trial 
@@ -458,24 +455,51 @@ def plot_hist_no_reaches_per_trial(LogDf, reach_crop):
             # Which reach triggered the choice? The one which corresponding spansDf contains choice_time
             for i,row in enumerate(merge_spansDf.iterrows()):
                 if (row[1]['t_on'] < choice_time < row[1]['t_off']):
-                    choice_reach_idx_dict[key].append(i+1)
+                    no_reaches_needed = i+1
+                    choice_reach_no_dict[key].append(no_reaches_needed)
             
-            no_reaches_dict[key].append(len(merge_spansDf))
-            
+            no_reaches_dict[key].append(len(merge_spansDf)-no_reaches_needed) # subtract the no. of reaches leading to choice
+
     # Plotting
     for ax,side in zip(axes,sides):
-        ax.hist(no_reaches_dict[side], color = 'r', label = 'No. reaches', **kwargs)
+        ax.hist(no_reaches_dict[side], color = 'r', label = 'No. in vain reaches', **kwargs)
         ax.axvline(np.percentile(no_reaches_dict[side], 75), color = 'r')
-        ax.hist(choice_reach_idx_dict[side], color = 'y', label = 'No. reaches \n before choice', **kwargs)
-        ax.axvline(np.percentile(choice_reach_idx_dict[side], 75), color = 'y')
+        ax.hist(choice_reach_no_dict[side], color = 'y', label = 'No. reaches needed \n to clock choice', **kwargs)
+        ax.axvline(np.percentile(choice_reach_no_dict[side], 75), color = 'y')
         ax.legend(frameon=False, fontsize = 'small')
         ax.set_title(side + ' trials')
         ax.set_xlabel('No. Reaches')
-        ax.set_xlim([1,reach_crop]) # Can never be below 1
+        ax.set_ylim([0,1])
 
     # Formatting
     axes[0].set_ylabel('Ratio of trials')
     fig.suptitle('Histogram of no. of reaches per trial ')
+    fig.tight_layout()
+
+    return axes
+
+def plot_inter_reach_interval(LogDf, max_IRI):
+
+    sides = ['LEFT', 'RIGHT']
+
+    fig , axes = plt.subplots(ncols=len(sides), figsize=[6, 3], sharex=True, sharey=True)
+    kwargs = dict(range = (0, max_IRI), edgecolor='none')
+
+    colors = sns.color_palette('hls', n_colors=len(sides))
+    
+    for ax,side,color in zip(axes,sides,colors):
+
+        # For all reaches
+        event_on, event_off = 'REACH_' + str(side) + '_ON', 'REACH_' + str(side) + '_OFF' # event names
+        reach_onsets = bhv.get_spans_from_names(LogDf, event_on, event_off)['t_on'].values
+
+        IRI = np.diff(reach_onsets)
+        ax.hist(IRI, color = color, label = side, **kwargs)
+        ax.set_ylabel('No. of ocurrences')
+        ax.set_xlabel('Time (ms)')
+        ax.legend(frameon=False, fontsize = 'small')
+
+    fig.suptitle('Inter Reach Interval')
     fig.tight_layout()
 
     return axes
@@ -504,10 +528,16 @@ def plot_init_times(SessionDf, colors, axes=None):
 
     return axes
 
-def plot_no_init_attempts(LoadCellDf, TrialDfs, init_tresh, axes=None):
+def plot_no_init_attempts(LoadCellDf, TrialDfs, log_path, peaks_coincidence,hist_crop,axes=None):
     
     if axes is None:
         fig = plt.figure(figsize=(6,4))
+
+    # Load thresh from bonsai settings
+    bonsai_settings_path = log_path.parent / "learn_to_choose_v2/Bonsai/interface_variables.ini"
+    with open(bonsai_settings_path, 'r') as fH:
+        lines = fH.readlines()
+    init_tresh = int(''.join(x for x in lines[1] if x.isdigit()))
 
     sub_tresh = 0.66*init_tresh # About two thirds the original
 
@@ -537,7 +567,7 @@ def plot_no_init_attempts(LoadCellDf, TrialDfs, init_tresh, axes=None):
                 min_dist = np.min(dist, axis = 0)
                 
                 # If time difference between peaks is lower than 50 ms, they coincide in time
-                no_attempts = min_dist[np.where(min_dist < 50)].shape[0]
+                no_attempts = min_dist[np.where(min_dist < peaks_coincidence)].shape[0]
                 attempts.append(no_attempts)
 
         # Instant initiation 
@@ -556,14 +586,17 @@ def plot_no_init_attempts(LoadCellDf, TrialDfs, init_tresh, axes=None):
 
     # Formatting
     ax.scatter(np.arange(len(TrialDfs)), attempts, s = 2)
-    ax.set_ylim([0,10])
+    ax.set_ylim([-1,hist_crop])
     ax.set_ylabel('No of init attempts')
     ax.set_xlabel('Trial No.')
 
-    n, bins, _ = ax_histy.hist(attempts, bins=20, range= (0,20), density = True, orientation='horizontal')
+    ax_histy.hist(attempts, bins=np.arange(hist_crop)-0.5, range= (0,hist_crop), density = True, orientation='horizontal')
     ax_histy.tick_params(axis="y", labelleft=False)
     ax_histy.set_xlabel('Perc. of trials (%)')
+    ax_histy.set_xticks([0,0.25,0.5,0.75,1])
+    ax_histy.set_xticklabels([0,25,50,75,100])
     ax_histy.set_xlim([0,1])
+    ax_histy.set_ylim([-1,hist_crop])
 
     ax.set_title('Number attempts before trial init')
 
@@ -600,12 +633,13 @@ def CDF_of_reaches_during_delay(SessionDf,TrialDfs, axes = None, **kwargs):
 
 # Learn to time
 def plot_psychometric(SessionDf, N=1000, axes=None, discrete=False):
+    
     if axes is None:
         fig, axes = plt.subplots()
 
     # Get subset of timing trials with choices outside correction loops
     try:
-        SDf = bhv.groupby_dict(SessionDf, dict(has_choice=True,in_corr_loop=False,timing_trial=True))
+        SDf = bhv.groupby_dict(SessionDf, dict(has_choice=True, timing_trial=True))
     except KeyError:
         print('No trials fulfil criteria')
 
@@ -881,12 +915,12 @@ def grasp_dur_across_sess(animal_fd_path, tasks_names):
             # reaches
             grasp_spansDf = bhv.get_spans_from_names(LogDf, event_on, event_off)
             reach_durs = np.array(grasp_spansDf['dt'].values, dtype=object)
-            Df.append([reach_durs, 'r', side], columns = ['durs','type','side'])
+            Df.append([reach_durs], columns = ['durs'],ignore_index=True)
 
             # grasps
             choiceDf = bhv.groupby_dict(SessionDf, dict(has_choice=True, chosen_side=side.lower()))
             grasp_durs = choiceDf[~choiceDf['grasp_dur'].isna()]['grasp_dur'].values # filter out Nans
-            Df.append([grasp_durs, 'g', side], columns = ['durs','type','side'])
+            Df.append([grasp_durs, 'g', side], columns = ['durs','type','side'], ignore_index=True)
 
         sns.violinplot(data = Df[Df['type'] == 'r'], x = day, y = 'durs', hue = 'side', split = True, cut = 0, legend = 'reaches')
         sns.violinplot(data = Df[Df['type'] == 'g'], x = day, y = 'durs', hue = 'side', split = True, cut = 0, legend = 'grasps')

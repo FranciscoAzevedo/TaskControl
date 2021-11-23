@@ -329,7 +329,13 @@ def event_based_time_slice(Df, event, pre, post, col='name', on='t', Df_to_slice
 
 def groupby_dict(Df, Dict):
     try:
-        return Df.groupby(list(Dict.keys())).get_group(tuple(Dict.values()))
+        # Singular pair
+        if len(list(Dict.keys())) == 1 and len(tuple(Dict.values())) == 1:
+            Df = Df[Df[list(Dict.keys())[0]] == list(Dict.values())[0]]
+            return Df
+        # Multiple pairs
+        else:
+            return Df.groupby(list(Dict.keys())).get_group(tuple(Dict.values()))
     except:
         return []
 

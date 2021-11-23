@@ -1,4 +1,5 @@
-import sys, os 
+import sys, os
+from tkinter import filedialog 
 import pandas as pd
 import scipy as sp 
 import pathlib
@@ -191,6 +192,19 @@ def get_SessionDf(LogDf, metrics, trial_entry_event="TRIAL_AVAILABLE_STATE", tri
     SessionDf = met.compute_choice_grasp_dur(LogDf,SessionDf)
 
     return SessionDf, TrialDfs
+
+def get_interface_var(path, var_name):
+
+    # open file
+    file_path = path / 'learn_to_choose_v2/Arduino/src/interface_variables.h'
+    fH = open(file_path,'r')
+    lines = fH.readlines()
+    
+    # Search for var_name in lines
+    var_line = [line for line in lines if var_name in line]
+    var_value = float(var_line[0].split(' ')[-1].split(';')[0]) # extract last component of string
+
+    return var_value
 
 """
  

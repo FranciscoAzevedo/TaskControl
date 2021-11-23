@@ -43,7 +43,7 @@ from Utils import sync
 """
 
 # %% read all three data sources
-fd_path = Path("/media/storage/shared-paton/georg/Animals_reaching/JJP-01975/2021-04-29_11-16-15_learn_to_fixate_discrete_v1")
+fd_path = Path("/media/storage/shared-paton/georg/Animals_reaching/JJP-01975_Marquez/2021-04-29_11-16-15_learn_to_fixate_discrete_v1")
 #fd_path = utils.get_folder_dialog(initial_dir="/media/storage/shared-paton/georg/")
 
 # DLC data
@@ -237,11 +237,11 @@ mpl.rcParams['animation.ffmpeg_path']="/usr/local/bin/ffmpeg"
 pre,post = 100, 500
 save = True
 
-key_values = [('outcome','correct'),('chosen_side','left')]
+key_values = [('outcome','missed'), ('correct_side','left')]
 
 trial_idxs = bhv.groupby_dict(SessionDf, dict(key_values)).index.values
 
-# %% Display video of trial
+# %% Display video of trials
 t_ons = SessionDf.iloc[trial_idxs]['t_on'] - pre
 t_offs = SessionDf.iloc[trial_idxs]['t_off'] + post
 

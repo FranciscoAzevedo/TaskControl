@@ -17,6 +17,7 @@ import pandas as pd
 # Misc
 import os
 from pathlib import Path
+from tqdm import tqdm
 
 # Custom
 from Utils import behavior_analysis_utils as bhv
@@ -111,28 +112,94 @@ os.makedirs(plot_dir, exist_ok=True)
 
 # %%
 """
-.########..##........#######..########..######.
-.##.....##.##.......##.....##....##....##....##
-.##.....##.##.......##.....##....##....##......
-.########..##.......##.....##....##.....######.
-.##........##.......##.....##....##..........##
-.##........##.......##.....##....##....##....##
-.##........########..#######.....##.....######.
+.########..##........######.
+.##.....##.##.......##....##
+.##.....##.##.......##......
+.##.....##.##.......##......
+.##.....##.##.......##......
+.##.....##.##.......##....##
+.########..########..######.
+"""
+
+# DeepLabCut data and settings
+try:
+    h5_path = log_path.parent  / [fname for fname in os.listdir(log_path.parent) if fname.endswith('filtered.h55')][0]
+except IndexError:
+    h5_path = log_path.parent  / [fname for fname in os.listdir(log_path.parent) if fname.endswith('.h5')][0]
+
+DlcDf = dlc_utils.read_dlc_h5(h5_path)
+bodyparts = np.unique([j[0] for j in DlcDf.columns[1:]]) # all body parts
+paws = ['PL','PR']
+spouts = ['SL','SR']
+
+# Synching 
+Sync.sync('arduino','dlc')
+DlcDf['t'] = Sync.convert(DlcDf.index.values, 'dlc', 'arduino')
+
+def interpolate_bodypart_pos(DlcDf, bodyparts, p, kind='linear', fill_value='extrapolate'):
+    """ interpolates x and y positions for bodyparts where likelihood is below p """
+    for bp in tqdm(bodyparts):
+        good_inds = DlcDf[bp]['likelihood'].values > p
+        ix = DlcDf[bp].loc[good_inds].index
+
+        bad_inds = DlcDf[bp]['likelihood'].values < p
+        bix = DlcDf[bp].loc[bad_inds].index
+
+        x = DlcDf[bp].loc[good_inds]['x'].values
+        interp = sp.interpolate.interp1d(ix, x, kind=kind, fill_value=fill_value)
+        DlcDf[(bp,'x')].loc[bix] = interp(bix)
+
+        y = DlcDf[bp].loc[good_inds]['y'].values
+        interp = sp.interpolate.interp1d(ix, y, kind=kind, fill_value=fill_value)
+        DlcDf[(bp,'y')].loc[bix] = interp(bix)
+    return DlcDf
+
+DlcDf = interpolate_bodypart_pos(DlcDf, bodyparts, p=0.95)
+
+# %%
+"""
+.########..########.##.....##....###....##.....##.####..#######..########.
+.##.....##.##.......##.....##...##.##...##.....##..##..##.....##.##.....##
+.##.....##.##.......##.....##..##...##..##.....##..##..##.....##.##.....##
+.########..######...#########.##.....##.##.....##..##..##.....##.########.
+.##.....##.##.......##.....##.#########..##...##...##..##.....##.##...##..
+.##.....##.##.......##.....##.##.....##...##.##....##..##.....##.##....##.
+.########..########.##.....##.##.....##....###....####..#######..##.....##
+"""
+
+# Grasp duration distro split by outcome and choice
+bin_width = 5 # ms
+max_grasp_dur = 250 # ms
+
+perc = 25 #th 
+
+bhv_plt_reach.plot_grasp_duration_distro(LogDf, SessionDf, bin_width, max_grasp_dur, perc)
+plt.savefig(plot_dir / ('hist_grasp_dur_' + str(perc) + '_percentile.png'), dpi=600)
+
+# %%
+"""
+.##....##.########.##.....##.########...#######..##....##..######.
+.###...##.##.......##.....##.##.....##.##.....##.###...##.##....##
+.####..##.##.......##.....##.##.....##.##.....##.####..##.##......
+.##.##.##.######...##.....##.########..##.....##.##.##.##..######.
+.##..####.##.......##.....##.##...##...##.....##.##..####.......##
+.##...###.##.......##.....##.##....##..##.....##.##...###.##....##
+.##....##.########..#######..##.....##..#######..##....##..######.
 """
 
 # %% Load meso data already processed from caiman
-fd_path = utils.get_folder_dialog(initial_dir="/media/storage/shared-paton/georg/mesoscope_testings")
+neural_data_path = utils.get_folder_dialog(initial_dir="/media/storage/shared-paton/georg/mesoscope_testings")
 
-neural_data = np.load(fd_path / "dff_cnm2_c.npy")
-neuron_coords = np.load(fd_path / "coords.npy") # XY coords of each neuron 
+neural_data = np.load(neural_data_path / "dff_cnm2_c.npy")
+neuron_coords = np.load(neural_data_path / "coords.npy") # XY coords of each neuron 
 
 # Frame acquisition events in its own index plus original one
-meso_eventsDf = LogDf[LogDf['name']=='FRAME_EVENT']
-meso_eventsDf['log_idx'] = meso_eventsDf.index
-meso_eventsDf = meso_eventsDf.reset_index(drop=True)
+meso_framesDf = LogDf[LogDf['name']=='FRAME_EVENT']
+meso_framesDf['log_idx'] = meso_framesDf.index
+meso_framesDf = meso_framesDf.reset_index(drop=True)
 
 # %% Sanity check and interpolate missing frame events
-frame2frame_diff = np.diff(meso_eventsDf['t'])
+frame2frame_diff = np.diff(meso_framesDf['t'])
 main_freq = round(np.mean(frame2frame_diff))
 tol = main_freq*0.05 # 5% of main freq
 
@@ -141,24 +208,24 @@ fig, axes = plt.subplots()
 axes.hist(frame2frame_diff, bins=round(tol*2), range=(main_freq-tol,main_freq+tol))
 axes.set_ylabel('No. of ocurrences')
 axes.set_xlabel('Interval between frames (ms)')
-print('Diff of frame events (neural_data-log)): ' + str(neural_data.shape[1]-len(meso_eventsDf)))
+print('Diff of frame events (neural_data-log)): ' + str(neural_data.shape[1]-len(meso_framesDf)))
 
 # identify missing frames
-missing_idxs = np.array(meso_eventsDf[:-1].iloc[np.abs(frame2frame_diff) > main_freq + tol].index)
+missing_idxs = np.array(meso_framesDf[:-1].iloc[np.abs(frame2frame_diff) > main_freq + tol].index)
 
 # create entries corresponding to missing frames in LogDf
 for missing_idx in missing_idxs:
-    meso_eventsDf.loc[missing_idx+0.5] = meso_eventsDf.loc[missing_idx] # add event 
-    meso_eventsDf.loc[missing_idx+0.5, 't'] = np.nan # make t a missing value to be interpolated
+    meso_framesDf.loc[missing_idx+0.5] = meso_framesDf.loc[missing_idx] # add event 
+    meso_framesDf.loc[missing_idx+0.5, 't'] = np.nan # make t a missing value to be interpolated
 
-meso_eventsDf = meso_eventsDf.sort_index().reset_index(drop=True) # reset index only after
+meso_framesDf = meso_framesDf.sort_index().reset_index(drop=True) # reset index only after
 
-meso_eventsDf['t'] = meso_eventsDf['t'].interpolate(method='linear')
+meso_framesDf['t'] = meso_framesDf['t'].interpolate(method='linear')
 
-# Im getting crazy at this point but fuck it
-if len(meso_eventsDf) > neural_data.shape[1]:
-    n = len(meso_eventsDf) - neural_data.shape[1]
-    meso_eventsDf.drop(meso_eventsDf.tail(n).index,inplace=True) 
+# If they are still missmatched, cut the end of the mesoDf
+if len(meso_framesDf) > neural_data.shape[1]:
+    n = len(meso_framesDf) - neural_data.shape[1]
+    meso_framesDf.drop(meso_framesDf.tail(n).index,inplace=True) 
 
 # %% AVG across neurons across events
 events = ['GO_CUE_EVENT','REWARD_STATE','REWARD_RIGHT_COLLECTED_EVENT']
@@ -173,7 +240,7 @@ for i,event in enumerate(events):
     N_mean,frame_time = [],[]
     for t_ref in t_refs:
 
-        sliceDf = bhv.time_slice(meso_eventsDf, t_ref-pre, t_ref+post)
+        sliceDf = bhv.time_slice(meso_framesDf, t_ref-pre, t_ref+post)
         frame_time.append(sliceDf['t'].values - t_ref) # relative to t_ref
         frame_idx = sliceDf.index.values # get frames
 
@@ -203,7 +270,7 @@ dmin = np.min(neural_data)
 dmax = np.max(neural_data)
 dr = (dmax - dmin) * 0.7  # Crowd them a bit.
 
-time = meso_eventsDf['t']/1000
+time = meso_framesDf['t']/1000
 
 # data traces
 for n_neuron in np.arange(0,n_neurons): 
@@ -223,4 +290,56 @@ axes.set_xlabel('No. neurons')
 axes.set_xlabel('Time (s)')
 fig.tight_layout()
 
-# %% Neurons significantly modulated by
+# %% Clustering into groups of neurons that might be doing similar things
+fig, axes = plt.subplots()
+
+# Find best number of clusters
+for i in np.arange(2,25):
+    clusters, distortion = sp.cluster.vq.kmeans(neural_data, i, iter = 10)
+    axes.scatter(i,distortion, color = 'b')
+
+axes.set_ylabel('Distortion')
+axes.set_xlabel('No of clusters')
+axes.set_title('Distortion error across no. of clusters')
+
+# 10 clusters seems to do it
+n_clusters = 10
+clusters, _ = sp.cluster.vq.kmeans(neural_data, n_clusters, iter = 10)
+
+fig, axes = plt.subplots(figsize=(8,2))
+axes.plot(clusters.T, alpha = 0.5, linewidth = 0.5)
+axes.legend(frameon= False)
+axes.set_title("Timecourse of kmeans' clusters")
+
+# Now check where these clusters are in the brain
+code , _ = sp.cluster.vq.vq(neural_data, clusters) # states which neuron belongs to each cluster
+
+fig, axes = plt.subplots(figsize=(4,3))
+for i in np.arange(0,n_clusters+1):
+    axes.scatter(i, np.sum(code == i))
+axes.set_ylabel('No. neurons')
+axes.set_xlabel('No. of clusters')
+axes.set_title('How many neurons belong to each cluster')
+fig.tight_layout()
+
+# plots image of brain
+neural_vid_path = neural_data_path / "reconstructed.avi"
+neural_vid = dlc_utils.read_video(str(neural_vid_path))
+
+fig, axes = plt.subplots(figsize=(5,5))
+frame_ix = 10
+frame = dlc_utils.get_frame(neural_vid, frame_ix)
+dlc_utils.plot_frame(frame, axes=axes)
+
+# for each cluster plot pixel color coded by cluster
+for i in np.arange(0,n_clusters+1):
+    cluster_idxs = code == i
+    axes.scatter(   neuron_coords[cluster_idxs,0],neuron_coords[cluster_idxs,1], s = 1,
+                    alpha = 0.75, label = i)
+
+axes.legend(frameon=False, bbox_to_anchor=(1,1), title = 'Cluster No.')
+fig.tight_layout()
+
+# %% Defining groups based on brain areas
+
+# %% Neurons significantly modulated by events
