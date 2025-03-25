@@ -7,8 +7,9 @@ import datetime
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 from matplotlib.collections import LineCollection
-import logging
-logger = logging.getLogger(__name__)
+
+from Utils import behavior_analysis_utils as bhv
+
 """
  
  ########     ###    ########   ######  ######## ########  
@@ -31,12 +32,9 @@ def get_LogDf_from_path(log_path, return_check=False, return_vars=False):
     CodesDf = utils.parse_code_map(code_map_path)
     code_map = dict(zip(CodesDf['code'], CodesDf['name']))
 
-    LogDf, VarsDf = parse_arduino_log(log_path, code_map, return_check=return_check, return_vars=True)
-    
-    if return_vars:
-        return LogDf, VarsDf
-    else:
-        return LogDf
+    LogDf = parse_arduino_log(log_path, code_map)
+
+    return LogDf
 
 def parse_arduino_log(log_path, code_map=None, parse_var=True, return_check=False, return_vars=False):
     """ create a DataFrame representation of an arduino log. If a code map is passed 
@@ -53,17 +51,14 @@ def parse_arduino_log(log_path, code_map=None, parse_var=True, return_check=Fals
     # test for validity
     valid_lines = []
     invalid_lines = []
-    for i, line in enumerate(lines):
+    for i,line in enumerate(lines):
         if len(line.split('\t')) == 2 or line.startswith('<'):
             valid_lines.append(line)
         else:
             invalid_lines.append(line)
             logger.warning("bad line in log: %i: %s" % (i, line))
 
-    if len(invalid_lines) == 0:
-        all_good = True
-    else:
-        all_good = False
+    return parse_lines(valid_lines, code_map=code_map, parse_var=parse_var)
 
     if return_check == True:
         if all_good == True:
@@ -166,33 +161,25 @@ def get_events(LogDf, event_names):
  
     return EventsDict
 
-# removal / generalize
-def filter_bad_licks(LogDf, min_time=50, max_time=200, remove=False):
-    """ 
-    Process recorded LICK_ON and LICK_OFF into realistic licks and add them as an event to the LogDf
-    TODO generalize to filter event based on duration
-    """
-    LickSpan = get_spans_from_names(LogDf, 'LICK_ON', 'LICK_OFF')
+def add_go_cue_LogDf(LogDf):
+    # Add single GO_CUE_EVENT to LogDf
+    go_cue_leftDf = get_events_from_name(LogDf, 'GO_CUE_LEFT_EVENT')
+    go_cue_rightDf = get_events_from_name(LogDf, 'GO_CUE_RIGHT_EVENT')
+    go_cue_Df = pd.merge(go_cue_leftDf, go_cue_rightDf, how = 'outer')
 
-    bad_licks = np.logical_or(LickSpan['dt'] < min_time , LickSpan['dt'] > max_time)
-    LickSpan = LickSpan.loc[~bad_licks]
+    go_cue_event = pd.DataFrame(np.stack([['NA']*go_cue_Df.shape[0], go_cue_Df['t'].values, ['GO_CUE_EVENT']*go_cue_Df.shape[0]]).T, columns=['code', 't', 'name'])
+    go_cue_event['t'] = go_cue_event['t'].astype('float')
+    LogDf = LogDf.append(go_cue_event)
 
-    # Add lick_event to LogDf
-    Lick_Event = pd.DataFrame(np.stack([['NA']*LickSpan.shape[0], LickSpan['t_on'].values, ['LICK_EVENT']*LickSpan.shape[0]]).T, columns=['code', 't', 'name'])
-    Lick_Event['t'] = Lick_Event['t'].astype('float')
-    LogDf = LogDf.append(Lick_Event)
-    LogDf.sort_values('t')
-
-    if remove is True:
-        # TODO
-        pass
+    # Reorder Df according to time and reset indexes
+    LogDf = LogDf.sort_values('t')
+    LogDf = LogDf.reset_index(drop=True)
 
     return LogDf
 
 def filter_spans_to_event(LogDf, on_name, off_name, t_min=50, t_max=200, name=None):
-    """ 
-    creates an Event in the LogDf based on min / max duration of Spans
-    """
+    " Creates an Event in the LogDf filtered by min / max duration of Spans "
+    
     Spans = get_spans_from_names(LogDf, on_name, off_name)
     bad_inds = np.logical_or(Spans['dt'] < t_min , Spans['dt'] > t_max)
     Spans = Spans.loc[~bad_inds]
@@ -317,61 +304,10 @@ def parse_trial(TrialDf, Metrics):
     
 def parse_trials(TrialDfs, Metrics):
     """ helper to run parse_trial on multiple trials """
-    if Metrics is not None:
-        SessionDf = pd.concat([parse_trial(Df, Metrics) for Df in TrialDfs], axis=0)
-        SessionDf = SessionDf.reset_index(drop=True)
-        return SessionDf
-    else:
-        return None
-
-
+    SessionDf = pd.concat([parse_trial(Df, Metrics) for Df in TrialDfs], axis=0)
+    SessionDf = SessionDf.reset_index(drop=True)
   
-"""
- 
-  ######  ########  ######   ######  ####  #######  ##    ##  ######  
- ##    ## ##       ##    ## ##    ##  ##  ##     ## ###   ## ##    ## 
- ##       ##       ##       ##        ##  ##     ## ####  ## ##       
-  ######  ######    ######   ######   ##  ##     ## ## ## ##  ######  
-       ## ##             ##       ##  ##  ##     ## ##  ####       ## 
- ##    ## ##       ##    ## ##    ##  ##  ##     ## ##   ### ##    ## 
-  ######  ########  ######   ######  ####  #######  ##    ##  ######  
- 
-"""
-
-def get_SessionDf(LogDf, metrics, trial_entry_event="TRIAL_AVAILABLE_STATE", trial_exit_event="ITI_STATE", verbose=True):
-    TrialSpans = get_spans_from_names(LogDf, trial_entry_event, trial_exit_event)
-    TrialDfs = []
-    desc = "slicing LogDf into trials" if verbose else None
-    
-    for i, row in tqdm(TrialSpans.iterrows(),desc=desc):
-        TrialDfs.append(time_slice(LogDf, row['t_on'], row['t_off']))
-    
-    SessionDf = parse_trials(TrialDfs, metrics)
-    return SessionDf, TrialDfs
-
-def parse_session(SessionDf, Metrics):
-    """ Applies 2nd level metrics to a session """
-
-    # Session is input to Metrics - list of callable functions, each a "Metric"
-    metrics = [Metric(SessionDf) for Metric in Metrics]
-    SessionMetricsDf = pd.DataFrame(metrics).T
-
-    # correcting dtype
-    for metric in metrics:
-        SessionMetricsDf[metric.name] = SessionMetricsDf[metric.name].astype(metric.dtype)
-
-    return SessionMetricsDf
-
-def parse_sessions(SessionDfs, Metrics):
-    """ helper to run parse_session on multiple sessions.
-    SessionDfs is a list of SessionDf """
-
-    PerformanceDf = pd.concat([parse_session(SessionDf, Metrics) for SessionDf in SessionDfs])
-    PerformanceDf = PerformanceDf.reset_index(drop = 'True')
-
-    return PerformanceDf
-    
-        
+    return SessionDf
 
 """
  
@@ -431,8 +367,16 @@ def event_slice(Df, event_a, event_b, col='name', reset_index=True):
     return Df
 
 def groupby_dict(Df, Dict):
-    """ will turn obsolete ... """
-    return Df.groupby(list(Dict.keys())).get_group(tuple(Dict.values()))
+    try:
+        # Singular pair
+        if len(list(Dict.keys())) == 1 and len(tuple(Dict.values())) == 1:
+            Df = Df[Df[list(Dict.keys())[0]] == list(Dict.values())[0]]
+            return Df
+        # Multiple pairs
+        else:
+            return Df.groupby(list(Dict.keys())).get_group(tuple(Dict.values()))
+    except:
+        return []
 
 def intersect(Df, **kwargs):
     """ helper to slice pd.DataFrame, keys select columns, values select rows at columns
@@ -627,21 +571,19 @@ def log_reg(x, y, x_fit=None, fit_lapses=True):
     y_fit = fun(x_fit, *pfit.x)
     return y_fit, pfit.x
 
-def calc_rate(t_stamps, tvec, w):
-    """ everything in seconds!, rate is returned in Hz """
-    ix = np.digitize(t_stamps, tvec) -1 
-    rate = np.zeros(tvec.shape[0])
-    dt = np.diff(tvec)[0]
-    rate[ix] = 1
-    return np.convolve(rate, w, mode='same') / dt
+def tolerant_mean(arrs):
+    'A mean that is tolerant to different sized arrays'
 
-def event_rate(LogDf: pd.DataFrame, event_name: str, w: np.ndarray, dt: float):
-    """ returns rate of event over the entire session 
-    everything in seconds! """
-    Df = get_events_from_name(LogDf, event_name)
-    times = Df['t'].values/1e3
-    t_start = LogDf['t'].values[0]/1e3
-    t_stop = LogDf['t'].values[-1]/1e3
-    tvec = np.arange(t_start, t_stop, dt) 
-    event_rate = calc_rate(times, tvec, w)
-    return event_rate, tvec
+    max_length = np.max([arr.shape[0] for arr in arrs]) # get largest array
+
+    # suggestion
+    # A = np.zeros((len(arrs),max_length))
+    # A[:] = np.NaN
+    # for i, arr in enumerate(arrs):
+    #     A[:arr.shape[0],i] = arr
+    # return np.nanmean(A,axis=0)
+
+    # pad every array until max_length to obtain square matrix
+    arrs=[np.pad(arr, (0, max_length-arr.shape[0]), mode='constant', constant_values=np.nan) for arr in arrs] 
+
+    return np.nanmean(arrs, axis = 0)

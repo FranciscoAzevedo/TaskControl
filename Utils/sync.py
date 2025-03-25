@@ -1,4 +1,4 @@
-import sys, os
+import sys
 sys.path.append('..')
 from pathlib import Path
 from copy import copy
@@ -74,98 +74,42 @@ class Syncer(object):
             logger.warning("Number in %s: %i" % (A, self.data[A].shape[0]))
             logger.warning("Number in %s: %i" % (B, self.data[B].shape[0]))
             return False
-        
+
+        elif self.data[A].shape[0] != self.data[B].shape[0]:
+
+            # Decide which is the reference to cut to
+            if self.data[A].shape[0] > self.data[B].shape[0]:
+                bigger = 'A'
+                print("Clock A has more pulses")
+                t_bigger = self.data[A]
+                t_smaller = self.data[B]
+            else:
+                print("Clock B has more pulses")
+                bigger = 'B'
+                t_bigger = self.data[B]
+                t_smaller = self.data[A]
+            utils.printer("sync problem - unequal number, %s has more sync signals" % bigger, 'warning')
+            utils.printer("Number in %s: %i" % (A, self.data[A].shape[0]),'warning')
+            utils.printer("Number in %s: %i" % (B, self.data[B].shape[0]),'warning')
+
+            # Compute the difference
+            offset = np.argmax(np.correlate(np.diff(t_bigger), np.diff(t_smaller), mode='valid'))
+
+            # Cut the initial timestamps from the argument with more clock pulses
+            t_bigger = t_bigger[offset:t_smaller.shape[0]+offset]
+
+            if bigger == 'A':
+                self.data[A] = t_bigger
+                self.data[B] = t_smaller
+            else:
+                self.data[B] = t_bigger
+                self.data[A] = t_smaller
+            
+            return True
         else:
             return True
 
-
-    def fix(self, A, B):
-        """ fixes unequal number of timestamps for synchronization"""
-
-        # Decide which is the reference to cut to
-        if self.data[A].shape[0] > self.data[B].shape[0]:
-            bigger = 'A'
-            t_bigger = self.data[A]
-            t_smaller = self.data[B]
-        else:
-            bigger = 'B'
-            t_bigger = self.data[B]
-            t_smaller = self.data[A]
-            
-        # Compute the difference
-        offset = np.argmax(np.correlate(np.diff(t_bigger), np.diff(t_smaller), mode='valid'))
-
-        # Cut the initial timestamps from the argument with more clock pulses
-        t_bigger = t_bigger[offset:t_smaller.shape[0]+offset]
-
-        if bigger == 'A':
-            self.data[A] = t_bigger
-            self.data[B] = t_smaller
-        else:
-            self.data[B] = t_bigger
-            self.data[A] = t_smaller
-
-
-    # def guess_p0(self, func, A, B):
-    #     if func == lin:
-    #         b = A[0]
-    #         m = (B[-1] - B[0]) / (A[-1] - A[0])
-    #         return (m,b)
-
-    #     if func == quad:
-    #         x0 = (A.max() - A.min()) / 2
-    #         a = 0
-    #         b = (B[-1] - B[0]) / (A[-1] - A[0])
-    #         c = A[0]
-    #         return (x0,a,b,c)
-
-    #     if func == cube:
-    #         x0 = (A.max() - A.min()) / 2
-    #         a = 0
-    #         b = 0
-    #         c = (B[-1] - B[0]) / (A[-1] - A[0])
-    #         d = A[0]
-    #         return (x0,a,b,c,d)
-
-
-    def fit(self, data_A, data_B, func=lin, order=None):
-
-        # guess p0
-        if func == lin:
-            m = (data_B[-1] - data_B[0]) / (data_A[-1] - data_A[0])
-            b = data_A[0]
-            p0 = (b, m)
-            bounds = (-np.inf,np.inf)
-        
-        if func == polyv:
-            x0 = (data_A.max() - data_A.min()) / 2
-            x0s = np.ones(order) * x0
-            x0s[:2] = 0
-            a = np.zeros(order)
-            a[0] = data_A[0]
-            a[1] = (data_B[-1] - data_B[0]) / (data_A[-1] - data_A[0])
-            p0 = (*x0s, *a)
-            bounds = (-np.inf,np.inf)
-
-        if func == linsin:
-            m = (data_B[-1] - data_B[0]) / (data_A[-1] - data_A[0])
-            b = data_A[0]
-            A = 0
-            w = 0
-            phi = 0
-            p0 = (b, m , A, w, phi)
-            bounds = (np.array((-np.inf, -np.inf, 0, -np.inf, 0)), np.array((np.inf, np.inf, np.inf, np.inf, 2*np.pi)))
-            # bounds = ((-np.inf, np.inf),(-np.inf, np.inf),(0, np.inf),(-np.inf, np.inf),(0, 2*np.pi))
-
-        pfit = curve_fit(func, data_A, data_B, p0=p0, bounds=bounds)[0]
-        # from scipy.stats import linregress
-        # pfit = linregress(data_A, data_B)[:2]
-        return pfit
-
-    def interp(self, A, B):
-        return interp1d(self.data[A], self.data[B], fill_value='extrapolate')
-
-    def sync(self, A, B, check=True, symmetric=True, func=lin, order=None):
+    def sync(self, A, B, check=True, symmetric=True):
         """ linreg sync of A to B """
 
         # check and abort if fails
@@ -276,7 +220,7 @@ def get_arduino_sync(log_path, sync_event_name="TRIAL_ENTRY_EVENT"):
     SyncDf = bhv.get_events_from_name(LogDf, sync_event_name)
     return SyncDf
 
-def parse_harp_sync(csv_path, trig_len=1, ttol=0.2):
+def parse_harp_sync(csv_path, trig_len=100, ttol=2):
     harp_sync = pd.read_csv(csv_path, names=['t']).values.flatten()
     t_sync_high = harp_sync[::2]
     t_sync_low = harp_sync[1::2]
@@ -293,8 +237,6 @@ def parse_cam_sync(csv_path, offset=1, return_full=False):
 
     Df = pd.read_csv(csv_path, names=['frame','t','GPIO'])
 
-    # wraparound correct
-    # Df = bhv.correct_wraparound(Df)
     _Df = copy(Df)
     while np.any(np.diff(Df['t']) < 0):
         reversal_ind = np.where(np.diff(Df['t']) < 0)[0][0]
@@ -303,9 +245,5 @@ def parse_cam_sync(csv_path, offset=1, return_full=False):
     ons = np.where(np.diff(Df.GPIO) > 1)[0]
     offs = np.where(np.diff(Df.GPIO) < -1)[0] # can be used to check correct length
 
-    SyncDf = Df.iloc[ons+offset] # one frame offset
-    if return_full is False:
-        return SyncDf
-    else:
-        return SyncDf, Df
-
+    SyncDf = Df.iloc[ons+1] # one frame offset
+    return SyncDf

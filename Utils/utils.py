@@ -1,10 +1,12 @@
-import sys, os 
-from pathlib import Path
-from configparser import ConfigParser
-
-import numpy as np
+import sys, os
+from tkinter import filedialog 
 import pandas as pd
-
+import scipy as sp 
+import pathlib
+from pathlib import Path
+from Utils import behavior_analysis_utils as bhv
+from Utils import metrics as met
+from tqdm import tqdm
 from colorama import init, Fore
 init(autoreset=True)
 
@@ -328,7 +330,35 @@ def get_folder_dialog(initial_dir="D:/TaskControl/Animals"):
     root.destroy()
 
     return path
+
+# %% prep and general analysis
+def get_SessionDf(LogDf, metrics, trial_entry_event="TRIAL_AVAILABLE_STATE", trial_exit_event="ITI_STATE"):
+
+    TrialSpans = bhv.get_spans_from_names(LogDf, trial_entry_event, trial_exit_event)
+
+    TrialDfs = []
+    for i, row in tqdm(TrialSpans.iterrows(),position=0, leave=True):
+        TrialDfs.append(bhv.time_slice(LogDf, row['t_on'], row['t_off']))
     
+    SessionDf = bhv.parse_trials(TrialDfs, metrics)
+
+    SessionDf = met.compute_choice_grasp_dur(LogDf,SessionDf)
+
+    return SessionDf, TrialDfs
+
+def get_interface_var(path, var_name):
+
+    # open file
+    file_path = path / 'learn_to_choose_v2/Arduino/src/interface_variables.h'
+    fH = open(file_path,'r')
+    lines = fH.readlines()
+    
+    # Search for var_name in lines
+    var_line = [line for line in lines if var_name in line]
+    var_value = float(var_line[0].split(' ')[-1].split(';')[0]) # extract last component of string
+
+    return var_value
+
 """
  
  ########     ###    ########   ######  ######## ########  
@@ -494,3 +524,21 @@ def scale_Widgets(Widgets, how="vertical", mode="max"):
         if mode == "min":
             min_width = min(widths)
             [widget.resize(min_width,widget.sizeHint().height()) for widget in Widgets]
+
+"""
+.########.##.....##..######..########.########..########.####..#######..##....##..######.
+.##........##...##..##....##.##.......##.....##....##.....##..##.....##.###...##.##....##
+.##.........##.##...##.......##.......##.....##....##.....##..##.....##.####..##.##......
+.######......###....##.......######...########.....##.....##..##.....##.##.##.##..######.
+.##.........##.##...##.......##.......##...........##.....##..##.....##.##..####.......##
+.##........##...##..##....##.##.......##...........##.....##..##.....##.##...###.##....##
+.########.##.....##..######..########.##...........##....####..#######..##....##..######.
+"""
+class CustomError(Exception):
+    """Base class for other exceptions"""
+    pass
+
+
+class NoFiltPairError(CustomError):
+    """Raised when no trials satisfy input pairs' conditions """
+    pass
