@@ -26,21 +26,22 @@ unsigned long this_ITI_dur;
 
 // for random
 float r;
-unsigned long rand_dur;
-bool call_block;
 
+// because its easier to compare numbers than strings
 int left = 4;
 int right = 6;
 
 int choice;
 int correct_side;
 
+// context related
+bool is_ego_context = true; // start ego
+int this_context_dur = ;
+int current_context_counter = 0;
+
 // laterality related 
 int last_correct_side = left;
 // int this_correct_side = right;
-
-// fwd declare necessary
-bool timing_trial = false;
 
 // bias related
 // float bias = 0.5; // exposed in interface_variables.h
@@ -203,57 +204,24 @@ void read_pokes(){
 */
 
 // speaker
-// Tone tone_controller_left;
-// Tone tone_controller_right;
+Tone tone_controller;
 
-// buzzer
-Tone buzz_controller_left;
-Tone buzz_controller_right;
+void trial_available_cue(){
 
-// void trial_available_cue(){
-//     lights_off();
-// }
+    if()
 
-// void trial_entry_cue(){     
-//     buzz_controller_left.play(buzz_center_freq, trial_entry_buzz_dur);
-//     buzz_controller_right.play(buzz_center_freq, trial_entry_buzz_dur);
-// }
-
-void reward_left_cue(){
-    // tone_controller_left.play(go_cue_freq, tone_dur);
-    if (lateral_cues == 1){
-        buzz_controller_left.play(buzz_center_freq, buzz_dur);
-    }
-    else{
-        if (timing_trial == false){
-            buzz_controller_left.play(buzz_center_freq-buzz_freq_sep, buzz_dur);
-            buzz_controller_right.play(buzz_center_freq-buzz_freq_sep, buzz_dur);
-        }
-        else{
-            buzz_controller_left.play(buzz_center_freq, buzz_dur);
-            buzz_controller_right.play(buzz_center_freq, buzz_dur);
-        }
-    }
+    lights_off();
 }
 
-void reward_right_cue(){
-    // tone_controller_right.play(go_cue_freq, tone_dur);
-    if (lateral_cues == 1){
-        buzz_controller_right.play(buzz_center_freq, buzz_dur);
-    }
-    else{
-        if (timing_trial == false){
-            buzz_controller_left.play(buzz_center_freq+buzz_freq_sep, buzz_dur);
-            buzz_controller_right.play(buzz_center_freq+buzz_freq_sep, buzz_dur);
-        }
-        else{
-            buzz_controller_left.play(buzz_center_freq, buzz_dur);
-            buzz_controller_right.play(buzz_center_freq, buzz_dur);            
-        }
-    }
+void sound_cue(){     
+    tone_controller.play(tone_freq, tone_dur);
 }
 
-void go_cue_left(){
+void reward_cue(){
+    tone_controller.play(tone_freq, tone_dur);
+}
+
+void go_cue_west(){
     log_code(GO_CUE_LEFT_EVENT);
     if (left_short == 1){
         log_code(GO_CUE_SHORT_EVENT);
@@ -274,18 +242,18 @@ void go_cue_right(){
     }
     reward_right_cue();
 }
+
 /*
 adapted from  https://arduino.stackexchange.com/questions/6715/audio-frequency-white-noise-generation-using-arduino-mini-pro
 */
-
 #define LFSR_INIT  0xfeedfaceUL
 #define LFSR_MASK  ((unsigned long)( 1UL<<31 | 1UL <<15 | 1UL <<2 | 1UL <<1  ))
 
 unsigned int generateNoise(){ 
-  // See https://en.wikipedia.org/wiki/Linear_feedback_shift_register#Galois_LFSRs
-   static unsigned long int lfsr = LFSR_INIT;
-   if(lfsr & 1) { lfsr =  (lfsr >>1) ^ LFSR_MASK ; return(1);}
-   else         { lfsr >>= 1;                      return(0);}
+    // See https://en.wikipedia.org/wiki/Linear_feedback_shift_register#Galois_LFSRs
+    static unsigned long int lfsr = LFSR_INIT;
+    if(lfsr & 1) { lfsr =  (lfsr >>1) ^ LFSR_MASK ; return(1);}
+    else         { lfsr >>= 1;                      return(0);}
 }
 
 unsigned long error_cue_start = max_future;
@@ -293,17 +261,13 @@ unsigned long error_cue_dur = tone_dur * 1000; // to save instructions - work in
 unsigned long lastClick = max_future;
 
 void incorrect_choice_cue(){
-    // lights on
-    lights_on();
-    // tone_controller_left.play(2000,1000);
     // white noise - blocking arduino for tone_dur
     error_cue_start = micros();
     lastClick = micros();
     while (micros() - error_cue_start < error_cue_dur){
         if ((micros() - lastClick) > 2 ) { // Changing this value changes the frequency.
             lastClick = micros();
-            digitalWrite (SPEAKER_LEFT_PIN, generateNoise());
-            digitalWrite (SPEAKER_RIGHT_PIN, generateNoise());
+            digitalWrite(SPEAKERS_PIN, generateNoise());
         }
     }
 }
@@ -400,12 +364,10 @@ bool sync_pin_is_on = false;
 unsigned long t_last_sync_pin_on = max_future;
 unsigned long sync_pulse_dur = 100;
 
-
 void sync_pin_controller(){
     // switch on
     if (switch_sync_pin == true){
         digitalWrite(CAM_SYNC_PIN, HIGH);
-        digitalWrite(LC_SYNC_PIN, HIGH);
         sync_pin_is_on = true;
         switch_sync_pin = false;
         t_last_sync_pin_on = now();
@@ -413,7 +375,6 @@ void sync_pin_controller(){
     // switch off
     if (sync_pin_is_on == true && now() - t_last_sync_pin_on > sync_pulse_dur){
         digitalWrite(CAM_SYNC_PIN, LOW);
-        digitalWrite(LC_SYNC_PIN, LOW);
         sync_pin_is_on = false;
     }
 }
@@ -428,27 +389,43 @@ void sync_pin_controller(){
    ##    ##     ## #### ##     ## ########       ##       ##    ##        ########
 */
 
-// bool correction_loops = true;
-// int correction_loops = 1;
-bool in_corr_loop = false;
-int left_error_counter = 0;
-int right_error_counter = 0;
-int succ_trial_counter = 0;
-bool corr_loop_reset_mode = true;
+// no intervals can change session to session, declared in interface_variables
 unsigned long this_interval = 1500;
+unsigned long short_intervals[no_intervals] = {600,1050,1380};
+unsigned long long_intervals[no_intervals] = {2400,1950,1620}; // order matters
 
-/*
-resetting mode:
-within correction loop, any mistake restarts the counter from the beginning
-no resetting: intermediate mistakes allowed, corr loop is exited after 3 correct choices
-*/
+float p_short_intervals[no_intervals] = {1/no_intervals,1/no_intervals,1/no_intervals};
+float p_long_intervals[no_intervals] = {1/no_intervals,1/no_intervals,1/no_intervals};
+
+int i;
+float p_cum;
 
 unsigned long get_short_interval(){
-    return random(600, 1500-gap);
+    r = random(0,1000) / 1000.0;
+    for (int i = 0; i < no_intervals; i++){
+        p_cum = 0;
+        for (int j = 0; j <= i; j++){
+            p_cum += p_short_intervals[j];
+        }
+        if (r < p_cum){
+            return short_intervals[i];
+        }
+    }
+    return -1;
 }
 
 unsigned long get_long_interval(){
-    return random(1500+gap, 2400);
+    r = random(0,1000) / 1000.0;
+    for (int i = 0; i < n_intervals; i++){
+        p_cum = 0;
+        for (int j = 0; j <= i; j++){
+            p_cum += p_long_intervals[j];
+        }
+        if (r < p_cum){
+            return long_intervals[i];
+        }
+    }
+    return -1;
 }
 
 void set_interval(){
@@ -472,55 +449,27 @@ void set_interval(){
 }
 
 void get_trial_type(){
-    if (correction_loops == 1){
-        // determine if enter corr loop
-        if (in_corr_loop == false && (left_error_counter >= corr_loop_entry || right_error_counter >= corr_loop_entry)){
-            in_corr_loop = true;
-            timing_trial = false;
-        }
-        
-        // determine if exit corr loop
-        if (in_corr_loop == true && succ_trial_counter >= corr_loop_exit){
-            in_corr_loop = false;
-        }
-    }
     
-    // if not in corr loop, randomly choose new correct side
-    if (in_corr_loop == false){ 
-        // update correct side
-        r = random(0,1000) / 1000.0;
-        if (r > 0.5){
-            correct_side = right;
-        }
-        else {
-            correct_side = left;
-        }
-        // update timing trial
-        r = random(0,1000) / 1000.0;
-        if (r < p_timing_trial){
-            timing_trial = true;
-        }
-        else {
-            timing_trial = false;
-        }
+    // update correct side
+    r = random(0,1000) / 1000.0;
+    if (r > 0.5){
+        correct_side = right;
     }
-    else{
-        // if in corr loop, this is not updated
+    else {
+        correct_side = left;
     }
 
-    // now is always called to update even in corr loop
+    // now is called to update
     set_interval();
 
+    // logging for analysis
     log_ulong("this_interval", this_interval);
     log_int("correct_side", correct_side);
-    log_int("in_corr_loop", (int) in_corr_loop);
-    log_int("timing_trial", (int) timing_trial);
 }
-              
 
 void log_choice(){
-    if (is_reaching_left == true){
-        log_code(CHOICE_LEFT_EVENT);
+    if (is_poking_west == true){
+        log_code(CHOICE_WEST_EVENT);
         n_choices_left++;
         if (left_short == 1){
             log_code(CHOICE_SHORT_EVENT);
@@ -529,8 +478,8 @@ void log_choice(){
             log_code(CHOICE_LONG_EVENT);
         }
     }
-    if (is_reaching_right == true){
-        log_code(CHOICE_RIGHT_EVENT);
+    if (is_poking_east == true){
+        log_code(CHOICE_EAST_EVENT);
         n_choices_right++;
         if (left_short == 1){
             log_code(CHOICE_LONG_EVENT);
@@ -599,16 +548,6 @@ void finite_state_machine() {
                 // sync at trial entry
                 switch_sync_pin = true;
                 sync_pin_controller(); // and call sync controller for enhanced temp prec.
-
-                // bias related
-                // update_bias();
-                
-                // if (correction_loops == 0){
-                //     update_p_reward();
-                // }
-
-                // log bias
-                // log_float("bias", bias);
 
                 // determine the type of trial:
                 get_trial_type(); // updates this_correct_side
@@ -723,7 +662,7 @@ void finite_state_machine() {
                 log_code(TRIAL_UNSUCCESSFUL_EVENT);
 
                 // cue
-                // incorrect_choice_cue();
+                incorrect_choice_cue();
                 current_state = ITI_STATE;
                 break;
             }
@@ -751,39 +690,11 @@ void finite_state_machine() {
             }
             break;
 
-        case TIMEOUT_STATE:
-            // state entry
-            if (current_state != last_state){
-                state_entry_common();
-            }
-
-            // update
-            if (last_state == current_state){
-
-            }
-
-            // exit condition
-            if (now() - t_state_entry > timeout_dur) {
-                current_state = ITI_STATE;
-            }
-            break;
-
         case ITI_STATE:
             // state entry
             if (current_state != last_state){
                 state_entry_common();
                 this_ITI_dur = (unsigned long) random(ITI_dur_min, ITI_dur_max);
-                rand_dur = random(1000,2000);
-                call_block = false;
-            }
-
-            // update
-            if (last_state == current_state){
-                // turn lights on after random duration
-                if (now() - t_state_entry > rand_dur && call_block == false) {
-                    lights_on();
-                    call_block = true;
-                }
             }
 
             // exit condition
@@ -808,25 +719,15 @@ void finite_state_machine() {
 void setup() {
     delay(1000);
     Serial.begin(115200); // main serial communication with computer
-
-    // TTL com with firmata
-    pinMode(REACH_LEFT_PIN, INPUT);
-    pinMode(REACH_RIGHT_PIN, INPUT);
     
     // TTL COM w camera
     pinMode(CAM_SYNC_PIN,OUTPUT);
-    pinMode(LC_SYNC_PIN,OUTPUT);
 
-    pinMode(SPEAKER_LEFT_PIN, OUTPUT);
-    pinMode(SPEAKER_RIGHT_PIN, OUTPUT);
+    pinMode(SPEAKERS_PIN, OUTPUT);
 
     // ini speakers
     // tone_controller_left.begin(SPEAKER_LEFT_PIN);
     // tone_controller_right.begin(SPEAKER_RIGHT_PIN);
-
-    // ini buzzers
-    buzz_controller_left.begin(BUZZER_LEFT_PIN);
-    buzz_controller_right.begin(BUZZER_RIGHT_PIN);
 
     // LED related
     FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
@@ -846,6 +747,7 @@ void loop() {
         // execute state machine(s)
         finite_state_machine();
     }
+
     // Controllers
     reward_valve_controller();
 
@@ -858,5 +760,4 @@ void loop() {
     
     // non-blocking cam sync pin
     sync_pin_controller();
-
 }

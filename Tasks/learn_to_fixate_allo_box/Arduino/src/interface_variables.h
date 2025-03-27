@@ -1,24 +1,16 @@
-// int go_cue_freq = 12000;
-unsigned long tone_dur = 50;
+// Parameters from Thiago Gouvea's eLife paper
+unsigned long tone_dur = 150;
+unsigned long tone_freq = 7500; 
 
 unsigned long ITI_dur_min = 8500;
 unsigned long ITI_dur_max = 11500;
-unsigned long timeout_dur = 3000;
-unsigned long choice_dur = 1000;
+unsigned long timeout_dur = 10000;
+unsigned long choice_dur = 5000;
 
+// Parameters to be controlled across task progression 
 int autodeliver_rewards = 0;
 int left_short = 1;
 unsigned long reward_magnitude = 10;
-
-float valve_ul_ms_left = 0.01;
-float valve_ul_ms_right = 0.01;
-
-int lateral_cues = 0;
-int correction_loops = 1;
-int corr_loop_entry = 3;
-int corr_loop_exit = 2;
+int no_intervals = 1; // 1 means easiest, 3 means whole set
 
 int trial_autostart = 0;
-
-// float bias = 0.5;
-// float contrast = 1.0;

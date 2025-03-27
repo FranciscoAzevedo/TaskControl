@@ -15,8 +15,7 @@ const int POKE_EAST_PIN = 13;
 
 // SOUND AND LIGHT
 // const int LED_PIN = 48;
-const int SPEAKER_NORTH_PIN = 20;
-const int SPEAKER_SOUTH_PIN = 21;
+const int SPEAKERS_PIN = 20; // both speakers connected to same pin
 
 // SYNC
 const int CAM_SYNC_PIN = 30;
