@@ -28,11 +28,17 @@ unsigned long this_ITI_dur;
 float r;
 
 // because its easier to compare numbers than strings
-int left = 4;
-int right = 6;
+int north = 8;
+int south = 2;
+int west = 4;
+int east = 6;
+
+// int left = 4;
+// int right = 6;
 
 int choice;
 int correct_side;
+int init_port;
 
 // context related
 bool is_ego_context = true; // start ego
@@ -148,6 +154,28 @@ void read_pokes(){
 ######## ######## ########
 */
 
+void go_cue_west(){
+    log_code(LIGHT_WEST_CUE_EVENT);
+    if (left_long == 1){
+        log_code(GO_CUE_SHORT_EVENT);
+    }
+    else{
+        log_code(GO_CUE_LONG_EVENT);
+    }
+    reward_cue();
+}
+
+void go_cue_east(){
+    log_code(LIGHT_WEST_EAST_EVENT);
+    if (left_long == 1){
+        log_code(GO_CUE_LONG_EVENT);
+    }
+    else{
+        log_code(GO_CUE_SHORT_EVENT);
+    }
+    reward_cue();
+}
+
 // // LED strip related
 // #define NUM_LEDS 2 // num of LEDs in strip
 // CRGB leds[NUM_LEDS]; // Define the array of leds
@@ -207,10 +235,24 @@ void read_pokes(){
 Tone tone_controller;
 
 void trial_available_cue(){
+    // flip a coin for N or S port
+    r = random(0,1000) / 1000.0;
+    if (r > 0.5){
+        init_port = north;
+    }
+    else {
+        init_port = south;
+    }
 
-    if()
-
-    lights_off();
+    // turn the respective port light ON
+    if (init_port == north){
+        digitalWrite(POKE_NORTH_LED, HIGH)
+        log_code(LIGHT_NORTH_CUE_EVENT)
+    }
+    else {
+        digitalWrite(POKE_SOUTH_LED, HIGH)
+        log_code(LIGHT_SOUTH_CUE_EVENT)
+    }
 }
 
 void sound_cue(){     
@@ -218,29 +260,7 @@ void sound_cue(){
 }
 
 void reward_cue(){
-    tone_controller.play(tone_freq, tone_dur);
-}
-
-void go_cue_west(){
-    log_code(GO_CUE_LEFT_EVENT);
-    if (left_short == 1){
-        log_code(GO_CUE_SHORT_EVENT);
-    }
-    else{
-        log_code(GO_CUE_LONG_EVENT);
-    }
-    reward_left_cue();
-}
-
-void go_cue_right(){
-    log_code(GO_CUE_RIGHT_EVENT);
-    if (left_short == 1){
-        log_code(GO_CUE_LONG_EVENT);
-    }
-    else{
-        log_code(GO_CUE_SHORT_EVENT);
-    }
-    reward_right_cue();
+    tone_controller.play(reward_tone_freq, tone_dur);
 }
 
 /*
@@ -287,9 +307,9 @@ unsigned long ul2time(float reward_volume, float valve_ul_ms){
 }
 
 // left
-bool reward_valve_left_is_closed = true;
+bool reward_valve_west_is_closed = true;
 // bool deliver_reward_left = false; // already forward declared in interface.cpp
-unsigned long t_reward_valve_left_open = max_future;
+unsigned long t_reward_valve_west_open = max_future;
 unsigned long reward_valve_left_dur;
 
 // right
@@ -301,30 +321,34 @@ unsigned long reward_valve_right_dur;
 void reward_valve_controller(){
     // a self terminating digital pin switch
     // flipped by setting deliver_reward to true somewhere in the FSM
+
+    // send one pulse to pump pin before anything
+    digitalWrite(REWARD_PUMP_PIN, HIGH);
     
-    // left
-    if (reward_valve_left_is_closed == true && deliver_reward_left == true) {
-        digitalWrite(REWARD_LEFT_VALVE_PIN, HIGH);
-        log_code(REWARD_LEFT_VALVE_ON);
-        reward_valve_left_is_closed = false;
-        reward_valve_left_dur = ul2time(reward_magnitude, valve_ul_ms_left);
-        t_reward_valve_left_open = now();
-        deliver_reward_left = false;
+    // WEST
+    if (reward_valve_west_is_closed == true && deliver_reward_west == true) {
         
-        // present cue? (this is necessary for keeping the keyboard reward functionality)
-        if (present_reward_left_cue == true){
-            reward_left_cue();
-            present_reward_left_cue = false;
+        digitalWrite(REWARD_WEST_VALVE_PIN, HIGH);
+        log_code(WATER_VALVE_WEST_ON);
+        reward_valve_west_is_closed = false;
+        t_reward_valve_west_open = now();
+
+        deliver_reward_west = false;
+        
+        // this is necessary for keeping the keyboard reward functionality
+        if (present_reward_west_cue == true){
+            reward_cue()
+            present_reward_west_cue = false;
         }
     }
 
-    if (reward_valve_left_is_closed == false && now() - t_reward_valve_left_open > reward_valve_left_dur) {
-        digitalWrite(REWARD_LEFT_VALVE_PIN, LOW);
-        log_code(REWARD_LEFT_VALVE_OFF);
-        reward_valve_left_is_closed = true;
+    if (reward_valve_west_is_closed == false && now() - t_reward_valve_west_open > reward_valve_dur) {
+        digitalWrite(REWARD_WEST_VALVE_PIN, LOW);
+        log_code(WATER_VALVE_WEST_ON);
+        reward_valve_west_is_closed = true;
     }
 
-    // right
+    // EAST
     if (reward_valve_right_is_closed == true && deliver_reward_right == true) {
         digitalWrite(REWARD_RIGHT_VALVE_PIN, HIGH);
         log_code(REWARD_RIGHT_VALVE_ON);
@@ -516,6 +540,7 @@ void finite_state_machine() {
             break;
 
         case TRIAL_AVAILABLE_STATE:
+
             // state entry
             if (current_state != last_state){
                 state_entry_common();
@@ -525,15 +550,16 @@ void finite_state_machine() {
 
             if (current_state == last_state){
                 // the update loop
-                if (trial_autostart == 0){
-                    if (digitalRead(TRIAL_INIT_PIN) == true && now() - t_last_reach_off > reach_block_dur && is_reaching == false){
+
+                if (init_port == north)
+                    if (digitalRead(TRIAL_INIT_PIN) == true && is_poking_north == false){
                         current_state = TRIAL_ENTRY_STATE;
                         break;
                     }
-                }
-                else{
-                    current_state = TRIAL_ENTRY_STATE;
-                    break;
+                else {
+                    if (digitalRead(TRIAL_INIT_PIN) == true && is_poking_south == false){
+                        current_state = TRIAL_ENTRY_STATE;
+                        break;
                 }
             }
             break;
@@ -560,7 +586,6 @@ void finite_state_machine() {
             }
             
             // exit condition 
-            // trial autostart
             if (true) {
                 current_state = PRESENT_INTERVAL_STATE;
             }
@@ -573,10 +598,9 @@ void finite_state_machine() {
             }
             // update
             if (last_state == current_state){
-                if (is_reaching == true){
+                if (digitalRead(TRIAL_INIT_PIN) == true){
                     // premature choice
-                    log_code(CHOICE_EVENT);
-                    log_code(PREMATURE_CHOICE_EVENT);
+                    log_code(TRIAL_BROKEN_EVENT);
                     log_code(TRIAL_UNSUCCESSFUL_EVENT);
                     incorrect_choice_cue();
                     log_choice();

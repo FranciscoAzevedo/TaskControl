@@ -35,10 +35,10 @@ unsigned int POKE_EAST_OUT = 15;
 unsigned int WATER_PUMP_ON = 16;
 unsigned int WATER_PUMP_OFF = 17;
 
-unsigned int WATER_VALVE_WEST_ON = 18;
-unsigned int WATER_VALVE_WEST_OFF = 19;
-unsigned int WATER_VALVE_EAST_ON = 20;
-unsigned int WATER_VALVE_EAST_OFF = 21;
+unsigned int WATER_WEST_VALVE_ON = 18;
+unsigned int WATER_WEST_VALVE_OFF = 19;
+unsigned int WATER_EAST_VALVE_ON = 20;
+unsigned int WATER_EAST_VALVE_OFF = 21;
 
 
 // MAYBE EXTEND FOR TWO ODOR SPOUTS
