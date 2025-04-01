@@ -12,10 +12,8 @@ char buf[numChars];
 boolean newData = false;
 bool verbose = true;
 bool run = false;
-bool deliver_reward_left = false;
-bool deliver_reward_right = false;
-bool present_reward_left_cue = false;
-bool present_reward_right_cue = false;
+bool deliver_reward_west = false;
+bool deliver_reward_eastt = false;
 bool punish = false;
 
 int current_state = 0; // WATCH OUT this is ini state

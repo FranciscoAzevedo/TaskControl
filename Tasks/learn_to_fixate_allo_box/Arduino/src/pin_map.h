@@ -25,4 +25,3 @@ const int SPEAKERS_PIN = 3; // both speakers connected to same pin
 
 // SYNC
 const int CAM_SYNC_PIN = 30; // HOW TO DO THIS?
-const int TRIAL_INIT_PIN = 31; // HOW TO DO THIS?

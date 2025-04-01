@@ -11,6 +11,13 @@ unsigned long ITI_dur_max = 11500;
 unsigned long timeout_dur = 10000;
 unsigned long choice_dur = 5000;
 
-int left_long = 1;
+unsigned long min_fix_dur = 0;
+unsigned long inc_fix_dur = 10;
+unsigned long dec_fix_dur = 5;
+
+unsigned long block_dur_min = 40;
+unsigned long block_dur_max = 80;
+
+int left_long = 1; // this is an egocentric mapping
 
 int no_intervals = 1; // 1 means easiest, 3 means whole set

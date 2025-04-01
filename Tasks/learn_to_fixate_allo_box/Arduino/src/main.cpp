@@ -33,21 +33,23 @@ int south = 2;
 int west = 4;
 int east = 6;
 
-// int left = 4;
-// int right = 6;
+// ego centric coords
+int left = 7;
+int right = 9;
 
 int choice;
+int correct_movement;
 int correct_side;
 int init_port;
 
 // context related
 bool is_ego_context = true; // start ego
-int this_context_dur = ;
+int this_context_dur = 0;
 int current_context_counter = 0;
 
 // laterality related 
-int last_correct_side = left;
-// int this_correct_side = right;
+int last_correct_movement = left;
+// int this_correct_movement = right;
 
 // bias related
 // float bias = 0.5; // exposed in interface_variables.h
@@ -235,15 +237,6 @@ void go_cue_east(){
 Tone tone_controller;
 
 void trial_available_cue(){
-    // flip a coin for N or S port
-    r = random(0,1000) / 1000.0;
-    if (r > 0.5){
-        init_port = north;
-    }
-    else {
-        init_port = south;
-    }
-
     // turn the respective port light ON
     if (init_port == north){
         digitalWrite(POKE_NORTH_LED, HIGH)
@@ -302,31 +295,25 @@ void incorrect_choice_cue(){
    ###    ##     ## ########    ###    ########
 */
 
-unsigned long ul2time(float reward_volume, float valve_ul_ms){
-    return (unsigned long) reward_volume / valve_ul_ms;
-}
 
 // left
 bool reward_valve_west_is_closed = true;
-// bool deliver_reward_left = false; // already forward declared in interface.cpp
 unsigned long t_reward_valve_west_open = max_future;
-unsigned long reward_valve_left_dur;
 
 // right
 bool reward_valve_right_is_closed = true;
 // bool deliver_reward_right = false; // already forward declared in interface.cpp
 unsigned long t_reward_valve_right_open = max_future;
-unsigned long reward_valve_right_dur;
 
 void reward_valve_controller(){
     // a self terminating digital pin switch
     // flipped by setting deliver_reward to true somewhere in the FSM
 
-    // send one pulse to pump pin before anything
-    digitalWrite(REWARD_PUMP_PIN, HIGH);
-    
     // WEST
     if (reward_valve_west_is_closed == true && deliver_reward_west == true) {
+
+        // send one pulse to pump pin before doing anything
+        digitalWrite(REWARD_PUMP_PIN, HIGH);
         
         digitalWrite(REWARD_WEST_VALVE_PIN, HIGH);
         log_code(WATER_VALVE_WEST_ON);
@@ -350,6 +337,10 @@ void reward_valve_controller(){
 
     // EAST
     if (reward_valve_right_is_closed == true && deliver_reward_right == true) {
+
+        // send one pulse to pump pin before doing anything
+        digitalWrite(REWARD_PUMP_PIN, HIGH);
+
         digitalWrite(REWARD_RIGHT_VALVE_PIN, HIGH);
         log_code(REWARD_RIGHT_VALVE_ON);
         reward_valve_right_is_closed = false;
@@ -453,8 +444,9 @@ unsigned long get_long_interval(){
 }
 
 void set_interval(){
-    if (correct_side == right){
-        if (left_short == 0){ // right short
+    if (correct_movement == right){
+        if (left_long == 0){ // egocentric mapping
+                            // context mapping 
             this_interval = get_short_interval();
         }
         else{
@@ -462,25 +454,26 @@ void set_interval(){
         }
     }
 
-    if (correct_side == left){
-        if (left_short == 1){
+    if (correct_movement == left){
+        if (left_long == 1 && is_ego_context == true){    
             this_interval = get_short_interval();
         }
-        else {
-            this_interval = get_long_interval();
+        elif (left_long == 1 && is_ego_context == false) {
+
         }
+
     }
 }
 
 void get_trial_type(){
     
-    // update correct side
+    // update correct movement (ego coordinates)
     r = random(0,1000) / 1000.0;
     if (r > 0.5){
-        correct_side = right;
+        correct_movement = right;
     }
     else {
-        correct_side = left;
+        correct_movement = left;
     }
 
     // now is called to update
@@ -488,7 +481,8 @@ void get_trial_type(){
 
     // logging for analysis
     log_ulong("this_interval", this_interval);
-    log_int("correct_side", correct_side);
+    log_int("correct_movement", correct_movement);
+    log_int("correct_side", correct_side)
 }
 
 void log_choice(){
@@ -545,19 +539,45 @@ void finite_state_machine() {
             if (current_state != last_state){
                 state_entry_common();
                 log_code(TRIAL_AVAILABLE_EVENT);
+
+                // evaluate context
+                if (current_context_counter == this_context_dur){ // flip it
+                    if (is_ego_context == true){
+                        is_ego_context == false;
+                    }
+                    else{
+                        is_ego_context == true;
+                    }
+                    // reset counter and duration
+                    current_context_counter = 0;
+                    this_context_dur = (unsigned long) random(block_dur_min, block_dur_max);
+                }
+                else{ // increase counter
+                    current_context_counter++;
+                }
+
+                // flip a coin for N or S port
+                r = random(0,1000) / 1000.0;
+                if (r > 0.5){
+                    init_port = north;
+                }
+                else {
+                    init_port = south;
+                }
                 trial_available_cue();
             }
 
             if (current_state == last_state){
                 // the update loop
-
                 if (init_port == north)
-                    if (digitalRead(TRIAL_INIT_PIN) == true && is_poking_north == false){
+                    if (is_poking_north == true){
+                        log_code(TRIAL_ENTRY_NORTH_EVENT)
                         current_state = TRIAL_ENTRY_STATE;
                         break;
                     }
                 else {
-                    if (digitalRead(TRIAL_INIT_PIN) == true && is_poking_south == false){
+                    if (is_poking_south == true){
+                        log_code(TRIAL_ENTRY_SOUTH_EVENT)
                         current_state = TRIAL_ENTRY_STATE;
                         break;
                 }
@@ -569,22 +589,18 @@ void finite_state_machine() {
             if (current_state != last_state){
                 state_entry_common();
                 log_code(TRIAL_ENTRY_EVENT);
-                trial_entry_cue(); // which is first timing cue
+                sound_cue(); // which is first timing cue
 
                 // sync at trial entry
                 switch_sync_pin = true;
                 sync_pin_controller(); // and call sync controller for enhanced temp prec.
 
                 // determine the type of trial:
-                get_trial_type(); // updates this_correct_side
-
+                get_trial_type(); // updates this_correct_movement
             }
 
-            // update
-            if (last_state == current_state){
+            // doesn't update, immediately exits
 
-            }
-            
             // exit condition 
             if (true) {
                 current_state = PRESENT_INTERVAL_STATE;
@@ -596,9 +612,10 @@ void finite_state_machine() {
             if (current_state != last_state){
                 state_entry_common();
             }
+
             // update
             if (last_state == current_state){
-                if (digitalRead(TRIAL_INIT_PIN) == true){
+                if (is_poking_north == true){ // grace period
                     // premature choice
                     log_code(TRIAL_BROKEN_EVENT);
                     log_code(TRIAL_UNSUCCESSFUL_EVENT);
@@ -609,13 +626,14 @@ void finite_state_machine() {
                 }
             }
 
+            // if fixation is successful, go pick up reward
             if (now() - t_state_entry > this_interval){
                 // cue
-                if (correct_side == left){
-                    go_cue_left();
+                if (correct_movement == left){
+                    go_cue_west();
                 }
-                if (correct_side == right){
-                    go_cue_right();
+                if (correct_movement == right){
+                    go_cue_east();
                 }
                 current_state = CHOICE_STATE;
                 break;
@@ -628,14 +646,10 @@ void finite_state_machine() {
                 state_entry_common();
             }
 
-            // update
-            // if (last_state == current_state){
-            // }
-
             // exit conditions
 
             // choice was made
-            if (is_reaching == true && now() - t_last_reach_on > min_grasp_dur) {
+            if (is_poking == true) {
                 log_code(CHOICE_EVENT);
                 log_choice();
 
@@ -747,11 +761,9 @@ void setup() {
     // TTL COM w camera
     pinMode(CAM_SYNC_PIN,OUTPUT);
 
-    pinMode(SPEAKERS_PIN, OUTPUT);
-
     // ini speakers
-    // tone_controller_left.begin(SPEAKER_LEFT_PIN);
-    // tone_controller_right.begin(SPEAKER_RIGHT_PIN);
+    pinMode(SPEAKERS_PIN,OUTPUT);
+    tone_controller.begin(SPEAKERS_PIN);
 
     // LED related
     FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
