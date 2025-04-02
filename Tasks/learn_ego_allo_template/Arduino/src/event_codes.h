@@ -64,13 +64,10 @@ unsigned int CHOICE_CORRECT_EVENT = 35;
 unsigned int REWARD_WEST_EVENT = 36;
 unsigned int REWARD_EAST_EVENT = 37;
 
-unsigned int REWARD_SHORT_EVENT = 28; // figure out how to do this in the FSM
-unsigned int REWARD_LONG_EVENT = 39; // figure out how to do this in the FSM
-
 // choice related
 unsigned int CHOICE_EVENT = 40;
-unsigned int CHOICE_LEFT_EVENT = 42; // figure out how to do ALL OF BELOW in the FSM
-unsigned int CHOICE_RIGHT_EVENT = 43;
+unsigned int CHOICE_WEST_EVENT = 42;
+unsigned int CHOICE_EAST_EVENT = 43;
 unsigned int CHOICE_LONG_EVENT = 44; 
 unsigned int CHOICE_SHORT_EVENT = 45;
 

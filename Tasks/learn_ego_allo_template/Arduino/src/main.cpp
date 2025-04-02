@@ -4,7 +4,6 @@
 
 #include <event_codes.h> // <>?
 #include "interface.cpp"
-// #include "raw_interface.cpp"
 #include "pin_map.h"
 #include "logging.cpp"
 
@@ -18,14 +17,10 @@
 ########  ########  ######  ######## ##     ## ##     ## ##     ##    ##    ####  #######  ##    ##  ######
 */
 
-// int current_state = INI_STATE; // starting at this, aleady declared in interface.cpp
 int last_state = -1; // whatever other state
 unsigned long max_future = 4294967295; // 2**32 -1
 unsigned long t_state_entry = max_future;
-unsigned long this_ITI_dur;
-
-// for random
-float r;
+unsigned long grace_period = 50; // ms
 
 // because its easier to compare numbers than strings
 int north = 8;
@@ -37,24 +32,26 @@ int east = 6;
 int left = 7;
 int right = 9;
 
+// non-init variables
+float r; // for random processes
+unsigned long t_poke_remain;
+unsigned long this_ITI_dur;
 int choice;
 int correct_movement;
 int correct_side;
 int init_port;
 
 // context related
-bool is_ego_context = true; // start ego
+bool is_ego_context = true; // start ego but immediately flip coin
 int this_context_dur = 0;
 int current_context_counter = 0;
 
-// laterality related 
-int last_correct_movement = left;
-// int this_correct_movement = right;
+// // bias related
+// int last_correct_movement = left;
 
-// bias related
 // float bias = 0.5; // exposed in interface_variables.h
-int n_choices_left = 1;
-int n_choices_right = 1;
+// int n_choices_left = 1;
+// int n_choices_right = 1;
 
 // void update_bias(){
 //     // 0 = left bias, 1 = right bias
@@ -157,25 +154,13 @@ void read_pokes(){
 */
 
 void go_cue_west(){
+    digitalWrite(POKE_WEST_LED, HIGH);
     log_code(LIGHT_WEST_CUE_EVENT);
-    if (left_long == 1){
-        log_code(GO_CUE_SHORT_EVENT);
-    }
-    else{
-        log_code(GO_CUE_LONG_EVENT);
-    }
-    reward_cue();
 }
 
 void go_cue_east(){
-    log_code(LIGHT_WEST_EAST_EVENT);
-    if (left_long == 1){
-        log_code(GO_CUE_LONG_EVENT);
-    }
-    else{
-        log_code(GO_CUE_SHORT_EVENT);
-    }
-    reward_cue();
+    digitalWrite(POKE_EAST_LED, HIGH);
+    log_code(LIGHT_EAST_CUE_EVENT);
 }
 
 // // LED strip related
@@ -239,12 +224,12 @@ Tone tone_controller;
 void trial_available_cue(){
     // turn the respective port light ON
     if (init_port == north){
-        digitalWrite(POKE_NORTH_LED, HIGH)
-        log_code(LIGHT_NORTH_CUE_EVENT)
+        digitalWrite(POKE_NORTH_LED, HIGH);
+        log_code(LIGHT_NORTH_CUE_EVENT);
     }
     else {
-        digitalWrite(POKE_SOUTH_LED, HIGH)
-        log_code(LIGHT_SOUTH_CUE_EVENT)
+        digitalWrite(POKE_SOUTH_LED, HIGH);
+        log_code(LIGHT_SOUTH_CUE_EVENT);
     }
 }
 
@@ -278,7 +263,7 @@ void incorrect_choice_cue(){
     error_cue_start = micros();
     lastClick = micros();
     while (micros() - error_cue_start < error_cue_dur){
-        if ((micros() - lastClick) > 2 ) { // Changing this value changes the frequency.
+        if ((micros() - lastClick) > 2) { // Changing this value changes the frequency.
             lastClick = micros();
             digitalWrite(SPEAKERS_PIN, generateNoise());
         }
@@ -296,14 +281,13 @@ void incorrect_choice_cue(){
 */
 
 
-// left
+// west
 bool reward_valve_west_is_closed = true;
 unsigned long t_reward_valve_west_open = max_future;
 
-// right
-bool reward_valve_right_is_closed = true;
-// bool deliver_reward_right = false; // already forward declared in interface.cpp
-unsigned long t_reward_valve_right_open = max_future;
+// east
+bool reward_valve_east_is_closed = true;
+unsigned long t_reward_valve_east_open = max_future;
 
 void reward_valve_controller(){
     // a self terminating digital pin switch
@@ -314,6 +298,7 @@ void reward_valve_controller(){
 
         // send one pulse to pump pin before doing anything
         digitalWrite(REWARD_PUMP_PIN, HIGH);
+        digitalWrite(REWARD_PUMP_PIN, LOW); // TODO: one rise?
         
         digitalWrite(REWARD_WEST_VALVE_PIN, HIGH);
         log_code(WATER_VALVE_WEST_ON);
@@ -321,44 +306,33 @@ void reward_valve_controller(){
         t_reward_valve_west_open = now();
 
         deliver_reward_west = false;
-        
-        // this is necessary for keeping the keyboard reward functionality
-        if (present_reward_west_cue == true){
-            reward_cue()
-            present_reward_west_cue = false;
-        }
     }
 
     if (reward_valve_west_is_closed == false && now() - t_reward_valve_west_open > reward_valve_dur) {
         digitalWrite(REWARD_WEST_VALVE_PIN, LOW);
-        log_code(WATER_VALVE_WEST_ON);
+        log_code(WATER_VALVE_WEST_OFF);
         reward_valve_west_is_closed = true;
     }
 
     // EAST
-    if (reward_valve_right_is_closed == true && deliver_reward_right == true) {
+    if (reward_valve_east_is_closed == true && deliver_reward_east == true) {
 
         // send one pulse to pump pin before doing anything
         digitalWrite(REWARD_PUMP_PIN, HIGH);
-
-        digitalWrite(REWARD_RIGHT_VALVE_PIN, HIGH);
-        log_code(REWARD_RIGHT_VALVE_ON);
-        reward_valve_right_is_closed = false;
-        reward_valve_right_dur = ul2time(reward_magnitude, valve_ul_ms_right);
-        t_reward_valve_right_open = now();
-        deliver_reward_right = false;
+        digitalWrite(REWARD_PUMP_PIN, LOW); // TODO: one rise?
         
-        // present cue? (this is necessary for keeping the keyboard reward functionality)
-        if (present_reward_right_cue == true){
-            reward_right_cue();
-            present_reward_right_cue = false;
-        }
+        digitalWrite(REWARD_EAST_VALVE_PIN, HIGH);
+        log_code(WATER_VALVE_EAST_ON);
+        reward_valve_east_is_closed = false;
+        t_reward_valve_east_open = now();
+
+        deliver_reward_east = false;
     }
 
-    if (reward_valve_right_is_closed == false && now() - t_reward_valve_right_open > reward_valve_right_dur) {
-        digitalWrite(REWARD_RIGHT_VALVE_PIN, LOW);
-        log_code(REWARD_RIGHT_VALVE_OFF);
-        reward_valve_right_is_closed = true;
+    if (reward_valve_east_is_closed == false && now() - t_reward_valve_east_open > reward_valve_dur) {
+        digitalWrite(REWARD_EAST_VALVE_PIN, LOW);
+        log_code(WATER_VALVE_EAST_OFF);
+        reward_valve_east_is_closed = true;
     }
 }
 
@@ -407,7 +381,7 @@ void sync_pin_controller(){
 // no intervals can change session to session, declared in interface_variables
 unsigned long this_interval = 1500;
 unsigned long short_intervals[no_intervals] = {600,1050,1380};
-unsigned long long_intervals[no_intervals] = {2400,1950,1620}; // order matters
+unsigned long long_intervals[no_intervals] = {2400,1950,1620}; // inverse order matters
 
 float p_short_intervals[no_intervals] = {1/no_intervals,1/no_intervals,1/no_intervals};
 float p_long_intervals[no_intervals] = {1/no_intervals,1/no_intervals,1/no_intervals};
@@ -444,24 +418,45 @@ unsigned long get_long_interval(){
 }
 
 void set_interval(){
-    if (correct_movement == right){
-        if (left_long == 0){ // egocentric mapping
-                            // context mapping 
+    // init port -> context -> movement sampled
+
+    if (init_port == north){ // no difference between ego and allo on north port
+
+        // implicit mapping of left to long
+        if (correct_movement == right){ 
             this_interval = get_short_interval();
+            correct_side = east;
         }
         else{
             this_interval = get_long_interval();
+            correct_side = west;
         }
     }
 
-    if (correct_movement == left){
-        if (left_long == 1 && is_ego_context == true){    
-            this_interval = get_short_interval();
-        }
-        elif (left_long == 1 && is_ego_context == false) {
+    if (init_port = south){ // need context rule to desambiguate
 
+        if (is_ego_context == true){ // egocentric context rule
+            // implicit mapping of left to long
+            if (correct_movement == right){ 
+                this_interval = get_short_interval();
+                correct_side = west;
+            }
+            else{
+                this_interval = get_long_interval();
+                correct_side = east;
+            }
         }
-
+        else{ // allocentric context rule
+            // inverted mapping of left to short
+            if (correct_movement == right){ 
+                this_interval = get_long_interval();
+                correct_side = west;
+            }
+            else{
+                this_interval = get_short_interval();
+                correct_side = east;
+            }
+        }
     }
 }
 
@@ -482,28 +477,42 @@ void get_trial_type(){
     // logging for analysis
     log_ulong("this_interval", this_interval);
     log_int("correct_movement", correct_movement);
-    log_int("correct_side", correct_side)
+    log_int("correct_side", correct_side);
 }
 
 void log_choice(){
-    if (is_poking_west == true){
-        log_code(CHOICE_WEST_EVENT);
-        n_choices_left++;
-        if (left_short == 1){
-            log_code(CHOICE_SHORT_EVENT);
-        }
-        else{
+
+    if (init_port == north){ // no difference between ego and allo on north port
+        if (is_poking_west == true){
+            log_code(CHOICE_WEST_EVENT);
             log_code(CHOICE_LONG_EVENT);
+        }
+        if (is_poking_east == true){
+            log_code(CHOICE_EAST_EVENT);
+            log_code(CHOICE_SHORT_EVENT);
         }
     }
-    if (is_poking_east == true){
-        log_code(CHOICE_EAST_EVENT);
-        n_choices_right++;
-        if (left_short == 1){
-            log_code(CHOICE_LONG_EVENT);
+
+    if (init_port == south){ // need context rule to desambiguate
+        if (is_ego_context == true){
+            if (is_poking_west == true){
+                log_code(CHOICE_WEST_EVENT);
+                log_code(CHOICE_SHORT_EVENT);
+            }
+            if (is_poking_east == true){
+                log_code(CHOICE_EAST_EVENT);
+                log_code(CHOICE_LONG_EVENT);
+            }
         }
         else{
-            log_code(CHOICE_SHORT_EVENT);
+            if (is_poking_west == true){
+                log_code(CHOICE_WEST_EVENT);
+                log_code(CHOICE_LONG_EVENT);
+            }
+            if (is_poking_east == true){
+                log_code(CHOICE_EAST_EVENT);
+                log_code(CHOICE_SHORT_EVENT);
+            }
         }
     }
 }
@@ -525,9 +534,9 @@ void state_entry_common(){
     log_code(current_state);
 }
 
-void finite_state_machine() {
+void finite_state_machine(){
     // the main FSM
-    switch (current_state) {
+    switch (current_state){
 
         case INI_STATE:
             current_state = ITI_STATE;
@@ -548,7 +557,7 @@ void finite_state_machine() {
                     else{
                         is_ego_context == true;
                     }
-                    // reset counter and duration
+                    // reset counter and sample new duration
                     current_context_counter = 0;
                     this_context_dur = (unsigned long) random(block_dur_min, block_dur_max);
                 }
@@ -569,17 +578,21 @@ void finite_state_machine() {
 
             if (current_state == last_state){
                 // the update loop
-                if (init_port == north)
+                if (init_port == north){
                     if (is_poking_north == true){
-                        log_code(TRIAL_ENTRY_NORTH_EVENT)
+                        digitalWrite(POKE_NORTH_LED, LOW);
+                        log_code(TRIAL_ENTRY_NORTH_EVENT);
                         current_state = TRIAL_ENTRY_STATE;
                         break;
                     }
+                }
                 else {
                     if (is_poking_south == true){
-                        log_code(TRIAL_ENTRY_SOUTH_EVENT)
+                        digitalWrite(POKE_SOUTH_LED, LOW);
+                        log_code(TRIAL_ENTRY_SOUTH_EVENT);
                         current_state = TRIAL_ENTRY_STATE;
                         break;
+                    }
                 }
             }
             break;
@@ -588,15 +601,17 @@ void finite_state_machine() {
             // state entry
             if (current_state != last_state){
                 state_entry_common();
+
                 log_code(TRIAL_ENTRY_EVENT);
-                sound_cue(); // which is first timing cue
+                log_code(FIRST_TIMING_CUE_EVENT);
+                sound_cue(); // first timing cue
 
                 // sync at trial entry
                 switch_sync_pin = true;
                 sync_pin_controller(); // and call sync controller for enhanced temp prec.
 
                 // determine the type of trial:
-                get_trial_type(); // updates this_correct_movement
+                get_trial_type(); // updates correct_movement and correct_side
             }
 
             // doesn't update, immediately exits
@@ -615,24 +630,32 @@ void finite_state_machine() {
 
             // update
             if (last_state == current_state){
-                if (is_poking_north == true){ // grace period
-                    // premature choice
+                if (is_poking == true){
+                    t_poke_remain = now();
+                }
+
+                if (is_poking == false && now()-t_poke_remain > grace_period){ // 50 ms grace period
+                    // trial broken
                     log_code(TRIAL_BROKEN_EVENT);
                     log_code(TRIAL_UNSUCCESSFUL_EVENT);
                     incorrect_choice_cue();
-                    log_choice();
+
                     current_state = TIMEOUT_STATE;
                     break;
                 }
             }
 
-            // if fixation is successful, go pick up reward
+            // if fixation is successful, go clock a choice
             if (now() - t_state_entry > this_interval){
+
+                sound_cue();
+                log_code(SECOND_TIMING_CUE_EVENT);
+
                 // cue
-                if (correct_movement == left){
+                if (correct_side == west){
                     go_cue_west();
                 }
-                if (correct_movement == right){
+                if (correct_side == east){
                     go_cue_east();
                 }
                 current_state = CHOICE_STATE;
@@ -648,46 +671,52 @@ void finite_state_machine() {
 
             // exit conditions
 
-            // choice was made
-            if (is_poking == true) {
+            // choice made 
+            if (is_poking_west == true || is_poking_east == true) {
+
+                // turn both LEDS off irrespective of their previous state
+                digitalWrite(POKE_EAST_LED, LOW);
+                digitalWrite(POKE_WEST_LED, LOW);
+
                 log_code(CHOICE_EVENT);
                 log_choice();
 
                 // correct choice
-                if ((correct_side == left && is_reaching_left) || (correct_side == right && is_reaching_right)){
+                if ((correct_side == west && is_poking_west) || (correct_side == east && is_poking_east)){
                     log_code(CHOICE_CORRECT_EVENT);
                     log_code(TRIAL_SUCCESSFUL_EVENT);
 
-                    succ_trial_counter += 1;
-                    if (correct_side == left){
-                        left_error_counter = 0;
-                    }
+                    // succ_trial_counter += 1;
+                    // if (correct_side == left){
+                    //     left_error_counter = 0;
+                    // }
 
-                    if (correct_side == right){
-                        right_error_counter = 0;
-                    }
+                    // if (correct_side == right){
+                    //     right_error_counter = 0;
+                    // }
+
                     current_state = REWARD_STATE;
                     break;
                 }
 
                 // incorrect choice
-                if ((correct_side == left && is_reaching_right) || (correct_side == right && is_reaching_left)){
+                if ((correct_side == west && is_poking_east) || (correct_side == east && is_poking_west)){
                     log_code(CHOICE_INCORRECT_EVENT);
                     log_code(TRIAL_UNSUCCESSFUL_EVENT);
                     incorrect_choice_cue();
 
-                    // update counters
-                    if (correct_side == left){
-                        left_error_counter += 1;
-                        right_error_counter = 0;
-                    }
-                    if (correct_side == right){
-                        right_error_counter += 1;
-                        left_error_counter = 0;
-                    }
-                    if (corr_loop_reset_mode == true){
-                        succ_trial_counter = 0;
-                    }
+                    // // update counters
+                    // if (correct_side == left){
+                    //     left_error_counter += 1;
+                    //     right_error_counter = 0;
+                    // }
+                    // if (correct_side == right){
+                    //     right_error_counter += 1;
+                    //     left_error_counter = 0;
+                    // }
+                    // if (corr_loop_reset_mode == true){
+                    //     succ_trial_counter = 0;
+                    // }
 
                     current_state = TIMEOUT_STATE;
                     break;
@@ -704,27 +733,39 @@ void finite_state_machine() {
                 current_state = ITI_STATE;
                 break;
             }
-
             break;
 
         case REWARD_STATE:
             // state entry
             if (current_state != last_state){
                 state_entry_common();
-                if (correct_side == left){
-                    log_code(REWARD_LEFT_EVENT);
-                    deliver_reward_left = true;
+
+                if (correct_side == west){
+                    log_code(REWARD_WEST_EVENT);
+                    deliver_reward_east = true;
                 }
                 else{
-                    log_code(REWARD_RIGHT_EVENT);
-                    deliver_reward_right = true;
+                    log_code(REWARD_EAST_EVENT);
+                    deliver_reward_west = true;
                 }
             }
 
             // exit condition
             if (true) {
-                // transit to ITI after certain time
                 current_state = ITI_STATE;
+            }
+            break;
+
+        case TIMEOUT_STATE:
+            // state entry
+            if (current_state != last_state){
+                state_entry_common();
+            }
+
+            // exit
+            if (now() - t_state_entry > timeout_dur){
+                current_state = ITI_STATE;
+                break;
             }
             break;
 
