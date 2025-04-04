@@ -13,7 +13,7 @@ boolean newData = false;
 bool verbose = true;
 bool run = false;
 bool deliver_reward_west = false;
-bool deliver_reward_eastt = false;
+bool deliver_reward_east = false;
 bool punish = false;
 
 int current_state = 0; // WATCH OUT this is ini state

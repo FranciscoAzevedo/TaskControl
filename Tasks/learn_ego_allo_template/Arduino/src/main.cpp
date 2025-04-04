@@ -241,34 +241,34 @@ void reward_cue(){
     tone_controller.play(reward_tone_freq, tone_dur);
 }
 
-/*
-adapted from  https://arduino.stackexchange.com/questions/6715/audio-frequency-white-noise-generation-using-arduino-mini-pro
-*/
-#define LFSR_INIT  0xfeedfaceUL
-#define LFSR_MASK  ((unsigned long)( 1UL<<31 | 1UL <<15 | 1UL <<2 | 1UL <<1  ))
+// /*
+// adapted from  https://arduino.stackexchange.com/questions/6715/audio-frequency-white-noise-generation-using-arduino-mini-pro
+// */
+// #define LFSR_INIT  0xfeedfaceUL
+// #define LFSR_MASK  ((unsigned long)( 1UL<<31 | 1UL <<15 | 1UL <<2 | 1UL <<1  ))
 
-unsigned int generateNoise(){ 
-    // See https://en.wikipedia.org/wiki/Linear_feedback_shift_register#Galois_LFSRs
-    static unsigned long int lfsr = LFSR_INIT;
-    if(lfsr & 1) { lfsr =  (lfsr >>1) ^ LFSR_MASK ; return(1);}
-    else         { lfsr >>= 1;                      return(0);}
-}
+// unsigned int generateNoise(){ 
+//     // See https://en.wikipedia.org/wiki/Linear_feedback_shift_register#Galois_LFSRs
+//     static unsigned long int lfsr = LFSR_INIT;
+//     if(lfsr & 1) { lfsr =  (lfsr >>1) ^ LFSR_MASK ; return(1);}
+//     else         { lfsr >>= 1;                      return(0);}
+// }
 
-unsigned long error_cue_start = max_future;
-unsigned long error_cue_dur = tone_dur * 1000; // to save instructions - work in micros
-unsigned long lastClick = max_future;
+// unsigned long error_cue_start = max_future;
+// unsigned long error_cue_dur = tone_dur * 1000; // to save instructions - work in micros
+// unsigned long lastClick = max_future;
 
-void incorrect_choice_cue(){
-    // white noise - blocking arduino for tone_dur
-    error_cue_start = micros();
-    lastClick = micros();
-    while (micros() - error_cue_start < error_cue_dur){
-        if ((micros() - lastClick) > 2) { // Changing this value changes the frequency.
-            lastClick = micros();
-            digitalWrite(SPEAKERS_PIN, generateNoise());
-        }
-    }
-}
+// void incorrect_choice_cue(){
+//     // white noise - blocking arduino for tone_dur
+//     error_cue_start = micros();
+//     lastClick = micros();
+//     while (micros() - error_cue_start < error_cue_dur){
+//         if ((micros() - lastClick) > 2) { // Changing this value changes the frequency.
+//             lastClick = micros();
+//             digitalWrite(SPEAKERS_PIN, generateNoise());
+//         }
+//     }
+// }
 
 /*
 ##     ##    ###    ##       ##     ## ########
@@ -281,13 +281,10 @@ void incorrect_choice_cue(){
 */
 
 
-// west
-bool reward_valve_west_is_closed = true;
-unsigned long t_reward_valve_west_open = max_future;
-
-// east
-bool reward_valve_east_is_closed = true;
-unsigned long t_reward_valve_east_open = max_future;
+unsigned long t_reward_valve_open = max_future;
+bool reward_valve_west_is_closed = true; // west
+bool reward_valve_east_is_closed = true; // east
+bool reward_pump_is_closed = true;
 
 void reward_valve_controller(){
     // a self terminating digital pin switch
@@ -297,18 +294,18 @@ void reward_valve_controller(){
     if (reward_valve_west_is_closed == true && deliver_reward_west == true) {
 
         // send one pulse to pump pin before doing anything
-        digitalWrite(REWARD_PUMP_PIN, HIGH);
-        digitalWrite(REWARD_PUMP_PIN, LOW); // TODO: one rise?
-        
-        digitalWrite(REWARD_WEST_VALVE_PIN, HIGH);
-        log_code(WATER_VALVE_WEST_ON);
-        reward_valve_west_is_closed = false;
-        t_reward_valve_west_open = now();
+        t_reward_valve_open = now();
 
+        digitalWrite(REWARD_PUMP_PIN, HIGH);
+        digitalWrite(REWARD_WEST_VALVE_PIN, HIGH);
+
+        log_code(WATER_VALVE_WEST_ON);
+        reward_pump_is_closed = false;
+        reward_valve_west_is_closed = false;
         deliver_reward_west = false;
     }
 
-    if (reward_valve_west_is_closed == false && now() - t_reward_valve_west_open > reward_valve_dur) {
+    if (reward_valve_west_is_closed == false &&  t_reward_valve_open > reward_valve_dur) {
         digitalWrite(REWARD_WEST_VALVE_PIN, LOW);
         log_code(WATER_VALVE_WEST_OFF);
         reward_valve_west_is_closed = true;
@@ -318,21 +315,27 @@ void reward_valve_controller(){
     if (reward_valve_east_is_closed == true && deliver_reward_east == true) {
 
         // send one pulse to pump pin before doing anything
-        digitalWrite(REWARD_PUMP_PIN, HIGH);
-        digitalWrite(REWARD_PUMP_PIN, LOW); // TODO: one rise?
-        
-        digitalWrite(REWARD_EAST_VALVE_PIN, HIGH);
-        log_code(WATER_VALVE_EAST_ON);
-        reward_valve_east_is_closed = false;
-        t_reward_valve_east_open = now();
+        t_reward_valve_open = now();
 
+        digitalWrite(REWARD_PUMP_PIN, HIGH);
+        digitalWrite(REWARD_EAST_VALVE_PIN, HIGH);
+
+        log_code(WATER_VALVE_EAST_ON);
+        reward_pump_is_closed = false;
+        reward_valve_east_is_closed = false;
         deliver_reward_east = false;
     }
 
-    if (reward_valve_east_is_closed == false && now() - t_reward_valve_east_open > reward_valve_dur) {
+    if (reward_valve_east_is_closed == false && now() - t_reward_valve_open > reward_valve_dur) {
         digitalWrite(REWARD_EAST_VALVE_PIN, LOW);
         log_code(WATER_VALVE_EAST_OFF);
         reward_valve_east_is_closed = true;
+    }
+
+    // PUMP
+    if(reward_pump_is_closed == false && now() - t_reward_valve_open > reward_pump_dur){
+        digitalWrite(REWARD_PUMP_PIN, LOW);
+        reward_pump_is_closed == true;
     }
 }
 
@@ -739,14 +742,15 @@ void finite_state_machine(){
             // state entry
             if (current_state != last_state){
                 state_entry_common();
+                reward_cue()
 
                 if (correct_side == west){
                     log_code(REWARD_WEST_EVENT);
-                    deliver_reward_east = true;
+                    deliver_reward_west = true;
                 }
                 else{
                     log_code(REWARD_EAST_EVENT);
-                    deliver_reward_west = true;
+                    deliver_reward_east = true;
                 }
             }
 
@@ -760,6 +764,11 @@ void finite_state_machine(){
             // state entry
             if (current_state != last_state){
                 state_entry_common();
+            }
+            
+            // play white noise
+            if(current_state == last_state && now()- t_state_entry > tone_dur){
+                digitalWrite(SPEAKERS_PIN, !digitalRead(SPEAKERS_PIN)); 
             }
 
             // exit
