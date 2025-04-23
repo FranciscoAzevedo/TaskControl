@@ -6,6 +6,7 @@
 #include "interface.cpp"
 #include "pin_map.h"
 #include "logging.cpp"
+#include <Adafruit_NeoPixel.h>
 
 /*
 ########  ########  ######  ##          ###    ########     ###    ######## ####  #######  ##    ##  ######
@@ -45,6 +46,9 @@ int init_port;
 bool is_ego_context = true; // start ego but immediately flip coin
 int this_context_dur = 0;
 int current_context_counter = 0;
+
+Color bgColor = Color(255, 0, 0);
+Color timeoutColor = Color(255, 255, 255);
 
 // // bias related
 // int last_correct_movement = left;
@@ -380,6 +384,44 @@ void sync_pin_controller(){
    ##    ##    ##   ##  ##     ## ##             ##       ##    ##        ##
    ##    ##     ## #### ##     ## ########       ##       ##    ##        ########
 */
+
+//
+void SetNeopixelClr(Adafruit_NeoPixel &neopixel, Color c) {
+    SetNeopixelClr(neopixel, c, 1);
+}
+
+//
+void ClearNeopixel(Adafruit_NeoPixel &neopixel) {
+    neopixel.clear();
+    neopixel.show();
+}
+
+// Sample from a truncated exponential distribution
+double TruncExpRnd(double x_mean, double x_min, double x_max) {
+    double lambda = 1 / x_mean;
+    double u = random(0, 1000001) / 1000000.0;
+    double F_min = 1 - exp(-lambda * x_min);
+    double F_max = 1 - exp(-lambda * x_max);
+    double F = F_min + u * (F_max - F_min);
+    double sample = -log(1 - F) / lambda;
+    return sample;
+}
+
+// Draws a value from a uniform distribution
+double UniformDist(int minimum, int maximum) {
+    return random(minimum, maximum + 1);
+}
+
+  // Draws a value from a truncated exponential distribution
+double TruncExpDist(int minimum, int mean, int maximum) {
+    double e = -double(mean) * log(double(random(1000000) + 1) / double(1000000));
+    if (e > maximum || e < minimum) {
+        e = TruncExpDist(minimum, mean, maximum);
+    }
+    return round(e);
+}
+
+stimDelay = TruncExpDist(minStimDelay, meanStimDelay, maxStimDelay);
 
 // no intervals can change session to session, declared in interface_variables
 unsigned long this_interval = 1500;
