@@ -46,7 +46,7 @@ class TaskControlApp(QtWidgets.QApplication):
 
 if __name__ == "__main__":
     import argparse
-    config_path = Path("configs")  / "config_open_lab_teensy.ini" # config ini has to be a local link
+    config_path = Path("configs")  / "config_egoallo.ini" # config ini has to be a local link
     
     # argparsing
     parser = argparse.ArgumentParser(description=' xXx Unified TaskControl xXx ')
