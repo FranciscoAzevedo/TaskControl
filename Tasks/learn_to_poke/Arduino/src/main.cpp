@@ -400,6 +400,8 @@ void finite_state_machine(){
                     correct_side = east;
                     go_cue_east();
                 }
+
+                log_int("correct_side", correct_side);
             }
 
             if (true) {

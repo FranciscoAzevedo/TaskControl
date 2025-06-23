@@ -230,7 +230,7 @@ Adafruit_NeoPixel pokesNeopixel[NUM_POKES];
 Color redColor = Color(255, 0, 0); // red
 Color whiteColor = Color(255, 255, 255); // white
 Color egoColor = Color(255, 255, 0); // yellow
-Color alloColor = Color(0, 255, 0); // green
+Color alloColor = Color(0,0,255); // blue
 
 float offBrightness = 0.0;
 float dimBrightness = 0.1;
