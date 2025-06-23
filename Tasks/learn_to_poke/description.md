@@ -1,23 +1,31 @@
-# reaching task 0.1
+# learn to ego_allo template
 
 instead of pushing on a manipulandom, mice reach for lateral rewards
 
-## 1) learn to reach
+## 1) learn to poke
 random ITI -> cue on left or right side signals reward availability
 
-<!-- ## 2) learn to push
-pushing manipulandum left or right gives reward
-only one correct side, and correct at random (for future nonrandom - can be used to remove bias)
+criteria for progression: 
+poke time distro mode <2 seconds
 
-## 3) learn to push after cue
-2nd timing cue - haptic buzz on the manipulandum
-push to either side (as before)
+<!-- ## 2) learn to fixate
+random ITI -> light cue around init port signals trial avail
+1st tone comes as soon as animal pokes in
+animal can't break fixation until 2nd tone comes
+fixation time increases as animals learn
+random mapping of time and laterality 
 
-present cue only after some time of immobility
+criteria for progression: 
+fixation time >2s
+broken fixations <15%
+choice times distro mode <4s
 
-## 4) learn to time
-present 1st timing cue before 2nd w uniform distribution of full 3s
-correct side is depending 1.5 boundary
+## 3) learn to time 
+full ego-allo task: laterality of movement determined by init port, context and timing
+start as soon as animals are able to fixate beyond interval boundary (1.5s)
+first cue the correct side (implicit learning of time whilst still fully learning how to fixate)
+then slowly increase probability of probe uncued timing trials
 
-## 5) learn to initiate
-as it is now, progress into task after init -->
+criteria for success:
+sucess rate >70% (without significant differences across ports or context)
+broken fixations <15% -->

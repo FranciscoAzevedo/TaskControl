@@ -2,8 +2,8 @@
 
 #define NUM_POKES 4
 
-// UNUSED SO FAR: ODOR VALVES - poke valve pins used for odor instead of water  
-const int ODOR_NORTH_VALVE_PIN = 50; // poke0 valve
+// UNUSED SO FAR: ODOR VALVES - poke valve pins used for odor instead of water 
+const int ODOR_NORTH_VALVE_PIN = 50; // poke0 valve 
 const int ODOR_SOUTH_VALVE_PIN = 4; // poke1 valve
 
 // WATER VALVES AND PUMP
@@ -11,7 +11,7 @@ const int REWARD_WEST_VALVE_PIN = 10; // poke2 valve
 const int REWARD_EAST_VALVE_PIN = 7; // poke3 valve
 const int REWARD_PUMP_PIN = 53; // "STIM" on diagram
 
-// POKES
+// POKES  (redundant definitions for clarity)
 const int POKE_NORTH_PIN = 13; // poke0 receiver
 const int POKE_SOUTH_PIN = 11; // poke1
 const int POKE_WEST_PIN = 8; // poke2
@@ -36,7 +36,6 @@ const unsigned int POKES_LED_PINS[NUM_POKES] = {
 
 const int SPEAKER_WEST_PIN = 3; // speaker west
 const int SPEAKER_EAST_PIN = 49; // speaker east
-
 
 // SYNC
 const int CAM_SYNC_PIN = 45; // "LZR1" on diagram

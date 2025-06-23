@@ -44,12 +44,13 @@ long trial_init_time = 0; // to avoid first trial issues
 unsigned long tone_dur = 150;
 unsigned long tone_freq = 7500;
 unsigned long reward_tone_freq = 1750;
+unsigned long timing_boundary = 1500;
 
 // Parameters for current pumps and pokes
-unsigned long reward_valve_dur = 2000; // more than enough for pump to push water
+unsigned long reward_valve_dur = 2000; // more than enough for pump
 unsigned long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 70; // Total number of toggles to perform , double of pump steps
-long grace_period = 50; // ms to avoid poke fluctuations
+unsigned long grace_period = 50; // ms to avoid poke fluctuations
 
 // speaker
 Tone tone_control_east;
@@ -78,11 +79,25 @@ int choice;
 int correct_side;
 int correct_movement;
 int init_port;
+bool is_ego_context;
 
 int timeout_flag = 0; // 0 = no timeout, 1 = timeout
+
+// context and port related
+int this_context_dur = 0;
+int current_context_counter = 0;
+
 int this_init_block_dur = 0;
 int current_init_block_counter = 0;
-int trial_counter = 0; // trial counter
+
+// corr loops
+bool in_corr_loop = false;
+int corr_loop_entry = 3;
+int corr_loop_exit = 2;
+int west_error_counter = 0;
+int east_error_counter = 0;
+int succ_trial_counter = 0;
+int trial_counter = 0;
 
 /*
 .########..####.##....##.....######...#######..##....##.########.####..######..
@@ -105,8 +120,8 @@ void PinInit(){
     digitalWrite(CAM_SYNC_PIN, LOW); // turn off camera sync pin
 
     // speakers
-    digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker
-    digitalWrite(SPEAKER_EAST_PIN, 1); // turn off east speaker
+    digitalWrite(SPEAKER_WEST_PIN, HIGH); // turn off west speaker
+    digitalWrite(SPEAKER_EAST_PIN, HIGH); // turn off west speaker
 
     // lights
     digitalWrite(BCKGND_LIGHTS_PIN, HIGH); // turn on background lights
@@ -116,6 +131,7 @@ void PinInit(){
         digitalWrite(POKES_PINS[i], LOW); 
     }
 }
+
 
 /*
 .########...#######..##....##.########..######.
@@ -213,6 +229,8 @@ Adafruit_NeoPixel pokesNeopixel[NUM_POKES];
 
 Color redColor = Color(255, 0, 0); // red
 Color whiteColor = Color(255, 255, 255); // white
+Color egoColor = Color(255, 255, 0); // yellow
+Color alloColor = Color(0, 255, 0); // green
 
 float offBrightness = 0.0;
 float dimBrightness = 0.1;
@@ -245,12 +263,25 @@ void ClearNeopixel(Adafruit_NeoPixel &neopixel) {
 void trial_available_cue(){
     // turn the respective port light ON
     if (init_port == north){
-        SetNeopixelClr(pokesNeopixel[0], whiteColor, fullBrightness);
-        log_code(LIGHT_NORTH_CUE_EVENT);
+        if(is_ego_context == true){
+            SetNeopixelClr(pokesNeopixel[0], egoColor, fullBrightness);
+            log_code(LIGHT_NORTH_CUE_EVENT);
+        }
+        else {
+            SetNeopixelClr(pokesNeopixel[0], alloColor, fullBrightness);
+            log_code(LIGHT_NORTH_CUE_EVENT);
+        }
+
     }
-    else {
-        SetNeopixelClr(pokesNeopixel[1], whiteColor, fullBrightness);
-        log_code(LIGHT_SOUTH_CUE_EVENT);
+    else { // south
+        if(is_ego_context == true){
+            SetNeopixelClr(pokesNeopixel[1], egoColor, fullBrightness);
+            log_code(LIGHT_SOUTH_CUE_EVENT);
+        }
+        else {
+            SetNeopixelClr(pokesNeopixel[1], alloColor, fullBrightness);
+            log_code(LIGHT_SOUTH_CUE_EVENT);
+        }
     }
 }
 
@@ -264,14 +295,22 @@ void go_cue_east(){
     log_code(LIGHT_EAST_CUE_EVENT);
 }
 
-void sound_cue(){     
+void sound_cue(){
     tone_control_west.play(tone_freq, tone_dur);
     tone_control_east.play(tone_freq, tone_dur);
+
+    // speakers
+    digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker
+    digitalWrite(SPEAKER_EAST_PIN, 1); // turn off west speaker
 }
 
 void reward_cue(){
     tone_control_west.play(reward_tone_freq, tone_dur);
     tone_control_east.play(reward_tone_freq, tone_dur);
+
+    // speakers
+    digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker
+    digitalWrite(SPEAKER_EAST_PIN, 1); // turn off west speaker
 }
 
 void incorrect_choice_cue(){
@@ -282,7 +321,6 @@ void incorrect_choice_cue(){
         digitalWrite(SPEAKER_EAST_PIN, spkrState);
     }
 }
-
 
 /*
 ##     ##    ###    ##       ##     ## ########
@@ -304,6 +342,7 @@ void reward_valve_controller(){
 
     // WEST
     if (reward_valve_west_is_closed == true && deliver_reward_west == true) {
+
         t_reward_valve_open = now();
         digitalWrite(REWARD_WEST_VALVE_PIN, HIGH);
         log_code(WATER_WEST_VALVE_ON);
@@ -350,14 +389,12 @@ void pump_controller() {
     if (togglingActive) {
         unsigned long currentMillis = millis();
         if (currentMillis - previousMillis >= reward_pump_toggle_dur) {
-
             previousMillis = currentMillis;
             pumpState = digitalRead(REWARD_PUMP_PIN); 
             digitalWrite(REWARD_PUMP_PIN, !pumpState); // Toggle the pin state
             toggleCount++;
 
             if (toggleCount >= targetToggles) {
-
                 togglingActive = false; // Stop toggling after the desired number of cycles
                 toggleCount = 0;
                 log_code(WATER_PUMP_OFF);
@@ -398,7 +435,6 @@ void sync_pin_controller(){
     }
 }
 
-
 /*
 ######## ########  ####    ###    ##          ######## ##    ## ########  ########
    ##    ##     ##  ##    ## ##   ##             ##     ##  ##  ##     ## ##
@@ -419,43 +455,221 @@ int sample_interval(float mean, float sigma){
     return round(x);
 } 
 
-unsigned long this_interval;
+// no. of intervals can change session to session, declared in interface_variables
+int this_interval = 500;
 
-void set_interval(){
-    this_interval = sample_interval(mean_fix_dur, sigma_fix); 
+const int max_no_intervals = 3; // max no. of intervals
+
+// allocate with max_no_intervals, limit with no_intervals
+unsigned long short_intervals[max_no_intervals] = {600,1050,1380};
+unsigned long long_intervals[max_no_intervals] = {2400,1950,1620}; // inverse order matters
+
+float p_short_intervals[max_no_intervals] = {1/no_intervals,1/no_intervals,1/no_intervals};
+float p_long_intervals[max_no_intervals] = {1/no_intervals,1/no_intervals,1/no_intervals};
+
+float p_cum;
+
+unsigned long get_short_interval(){
+    r = random(0,1000) / 1000.0;
+    for (int i = 0; i < no_intervals; i++){
+        p_cum = 0;
+        for (int j = 0; j <= i; j++){
+            p_cum += p_short_intervals[j];
+        }
+        if (r < p_cum){
+            return short_intervals[i];
+        }
+    }
+    return -1;
+}
+
+unsigned long get_long_interval(){
+    r = random(0,1000) / 1000.0;
+    for (int i = 0; i < no_intervals; i++){
+        p_cum = 0;
+        for (int j = 0; j <= i; j++){
+            p_cum += p_long_intervals[j];
+        }
+        if (r < p_cum){
+            return long_intervals[i];
+        }
+    }
+    return -1;
+}
+
+// WHEN STILL LEARNING - careful: codes isnt identical to fixed version below
+void set_interval_learn(){
+    this_interval = sample_interval(mean_fix_dur, 2);
+    
+    if (init_port == north){ // no difference between ego and allo on north port
+
+        // implicit mapping of left to long
+        if (this_interval < timing_boundary){ // if short go east (right, when starting north)
+            correct_movement = right;
+            correct_side = east;
+        }
+        else{
+            correct_movement = left;
+            correct_side = west;
+        }
+    }
+
+    if (init_port == south){ // need context rule to desambiguate
+
+        if (is_ego_context == true){ // egocentric context rule
+            // implicit mapping of left to long
+            if (this_interval < timing_boundary){
+                correct_movement = left; 
+                correct_side = east;
+            }
+            else{
+                correct_movement = right;
+                correct_side = west;
+            }
+        }
+        else{ // allocentric context rule
+            // inverted mapping of left to short
+            if (this_interval < timing_boundary){ 
+                correct_movement = right;
+                correct_side = west;
+            }
+            else{
+                correct_movement = left; 
+                correct_side = east;
+            }
+        }
+    }
+}
+
+// WHEN LEARNING ENDS - STEADY STATE
+void  set_interval_fixed(){
+    // init port -> context -> movement sampled
+
+    if (init_port == north){ // no difference between ego and allo on north port
+
+        // implicit mapping of left to long
+        if (correct_movement == right){ 
+            this_interval = get_short_interval();
+            correct_side = east;
+        }
+        else{
+            this_interval = get_long_interval();
+            correct_side = west;
+        }
+    }
+
+    if (init_port == south){ // need context rule to desambiguate
+
+        if (is_ego_context == true){ // egocentric context rule
+            // implicit mapping of left to long
+            if (correct_movement == right){ 
+                this_interval = get_short_interval();
+                correct_side = west;
+            }
+            else{
+                this_interval = get_long_interval();
+                correct_side = east;
+            }
+        }
+        else{ // allocentric context rule
+            // inverted mapping of left to short
+            if (correct_movement == right){ 
+                this_interval = get_long_interval();
+                correct_side = west;
+            }
+            else{
+                this_interval = get_short_interval();
+                correct_side = east;
+            }
+        }
+    }
 }
 
 void get_trial_type(){
 
     // now is called to update
-    set_interval();
+    if (learning == 1){ // 1 is true, 0 is false
+        set_interval_learn();
+    }
+    else{ // steady state
+
+        // determine if enter corr loop
+        if (in_corr_loop == false && (west_error_counter >= corr_loop_entry || east_error_counter >= corr_loop_entry)){
+            in_corr_loop = true;
+            log_bool("in_corr_loop", in_corr_loop);
+        }
+        
+        // determine if exit corr loop
+        else if (in_corr_loop == true && succ_trial_counter >= corr_loop_exit){
+            in_corr_loop = false;
+            log_bool("in_corr_loop", in_corr_loop);
+        }
+
+        if (in_corr_loop == false){ // update
+
+            // update correct movement (ego coordinates)
+            r = random(0,1000) / 1000.0;
+            if (r > 0.5){
+                correct_movement = right;
+            }
+            else {
+                correct_movement = left;
+            }
+
+            set_interval_fixed();
+        }
+        else{
+            // if in corr loop, trial type is not updated
+        }
+    }
 
     // logging for analysis
     trial_counter++;
     log_int("trial_counter", trial_counter);
     log_ulong("this_interval", this_interval);
+    log_int("correct_movement", correct_movement);
+    log_int("correct_side", correct_side);
 }
 
 void log_choice(){
-    if (init_port == north){ // 
+
+    if (init_port == north){ // no difference between ego and allo on north port
         if (is_poking_west == true){
             log_code(CHOICE_LEFT_EVENT);
             log_code(CHOICE_WEST_EVENT);
+            log_code(CHOICE_LONG_EVENT);
         }
         if (is_poking_east == true){
             log_code(CHOICE_RIGHT_EVENT);
             log_code(CHOICE_EAST_EVENT);
+            log_code(CHOICE_SHORT_EVENT);
         }
     }
 
-    if (init_port == south){ //
-        if (is_poking_west == true){
-            log_code(CHOICE_RIGHT_EVENT);
-            log_code(CHOICE_WEST_EVENT);
+    if (init_port == south){ // need context rule to desambiguate
+        if (is_ego_context == true){
+            if (is_poking_west == true){
+                log_code(CHOICE_RIGHT_EVENT);
+                log_code(CHOICE_WEST_EVENT);
+                log_code(CHOICE_SHORT_EVENT);
+            }
+            if (is_poking_east == true){
+                log_code(CHOICE_LEFT_EVENT);
+                log_code(CHOICE_EAST_EVENT);
+                log_code(CHOICE_LONG_EVENT);
+            }
         }
-        if (is_poking_east == true){
-            log_code(CHOICE_LEFT_EVENT);
-            log_code(CHOICE_EAST_EVENT);
+        else{
+            if (is_poking_west == true){
+                log_code(CHOICE_RIGHT_EVENT);
+                log_code(CHOICE_WEST_EVENT);
+                log_code(CHOICE_LONG_EVENT);
+            }
+            if (is_poking_east == true){
+                log_code(CHOICE_LEFT_EVENT);
+                log_code(CHOICE_EAST_EVENT);
+                log_code(CHOICE_SHORT_EVENT);
+            }
         }
     }
 }
@@ -492,6 +706,24 @@ void finite_state_machine(){
                 state_entry_common();
                 log_code(TRIAL_AVAILABLE_EVENT);
 
+                // evaluate context
+                if (current_context_counter == this_context_dur){ // flip it
+                    if (is_ego_context == true){
+                        is_ego_context = false;
+                    }
+                    else{
+                        is_ego_context = true;
+                    }
+                    // reset counter and sample new duration
+                    log_bool("is_ego_context", is_ego_context);
+                    current_context_counter = 0;
+                    this_context_dur = (unsigned long) random(block_dur_min, block_dur_max);
+                    log_int("this_context_dur", this_context_dur);
+                }
+                else{ // increase counter
+                    current_context_counter++;
+                }
+
                 // evaluate port
                 if (init_port_blocks == 0){ // no blocks
                     // flip a coin for N or S port
@@ -522,6 +754,7 @@ void finite_state_machine(){
                         current_init_block_counter++;
                     }
                 }
+                
                 trial_available_cue();
             }
 
@@ -529,7 +762,13 @@ void finite_state_machine(){
                 // the update loop
                 if (init_port == north){
                     if (is_poking_north == true){
-                        SetNeopixelClr(pokesNeopixel[0], whiteColor, dimBrightness);
+                        if (is_ego_context == true){
+                            SetNeopixelClr(pokesNeopixel[0], egoColor, dimBrightness);
+                        }
+                        else {
+                            SetNeopixelClr(pokesNeopixel[0], alloColor, dimBrightness);
+                        }
+
                         log_code(TRIAL_ENTRY_NORTH_EVENT);
                         current_state = TRIAL_ENTRY_STATE;
                         break;
@@ -537,7 +776,13 @@ void finite_state_machine(){
                 }
                 else {
                     if (is_poking_south == true){
-                        SetNeopixelClr(pokesNeopixel[1], whiteColor, dimBrightness);
+                        if (is_ego_context == true){
+                            SetNeopixelClr(pokesNeopixel[1], egoColor, dimBrightness);
+                        }
+                        else {
+                            SetNeopixelClr(pokesNeopixel[1], alloColor, dimBrightness);
+                        }
+
                         log_code(TRIAL_ENTRY_SOUTH_EVENT);
                         current_state = TRIAL_ENTRY_STATE;
                         break;
@@ -558,7 +803,7 @@ void finite_state_machine(){
                 // sync at trial entry
                 switch_sync_pin = true;
                 sync_pin_controller(); // and call sync controller for enhanced temp prec.
-
+                
                 trial_init_time = now();
 
                 // determine the type of trial:
@@ -577,7 +822,6 @@ void finite_state_machine(){
             // state entry
             if (current_state != last_state){
                 state_entry_common();
-                t_poke_remain = now();
             }
 
             // update
@@ -586,17 +830,17 @@ void finite_state_machine(){
                     t_poke_remain = now();
                 }
 
-                if (is_poking == false && (now()-t_poke_remain) > grace_period){ // 50 ms grace period
-
+                if (is_poking == false && now()-t_poke_remain > grace_period){ // 50 ms grace period
                     // trial broken
                     ClearNeopixel(pokesNeopixel[0]);
                     ClearNeopixel(pokesNeopixel[1]);
 
-                    mean_fix_dur = mean_fix_dur - dec_fix_dur;
-                    sigma_fix = sigma_fix - dec_fix_dur*0.2;
-
-                    log_int("mean_fix_dur", mean_fix_dur);
-                    log_int("sigma_fix", sigma_fix);
+                    if(learning == 1){
+                        mean_fix_dur = mean_fix_dur - dec_fix_dur;
+                        sigma_fix = sigma_fix - dec_fix_dur*0.2;
+                        log_int("mean_fix_dur", mean_fix_dur);
+                        log_int("sigma_fix", sigma_fix);
+                    }
                     
                     log_code(INIT_POKEOUT_EVENT);
                     log_code(TRIAL_BROKEN_EVENT);
@@ -612,7 +856,7 @@ void finite_state_machine(){
             // if fixation is successful, go clock a choice
             if (now() - t_state_entry > this_interval){
 
-                // in case the animal is successful within grace period
+                // in case the animal pokes out within grace period but is still a valid fixation
                 if (is_poking == false){
                     log_code(INIT_POKEOUT_EVENT);
                 }
@@ -620,17 +864,29 @@ void finite_state_machine(){
                 ClearNeopixel(pokesNeopixel[0]);
                 ClearNeopixel(pokesNeopixel[1]);
 
-                mean_fix_dur = mean_fix_dur + inc_fix_dur;
-                sigma_fix = sigma_fix + inc_fix_dur*0.25;
-                log_int("mean_fix_dur", mean_fix_dur);
-                log_int("sigma_fix", sigma_fix);
+                if (learning == 1) {
+                    mean_fix_dur = mean_fix_dur + inc_fix_dur;
+                    sigma_fix = sigma_fix+ inc_fix_dur*0.25;
+                    log_int("mean_fix_dur", mean_fix_dur);
+                    log_int("sigma_fix", sigma_fix);
+                }
 
                 sound_cue();
                 log_code(SECOND_TIMING_CUE_EVENT);
 
                 // cue
-                go_cue_west();
-                go_cue_east();
+                if (learning == 1) { // cue them the correct side
+                    if (correct_side == west){
+                        go_cue_west();
+                    }
+                    if (correct_side == east){
+                        go_cue_east();
+                    }
+                }
+                else { // steady state, cue them both sides
+                    go_cue_west();
+                    go_cue_east();
+                }
 
                 current_state = CHOICE_STATE;
                 break;
@@ -638,6 +894,10 @@ void finite_state_machine(){
             break;
 
         case CHOICE_STATE:
+
+            // speakers
+            digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker
+            digitalWrite(SPEAKER_EAST_PIN, 1); // turn off west speaker
 
             // state entry
             if (current_state != last_state){
@@ -652,21 +912,58 @@ void finite_state_machine(){
                 // udpate leds
                 ClearNeopixel(pokesNeopixel[2]);
                 ClearNeopixel(pokesNeopixel[3]);
+
+                // correct choices
+                if ((is_poking_west == true && correct_side == west) || (is_poking_east == true && correct_side == east)) {
                 
-                reward_cue();
-                log_code(CHOICE_EVENT);
-                log_choice();
-                current_state = REWARD_STATE;
+                    succ_trial_counter += 1;
+                    if (correct_side == west){
+                        west_error_counter = 0;
+                    }
+
+                    if (correct_side == east){
+                        east_error_counter = 0;
+                    }
+
+                    reward_cue();
+                    log_code(CHOICE_EVENT);
+                    log_choice();
+                    current_state = REWARD_STATE;
+                }
+
+                // incorrect choices
+                if ((correct_side == west && is_poking_east) || (correct_side == east && is_poking_west)){
+                    log_code(CHOICE_INCORRECT_EVENT);
+                    log_code(TRIAL_UNSUCCESSFUL_EVENT);
+
+                    // update counters
+                    if (correct_side == west){
+                        west_error_counter += 1;
+                        east_error_counter = 0;
+                    }
+                    if (correct_side == east){
+                        east_error_counter += 1;
+                        west_error_counter = 0;
+                    }
+                    log_int("west_error_counter", west_error_counter);
+                    log_int("east_error_counter", east_error_counter);
+                    succ_trial_counter = 0;
+                    
+                    // cue
+                    incorrect_choice_cue();
+                    current_state = TIMEOUT_STATE;
+                    break;
+                }
             }
                         
             // no choice was made
             if (now() - t_state_entry > choice_dur){
-                log_code(CHOICE_MISSED_EVENT);
-                log_code(TRIAL_UNSUCCESSFUL_EVENT);
-
                 // udpate leds
                 ClearNeopixel(pokesNeopixel[2]);
                 ClearNeopixel(pokesNeopixel[3]);
+
+                log_code(CHOICE_MISSED_EVENT);
+                log_code(TRIAL_UNSUCCESSFUL_EVENT);
 
                 // cue
                 incorrect_choice_cue();
@@ -748,6 +1045,7 @@ void finite_state_machine(){
     }
 }
 
+
 /*
 ##     ##    ###    #### ##    ##
 ###   ###   ## ##    ##  ###   ##
@@ -785,7 +1083,7 @@ void setup() {
     pinMode(BCKGND_LIGHTS_PIN,OUTPUT);
     bgNeopixel = Adafruit_NeoPixel(NUM_BCKGND_PIXELS,BCKGND_LIGHTS_PIN,NEO_GRB + NEO_KHZ800);
     bgNeopixel.begin();
-    SetNeopixelClr(bgNeopixel, redColor, fullBrightness);
+    SetNeopixelClr(bgNeopixel, redColor, fullBrightness); // half brightness red background
     bgNeopixel.show();
 
     // ini POKE LEDs 

@@ -54,10 +54,3 @@ void log_msg(const char Message[]){
     snprintf(s, sizeof(s), "<MSG %s %lu>", Message, now());
     Serial.println(s);
 }
-
-// void send_sync_pulse(){
-//     // sync w load cell
-//     digitalWrite(SYNC_PIN,HIGH);
-//     delay(1); // 1 ms unavoidable blindness - TODO delayMicroseconds - test!
-//     digitalWrite(SYNC_PIN,LOW);
-// }

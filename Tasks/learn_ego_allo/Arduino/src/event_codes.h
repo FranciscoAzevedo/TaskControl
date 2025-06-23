@@ -1,5 +1,4 @@
 // Codes template file
-// all codes are const unsigned int
 
 // NAMING CONVENTIONS
 

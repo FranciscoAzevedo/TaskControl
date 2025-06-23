@@ -28,4 +28,5 @@ then slowly increase probability of probe uncued timing trials
 
 criteria for success:
 sucess rate >70% (without significant differences across ports or context)
-broken fixations <15% 
+broken fixations <15%
+

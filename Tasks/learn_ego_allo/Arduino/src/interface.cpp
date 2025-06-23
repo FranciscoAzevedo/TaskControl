@@ -94,16 +94,60 @@ void processSerialData() {
 
         // INSERT_GETTERS
 
-        if (strcmp(varname,"ITI_dur_min")==0){
-            log_ulong("ITI_dur_min", ITI_dur_min);
+        if (strcmp(varname,"ITOI_dur")==0){
+            log_ulong("ITOI_dur", ITOI_dur);
         }
 
-        if (strcmp(varname,"ITI_dur_max")==0){
-            log_ulong("ITI_dur_max", ITI_dur_max);
+        if (strcmp(varname,"timeout_dur")==0){
+            log_ulong("timeout_dur", timeout_dur);
         }
 
         if (strcmp(varname,"choice_dur")==0){
             log_ulong("choice_dur", choice_dur);
+        }
+
+        if (strcmp(varname,"mean_fix_dur")==0){
+            log_ulong("mean_fix_dur", mean_fix_dur);
+        }
+
+        if (strcmp(varname,"inc_fix_dur")==0){
+            log_ulong("inc_fix_dur", inc_fix_dur);
+        }
+
+        if (strcmp(varname,"dec_fix_dur")==0){
+            log_ulong("dec_fix_dur", dec_fix_dur);
+        }
+
+        if (strcmp(varname,"sigma_fix")==0){
+            log_ulong("sigma_fix", sigma_fix);
+        }
+
+        if (strcmp(varname,"init_port_blocks")==0){
+            log_ulong("init_port_blocks", init_port_blocks);
+        }
+
+        if (strcmp(varname,"port_dur_min")==0){
+            log_ulong("port_dur_min", port_dur_min);
+        }
+
+        if (strcmp(varname,"port_dur_max")==0){
+            log_ulong("port_dur_max", port_dur_max);
+        }
+
+        if (strcmp(varname,"block_dur_min")==0){
+            log_ulong("block_dur_min", block_dur_min);
+        }
+
+        if (strcmp(varname,"block_dur_max")==0){
+            log_ulong("block_dur_max", block_dur_max);
+        }
+
+        if (strcmp(varname,"learning")==0){
+            log_int("learning", learning);
+        }
+
+        if (strcmp(varname,"no_intervals")==0){
+            log_int("no_intervals", no_intervals);
         }
 
         }
@@ -132,16 +176,60 @@ void processSerialData() {
 
             // INSERT_SETTERS
 
-        if (strcmp(varname,"ITI_dur_min")==0){
-            ITI_dur_min = strtoul(varvalue,NULL,10);
+        if (strcmp(varname,"ITOI_dur")==0){
+            ITOI_dur = strtoul(varvalue,NULL,10);
         }
 
-        if (strcmp(varname,"ITI_dur_max")==0){
-            ITI_dur_max = strtoul(varvalue,NULL,10);
+        if (strcmp(varname,"timeout_dur")==0){
+            timeout_dur = strtoul(varvalue,NULL,10);
         }
 
         if (strcmp(varname,"choice_dur")==0){
             choice_dur = strtoul(varvalue,NULL,10);
+        }
+
+        if (strcmp(varname,"mean_fix_dur")==0){
+            mean_fix_dur = strtoul(varvalue,NULL,10);
+        }
+
+        if (strcmp(varname,"inc_fix_dur")==0){
+            inc_fix_dur = strtoul(varvalue,NULL,10);
+        }
+
+        if (strcmp(varname,"dec_fix_dur")==0){
+            dec_fix_dur = strtoul(varvalue,NULL,10);
+        }
+
+        if (strcmp(varname,"sigma_fix")==0){
+            sigma_fix = strtoul(varvalue,NULL,10);
+        }
+
+        if (strcmp(varname,"init_port_blocks")==0){
+            init_port_blocks = strtoul(varvalue,NULL,10);
+        }
+
+        if (strcmp(varname,"port_dur_min")==0){
+            port_dur_min = strtoul(varvalue,NULL,10);
+        }
+
+        if (strcmp(varname,"port_dur_max")==0){
+            port_dur_max = strtoul(varvalue,NULL,10);
+        }
+
+        if (strcmp(varname,"block_dur_min")==0){
+            block_dur_min = strtoul(varvalue,NULL,10);
+        }
+
+        if (strcmp(varname,"block_dur_max")==0){
+            block_dur_max = strtoul(varvalue,NULL,10);
+        }
+
+        if (strcmp(varname,"learning")==0){
+            learning = atoi(varvalue);
+        }
+
+        if (strcmp(varname,"no_intervals")==0){
+            no_intervals = atoi(varvalue);
         }
 
         }

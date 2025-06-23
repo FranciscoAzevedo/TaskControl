@@ -1,5 +1,4 @@
 // Codes template file
-// all codes are const unsigned int
 
 // NAMING CONVENTIONS
 
@@ -15,12 +14,9 @@
 // STATES
 const unsigned int INI_STATE = 0;
 const unsigned int TRIAL_AVAILABLE_STATE = 1;
-const unsigned int TRIAL_ENTRY_STATE = 2;
-const unsigned int PRESENT_INTERVAL_STATE = 3;
-const unsigned int CHOICE_STATE = 4;
-const unsigned int REWARD_STATE = 5;
-const unsigned int ITI_STATE = 6;
-const unsigned int TIMEOUT_STATE = 7;
+const unsigned int CHOICE_STATE = 2;
+const unsigned int REWARD_STATE = 3;
+const unsigned int ITI_STATE = 4;
 
 // SPANS
 unsigned int POKE_NORTH_IN = 8;
@@ -40,19 +36,15 @@ unsigned int WATER_WEST_VALVE_OFF = 19;
 unsigned int WATER_EAST_VALVE_ON = 20;
 unsigned int WATER_EAST_VALVE_OFF = 21;
 
-
-// MAYBE EXTEND FOR TWO ODOR SPOUTS
-unsigned int ODOR_VALVE_ON = 22;
-unsigned int ODOR_VALVE_OFF = 23;
+unsigned int ODOR_NORTH_VALVE_ON = 22;
+unsigned int ODOR_NORTH_VALVE_OFF = 23;
+unsigned int ODOR_SOUTH_VALVE_ON = 24;
+unsigned int ODOR_SOUTH_VALVE_OFF = 25;
 
 // EVENTS
 
 // trials and their possible outcomes
 unsigned int TRIAL_AVAILABLE_EVENT = 26;
-unsigned int TRIAL_ENTRY_EVENT = 27;
-unsigned int TRIAL_ENTRY_NORTH_EVENT = 28;
-unsigned int TRIAL_ENTRY_SOUTH_EVENT = 29;
-unsigned int TRIAL_BROKEN_EVENT = 30;
 unsigned int TRIAL_SUCCESSFUL_EVENT = 31;
 unsigned int TRIAL_UNSUCCESSFUL_EVENT = 32;
 
@@ -68,15 +60,7 @@ unsigned int REWARD_EAST_EVENT = 37;
 unsigned int CHOICE_EVENT = 40;
 unsigned int CHOICE_WEST_EVENT = 42;
 unsigned int CHOICE_EAST_EVENT = 43;
-unsigned int CHOICE_LONG_EVENT = 44; 
-unsigned int CHOICE_SHORT_EVENT = 45;
 
 // stim and cue stuff
-unsigned int FIRST_TIMING_CUE_EVENT = 50;
-unsigned int SECOND_TIMING_CUE_EVENT = 51;
-
-unsigned int LIGHT_NORTH_CUE_EVENT = 52;
-unsigned int LIGHT_SOUTH_CUE_EVENT = 53;
-
 unsigned int LIGHT_WEST_CUE_EVENT = 54;
 unsigned int LIGHT_EAST_CUE_EVENT = 55;

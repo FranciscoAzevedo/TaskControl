@@ -1,8 +1,9 @@
 #include <Arduino.h>
 #include <Tone.h>
-#include <FastLED.h>
+#include <Adafruit_NeoPixel.h>
 
 #include <event_codes.h> // <>?
+#include "colors.h"
 #include "interface.cpp"
 #include "pin_map.h"
 #include "logging.cpp"
@@ -17,12 +18,39 @@
 ########  ########  ######  ######## ##     ## ##     ## ##     ##    ##    ####  #######  ##    ##  ######
 */
 
+// Color class
+Color::Color()
+{
+    _r = 0;
+    _g = 0;
+    _b = 0;
+}
+Color::Color(int r, int g, int b)
+{
+    _r = r;
+    _g = g;
+    _b = b;
+}
+int Color::getR() const{ return _r;}
+int Color::getG() const{ return _g;}
+int Color::getB() const{ return _b;}
+
 int last_state = -1; // whatever other state
 unsigned long max_future = 4294967295; // 2**32 -1
 unsigned long t_state_entry = max_future;
-unsigned long grace_period = 50; // ms
 
-// because its easier to compare numbers than strings
+// Parameters from Thiago Gouvea's eLife paper
+unsigned long tone_dur = 150;
+unsigned long tone_freq = 7500;
+unsigned long reward_tone_freq = 1750;
+
+// Parameters for current pumps and pokes
+unsigned long reward_valve_dur = 2000; // more than enough for pump
+unsigned long reward_pump_toggle_dur = 3; // ms
+int targetToggles = 70; // Total number of toggles to perform , double of pump steps
+unsigned long grace_period = 50; // ms to avoid poke fluctuations
+
+//  named variables that are easier to compare in numbers than strings
 int north = 8;
 int south = 2;
 int west = 4;
@@ -33,35 +61,24 @@ int left = 7;
 int right = 9;
 
 // non-init variables
+int i;
 float r; // for random processes
-unsigned long t_poke_remain;
 unsigned long this_ITI_dur;
+bool spkrState;
+bool pumpState;
 int choice;
-int correct_movement;
 int correct_side;
-int init_port;
-
-// // bias related
-// int last_correct_movement = left;
-
-// float bias = 0.5; // exposed in interface_variables.h
-// int n_choices_left = 1;
-// int n_choices_right = 1;
-
-// void update_bias(){
-//     // 0 = left bias, 1 = right bias
-//     bias = (float) n_choices_right / (n_choices_left + n_choices_right);
-// }
 
 /*
- ######  ######## ##    ##  ######   #######  ########   ######
-##    ## ##       ###   ## ##    ## ##     ## ##     ## ##    ##
-##       ##       ####  ## ##       ##     ## ##     ## ##
- ######  ######   ## ## ##  ######  ##     ## ########   ######
-      ## ##       ##  ####       ## ##     ## ##   ##         ##
-##    ## ##       ##   ### ##    ## ##     ## ##    ##  ##    ##
- ######  ######## ##    ##  ######   #######  ##     ##  ######
+.########...#######..##....##.########..######.
+.##.....##.##.....##.##...##..##.......##....##
+.##.....##.##.....##.##..##...##.......##......
+.########..##.....##.#####....######....######.
+.##........##.....##.##..##...##.............##
+.##........##.....##.##...##..##.......##....##
+.##.........#######..##....##.########..######.
 */
+
 bool is_poking_north = false;
 bool poke_north = false;
 
@@ -75,8 +92,6 @@ bool is_poking_east = false;
 bool poke_east = false;
 
 bool is_poking = false;
-unsigned long t_last_poke_on = max_future;
-unsigned long t_last_poke_off = max_future;
 
 void read_pokes(){
     // north
@@ -84,13 +99,11 @@ void read_pokes(){
     if (is_poking_north == false && poke_north == true){
         log_code(POKE_NORTH_IN);
         is_poking_north = true;
-        t_last_poke_on = now();
     }
 
     if (is_poking_north == true && poke_north == false){
         log_code(POKE_NORTH_OUT);
         is_poking_north = false;
-        t_last_poke_off = now();
     }
 
     // south
@@ -98,13 +111,11 @@ void read_pokes(){
     if (is_poking_south == false && poke_south == true){
         log_code(POKE_SOUTH_IN);
         is_poking_south = true;
-        t_last_poke_on = now();
     }
 
     if (is_poking_south == true && poke_south == false){
         log_code(POKE_SOUTH_OUT);
         is_poking_south = false;
-        t_last_poke_off = now();
     }
 
     // west
@@ -112,13 +123,11 @@ void read_pokes(){
     if (is_poking_west == false && poke_west == true){
         log_code(POKE_WEST_IN);
         is_poking_west = true;
-        t_last_poke_on = now();
     }
 
     if (is_poking_west == true && poke_west == false){
         log_code(POKE_WEST_OUT);
         is_poking_west = false;
-        t_last_poke_off = now();
     }
 
     // east
@@ -126,13 +135,11 @@ void read_pokes(){
     if (is_poking_east == false && poke_east == true){
         log_code(POKE_EAST_IN);
         is_poking_east = true;
-        t_last_poke_on = now();
     }
 
     if (is_poking_east == true && poke_east == false){
         log_code(POKE_EAST_OUT);
         is_poking_east = false;
-        t_last_poke_off = now();
     }
 
     is_poking = (is_poking_north || is_poking_south || is_poking_west || is_poking_east);
@@ -148,60 +155,33 @@ void read_pokes(){
 ######## ######## ########
 */
 
-void go_cue_west(){
-    digitalWrite(POKE_WEST_LED, HIGH);
-    log_code(LIGHT_WEST_CUE_EVENT);
+// LED related
+#define NUM_BCKGND_PIXELS 64
+#define NUM_LED_PIXELS 16
+#define NUM_POKES 4
+
+Adafruit_NeoPixel bgNeopixel;
+Adafruit_NeoPixel pokesNeopixel[NUM_POKES];
+
+Color redColor = Color(255, 0, 0); // red
+Color whiteColor = Color(255, 255, 255); // white
+
+float offBrightness = 0.0;
+float dimBrightness = 0.1;
+float fullBrightness = 1.0;
+
+void SetNeopixelClr(Adafruit_NeoPixel &neopixel, Color c, float b) {
+    neopixel.clear();
+    for (unsigned int i = 0; i < neopixel.numPixels(); i++) {
+      neopixel.setPixelColor(i, c.getR() * b, c.getG() * b, c.getB() * b);
+    }
+    neopixel.show();
 }
 
-void go_cue_east(){
-    digitalWrite(POKE_EAST_LED, HIGH);
-    log_code(LIGHT_EAST_CUE_EVENT);
+void ClearNeopixel(Adafruit_NeoPixel &neopixel) {
+    neopixel.clear();
+    neopixel.show();
 }
-
-// // LED strip related
-// #define NUM_LEDS 2 // num of LEDs in strip
-// CRGB leds[NUM_LEDS]; // Define the array of leds
-
-// // LED blink controller related
-// bool led_is_on[NUM_LEDS];
-// bool switch_led_on[NUM_LEDS];
-// unsigned long led_on_time[NUM_LEDS];
-// unsigned long led_on_dur = 50;
-
-// void led_blink_controller(){
-//     // the controller: iterate over all LEDs and set their state accordingly
-//     for (int i = 0; i < NUM_LEDS; i++){
-//         if (led_is_on[i] == false && switch_led_on[i] == true){
-//             // leds[i] = CRGB::Blue; // can be replaced with HSV maybe?
-//             leds[i] = CHSV(led_hsv,255,led_brightness);
-//             led_is_on[i] = true;
-//             led_on_time[i] = now();
-//             switch_led_on[i] = false;
-//             FastLED.show();
-//         }
-//         // turn off if on for long enough
-//         if (led_is_on[i] == true && now() - led_on_time[i] > led_on_dur){
-//             leds[i] = CRGB::Black;
-//             led_is_on[i] = false;
-//             FastLED.show();
-//         }
-//     }
-// }
-
-// // access functions
-// void lights_on(){
-//     for (int i = 0; i < NUM_LEDS; i++){
-//         leds[i] = CHSV(led_hsv,255,led_brightness);
-//     }
-//     FastLED.show();
-// }
-
-// void lights_off(){
-//     for (int i = 0; i < NUM_LEDS; i++){
-//         leds[i] = CRGB::Black;
-//     }
-//     FastLED.show();
-// }
 
 /*
  ######  ##     ## ########  ######
@@ -216,12 +196,14 @@ void go_cue_east(){
 // speaker
 Tone tone_controller;
 
-void trial_available_cue(){
-    // turn both ports' lights ON
-    digitalWrite(POKE_NORTH_LED, HIGH);
-    log_code(LIGHT_NORTH_CUE_EVENT);
-    digitalWrite(POKE_SOUTH_LED, HIGH);
-    log_code(LIGHT_SOUTH_CUE_EVENT);
+void go_cue_west(){
+    SetNeopixelClr(pokesNeopixel[2], whiteColor, fullBrightness);
+    log_code(LIGHT_WEST_CUE_EVENT);
+}
+
+void go_cue_east(){
+    SetNeopixelClr(pokesNeopixel[3], whiteColor, fullBrightness);
+    log_code(LIGHT_EAST_CUE_EVENT);
 }
 
 void sound_cue(){     
@@ -232,34 +214,18 @@ void reward_cue(){
     tone_controller.play(reward_tone_freq, tone_dur);
 }
 
-/*
-adapted from  https://arduino.stackexchange.com/questions/6715/audio-frequency-white-noise-generation-using-arduino-mini-pro
-*/
-#define LFSR_INIT  0xfeedfaceUL
-#define LFSR_MASK  ((unsigned long)( 1UL<<31 | 1UL <<15 | 1UL <<2 | 1UL <<1  ))
-
-unsigned int generateNoise(){ 
-    // See https://en.wikipedia.org/wiki/Linear_feedback_shift_register#Galois_LFSRs
-    static unsigned long int lfsr = LFSR_INIT;
-    if(lfsr & 1) { lfsr =  (lfsr >>1) ^ LFSR_MASK ; return(1);}
-    else         { lfsr >>= 1;                      return(0);}
-}
-
 unsigned long error_cue_start = max_future;
 unsigned long error_cue_dur = tone_dur * 1000; // to save instructions - work in micros
-unsigned long lastClick = max_future;
 
 void incorrect_choice_cue(){
-    // white noise - blocking arduino for tone_dur
     error_cue_start = micros();
-    lastClick = micros();
     while (micros() - error_cue_start < error_cue_dur){
-        if ((micros() - lastClick) > 2) { // Changing this value changes the frequency.
-            lastClick = micros();
-            digitalWrite(SPEAKERS_PIN, generateNoise());
-        }
+        spkrState = random(0,2);
+        digitalWrite(SPEAKER_WEST_PIN, spkrState);
+        digitalWrite(SPEAKER_EAST_PIN, spkrState);
     }
 }
+
 
 /*
 ##     ##    ###    ##       ##     ## ########
@@ -271,14 +237,9 @@ void incorrect_choice_cue(){
    ###    ##     ## ########    ###    ########
 */
 
-
-// west
-bool reward_valve_west_is_closed = true;
-unsigned long t_reward_valve_west_open = max_future;
-
-// east
-bool reward_valve_east_is_closed = true;
-unsigned long t_reward_valve_east_open = max_future;
+unsigned long t_reward_valve_open = max_future;
+bool reward_valve_west_is_closed = true; // west
+bool reward_valve_east_is_closed = true; // east
 
 void reward_valve_controller(){
     // a self terminating digital pin switch
@@ -287,43 +248,63 @@ void reward_valve_controller(){
     // WEST
     if (reward_valve_west_is_closed == true && deliver_reward_west == true) {
 
-        // send one pulse to pump pin before doing anything
-        digitalWrite(REWARD_PUMP_PIN, HIGH);
-        digitalWrite(REWARD_PUMP_PIN, LOW); // TODO: one rise?
-        
+        t_reward_valve_open = now();
         digitalWrite(REWARD_WEST_VALVE_PIN, HIGH);
-        log_code(WATER_VALVE_WEST_ON);
+        log_code(WATER_WEST_VALVE_ON);
         reward_valve_west_is_closed = false;
-        t_reward_valve_west_open = now();
-
         deliver_reward_west = false;
     }
 
-    if (reward_valve_west_is_closed == false && now() - t_reward_valve_west_open > reward_valve_dur) {
+    if (reward_valve_west_is_closed == false &&  now() - t_reward_valve_open > reward_valve_dur) {
         digitalWrite(REWARD_WEST_VALVE_PIN, LOW);
-        log_code(WATER_VALVE_WEST_OFF);
+        log_code(WATER_WEST_VALVE_OFF);
         reward_valve_west_is_closed = true;
     }
 
     // EAST
     if (reward_valve_east_is_closed == true && deliver_reward_east == true) {
 
-        // send one pulse to pump pin before doing anything
-        digitalWrite(REWARD_PUMP_PIN, HIGH);
-        digitalWrite(REWARD_PUMP_PIN, LOW); // TODO: one rise?
-        
+        t_reward_valve_open = now();
         digitalWrite(REWARD_EAST_VALVE_PIN, HIGH);
-        log_code(WATER_VALVE_EAST_ON);
+        log_code(WATER_EAST_VALVE_ON);
         reward_valve_east_is_closed = false;
-        t_reward_valve_east_open = now();
-
         deliver_reward_east = false;
     }
 
-    if (reward_valve_east_is_closed == false && now() - t_reward_valve_east_open > reward_valve_dur) {
+    if (reward_valve_east_is_closed == false && now() - t_reward_valve_open > reward_valve_dur) {
         digitalWrite(REWARD_EAST_VALVE_PIN, LOW);
-        log_code(WATER_VALVE_EAST_OFF);
+        log_code(WATER_EAST_VALVE_OFF);
         reward_valve_east_is_closed = true;
+    }
+}
+
+/*
+.########..##.....##.##.....##.########.
+.##.....##.##.....##.###...###.##.....##
+.##.....##.##.....##.####.####.##.....##
+.########..##.....##.##.###.##.########.
+.##........##.....##.##.....##.##.......
+.##........##.....##.##.....##.##.......
+.##.........#######..##.....##.##.......
+*/
+
+int toggleCount = 0;                // Tracks the number of toggles  
+
+void pump_controller() {
+    if (togglingActive) {
+        unsigned long currentMillis = millis();
+        if (currentMillis - previousMillis >= reward_pump_toggle_dur) {
+            previousMillis = currentMillis;
+            pumpState = digitalRead(REWARD_PUMP_PIN); 
+            digitalWrite(REWARD_PUMP_PIN, !pumpState); // Toggle the pin state
+            toggleCount++;
+
+            if (toggleCount >= targetToggles) {
+                togglingActive = false; // Stop toggling after the desired number of cycles
+                toggleCount = 0;
+                log_code(WATER_PUMP_OFF);
+            }
+        }
     }
 }
 
@@ -369,8 +350,6 @@ void sync_pin_controller(){
    ##    ##     ## #### ##     ## ########       ##       ##    ##        ########
 */
 
-int i;
-
 void log_choice(){
     if (is_poking_west == true){
         log_code(CHOICE_WEST_EVENT);
@@ -412,7 +391,15 @@ void finite_state_machine(){
                 state_entry_common();
                 log_code(TRIAL_AVAILABLE_EVENT);
 
-                trial_available_cue();
+                r = random(0,1000) / 1000.0;
+                if (r > 0.5){
+                    correct_side = west;
+                    go_cue_west();
+                }
+                else {
+                    correct_side = east;
+                    go_cue_east();
+                }
             }
 
             if (true) {
@@ -426,20 +413,42 @@ void finite_state_machine(){
                 state_entry_common();
             }
 
-            // choice made 
-            if (is_poking_west == true || is_poking_east == true) {
+            // sync at trial entry
+            switch_sync_pin = true;
+            sync_pin_controller(); // and call sync controller for enhanced temp prec.
 
-                // turn both LEDS off irrespective of their previous state
-                digitalWrite(POKE_EAST_LED, LOW);
-                digitalWrite(POKE_WEST_LED, LOW);
+            // choice made
+            if (is_poking_west == true && correct_side == west){
 
+                // udpate leds
+                ClearNeopixel(pokesNeopixel[2]);
+                ClearNeopixel(pokesNeopixel[3]);
+                
+                reward_cue();
                 log_code(CHOICE_EVENT);
                 log_choice();
-                        
+                current_state = REWARD_STATE;
+            }
+            else if(is_poking_east == true && correct_side == east){
+
+                // udpate leds
+                ClearNeopixel(pokesNeopixel[2]);
+                ClearNeopixel(pokesNeopixel[3]);
+                
+                reward_cue();
+                log_code(CHOICE_EVENT);
+                log_choice();
+                current_state = REWARD_STATE;
+            }
+
             // no choice was made
             if (now() - t_state_entry > choice_dur){
                 log_code(CHOICE_MISSED_EVENT);
                 log_code(TRIAL_UNSUCCESSFUL_EVENT);
+
+                // udpate leds
+                ClearNeopixel(pokesNeopixel[2]);
+                ClearNeopixel(pokesNeopixel[3]);
 
                 // cue
                 incorrect_choice_cue();
@@ -452,8 +461,9 @@ void finite_state_machine(){
             // state entry
             if (current_state != last_state){
                 state_entry_common();
-                reward_cue()
-
+                reward_cue();
+                
+                // valves
                 if (is_poking_west == true){
                     log_code(REWARD_WEST_EVENT);
                     deliver_reward_west = true;
@@ -462,6 +472,11 @@ void finite_state_machine(){
                     log_code(REWARD_EAST_EVENT);
                     deliver_reward_east = true;
                 }
+
+                // pump
+                previousMillis = millis();
+                togglingActive = true;
+                log_code(WATER_PUMP_ON);
             }
 
             // exit condition
@@ -471,6 +486,11 @@ void finite_state_machine(){
             break;
 
         case ITI_STATE:
+
+            // speakers
+            digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker
+            digitalWrite(SPEAKER_EAST_PIN, 1); // turn off east speaker
+            
             // state entry
             if (current_state != last_state){
                 state_entry_common();
@@ -482,7 +502,6 @@ void finite_state_machine(){
                 current_state = TRIAL_AVAILABLE_STATE;
             }
             break;
-        }
     }
 }
 
@@ -505,18 +524,37 @@ void setup() {
     pinMode(CAM_SYNC_PIN,OUTPUT);
 
     // ini speakers
-    pinMode(SPEAKERS_PIN,OUTPUT);
-    tone_controller.begin(SPEAKERS_PIN);
+    pinMode(SPEAKER_WEST_PIN,OUTPUT);
+    tone_controller.begin(SPEAKER_WEST_PIN);
 
-    // LED related
-    FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
-    for (int i = 0; i < NUM_LEDS; i++) {
-        led_is_on[i] = false;
-        switch_led_on[i] = false;
-        led_on_time[i] = max_future;
+    pinMode(SPEAKER_EAST_PIN,OUTPUT);
+    tone_controller.begin(SPEAKER_EAST_PIN);
+
+    // ini valves 
+    pinMode(REWARD_WEST_VALVE_PIN,OUTPUT);
+    pinMode(REWARD_EAST_VALVE_PIN,OUTPUT);
+    pinMode(REWARD_PUMP_PIN,OUTPUT);
+
+    // ini pokes
+    for (int i = 0; i < NUM_POKES; i++){
+        pinMode(POKES_PINS[i],INPUT);
     }
 
-    lights_off();
+    // ini LEDs 
+    pinMode(BCKGND_LIGHTS_PIN,OUTPUT);
+    bgNeopixel = Adafruit_NeoPixel(NUM_BCKGND_PIXELS,BCKGND_LIGHTS_PIN,NEO_GRB + NEO_KHZ800);
+    bgNeopixel.begin();
+    SetNeopixelClr(bgNeopixel, redColor, fullBrightness); // max brightness red background
+    bgNeopixel.show();
+
+    for (int i = 0; i < NUM_POKES; i++){
+        pinMode(POKES_LED_PINS[i],OUTPUT);
+        pokesNeopixel[i] = Adafruit_NeoPixel(NUM_LED_PIXELS, POKES_LED_PINS[i], NEO_GRB + NEO_KHZ800);
+        pokesNeopixel[i].begin();
+        ClearNeopixel(pokesNeopixel[i]); // clear poke
+        pokesNeopixel[i].show(); // init as off
+    }
+
     Serial.println("<Arduino is ready to receive commands>");
     delay(1000);
 }
@@ -529,6 +567,7 @@ void loop() {
 
     // Controllers
     reward_valve_controller();
+    pump_controller();
 
     // sample sensors
     read_pokes();
@@ -540,3 +579,4 @@ void loop() {
     // non-blocking cam sync pin
     sync_pin_controller();
 }
+
