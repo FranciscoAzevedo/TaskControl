@@ -482,7 +482,6 @@ void finite_state_machine(){
                 current_state = TRIAL_AVAILABLE_STATE;
             }
             break;
-        }
     }
 }
 

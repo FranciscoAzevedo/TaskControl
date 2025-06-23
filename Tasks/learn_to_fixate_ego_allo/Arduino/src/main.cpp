@@ -689,15 +689,6 @@ void finite_state_machine(){
                     log_code(CHOICE_CORRECT_EVENT);
                     log_code(TRIAL_SUCCESSFUL_EVENT);
 
-                    // succ_trial_counter += 1;
-                    // if (correct_side == left){
-                    //     left_error_counter = 0;
-                    // }
-
-                    // if (correct_side == right){
-                    //     right_error_counter = 0;
-                    // }
-
                     current_state = REWARD_STATE;
                     break;
                 }
@@ -707,19 +698,6 @@ void finite_state_machine(){
                     log_code(CHOICE_INCORRECT_EVENT);
                     log_code(TRIAL_UNSUCCESSFUL_EVENT);
                     incorrect_choice_cue();
-
-                    // // update counters
-                    // if (correct_side == left){
-                    //     left_error_counter += 1;
-                    //     right_error_counter = 0;
-                    // }
-                    // if (correct_side == right){
-                    //     right_error_counter += 1;
-                    //     left_error_counter = 0;
-                    // }
-                    // if (corr_loop_reset_mode == true){
-                    //     succ_trial_counter = 0;
-                    // }
 
                     current_state = TIMEOUT_STATE;
                     break;
