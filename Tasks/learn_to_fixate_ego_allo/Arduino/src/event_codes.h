@@ -54,6 +54,7 @@ unsigned int TRIAL_UNSUCCESSFUL_EVENT = 32;
 unsigned int CHOICE_MISSED_EVENT = 33;
 unsigned int CHOICE_INCORRECT_EVENT = 34;
 unsigned int CHOICE_CORRECT_EVENT = 35;
+unsigned int TRIAL_AVAILABLE_TIMEOUT_EVENT = 38;
 
 // reward 
 unsigned int REWARD_WEST_EVENT = 36;

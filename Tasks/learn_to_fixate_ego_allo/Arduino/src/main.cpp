@@ -526,6 +526,17 @@ void finite_state_machine(){
             }
 
             if (current_state == last_state){
+
+                if(now()-t_state_entry > t_init_max){
+                    // timeout, go to ITI
+                    log_code(TRIAL_AVAILABLE_TIMEOUT_EVENT);
+
+                    // cue
+                    incorrect_choice_cue();
+                    current_state = ITI_STATE;
+                    break;
+                }
+
                 // the update loop
                 if (init_port == north){
                     if (is_poking_north == true){
