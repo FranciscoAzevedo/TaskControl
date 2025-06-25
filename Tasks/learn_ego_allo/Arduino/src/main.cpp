@@ -47,10 +47,10 @@ unsigned long reward_tone_freq = 1750;
 unsigned long timing_boundary = 1500;
 
 // Parameters for current pumps and pokes
-unsigned long reward_valve_dur = 2000; // more than enough for pump
-unsigned long reward_pump_toggle_dur = 3; // ms
+long reward_valve_dur = 2000; // more than enough for pump
+long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 70; // Total number of toggles to perform , double of pump steps
-unsigned long grace_period = 50; // ms to avoid poke fluctuations
+long grace_period = 50; // ms to avoid poke fluctuations
 
 // speaker
 Tone tone_control_east;
@@ -895,10 +895,6 @@ void finite_state_machine(){
 
         case CHOICE_STATE:
 
-            // speakers
-            digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker
-            digitalWrite(SPEAKER_EAST_PIN, 1); // turn off west speaker
-
             // state entry
             if (current_state != last_state){
                 state_entry_common();
@@ -926,6 +922,8 @@ void finite_state_machine(){
                     }
 
                     reward_cue();
+                    log_code(TRIAL_SUCCESSFUL_EVENT);
+                    log_code(CHOICE_CORRECT_EVENT);
                     log_code(CHOICE_EVENT);
                     log_choice();
                     current_state = REWARD_STATE;
