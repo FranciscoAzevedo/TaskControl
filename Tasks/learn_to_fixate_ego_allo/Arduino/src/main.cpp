@@ -732,8 +732,8 @@ void finite_state_machine(){
 
                 // safeguard for mistakes
                 if (this_ITI_dur < 0){
-                    log_msg("ITI is negative, setting to 2000 ms");
-                    this_ITI_dur = 2000;
+                    log_msg("ITI is negative, setting to 5000 ms");
+                    this_ITI_dur = 5000;
                 }
                 
                 log_int("iti_dur", this_ITI_dur);
