@@ -106,6 +106,10 @@ void processSerialData() {
             log_ulong("choice_dur", choice_dur);
         }
 
+        if (strcmp(varname,"t_init_max")==0){
+            log_ulong("t_init_max", t_init_max);
+        }
+
         if (strcmp(varname,"mean_fix_dur")==0){
             log_ulong("mean_fix_dur", mean_fix_dur);
         }
@@ -170,6 +174,10 @@ void processSerialData() {
 
         if (strcmp(varname,"choice_dur")==0){
             choice_dur = strtoul(varvalue,NULL,10);
+        }
+
+        if (strcmp(varname,"t_init_max")==0){
+            t_init_max = strtoul(varvalue,NULL,10);
         }
 
         if (strcmp(varname,"mean_fix_dur")==0){
