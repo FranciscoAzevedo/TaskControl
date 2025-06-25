@@ -533,6 +533,10 @@ void finite_state_machine(){
 
                     // cue
                     incorrect_choice_cue();
+
+                    // udpate leds
+                    ClearNeopixel(pokesNeopixel[0]);
+                    ClearNeopixel(pokesNeopixel[1]);
                     current_state = ITI_STATE;
                     break;
                 }
