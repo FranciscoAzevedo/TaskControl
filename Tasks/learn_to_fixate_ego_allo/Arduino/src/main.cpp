@@ -665,6 +665,8 @@ void finite_state_machine(){
                 ClearNeopixel(pokesNeopixel[3]);
                 
                 reward_cue();
+                log_code(TRIAL_SUCCESSFUL_EVENT);
+                log_code(CHOICE_CORRECT_EVENT);
                 log_code(CHOICE_EVENT);
                 log_choice();
                 current_state = REWARD_STATE;
