@@ -614,7 +614,7 @@ void finite_state_machine(){
                     log_int("sigma_fix", sigma_fix);
                     
                     log_code(INIT_POKEOUT_EVENT);
-                    log_code(TRIAL_BROKEN_EVENT);
+                    log_code(BROKEN_FIXATION_EVENT);
                     log_code(TRIAL_UNSUCCESSFUL_EVENT);
                     incorrect_choice_cue();
                     
