@@ -47,7 +47,7 @@ unsigned int TRIAL_AVAILABLE_EVENT = 26;
 unsigned int TRIAL_ENTRY_EVENT = 27;
 unsigned int TRIAL_ENTRY_NORTH_EVENT = 28;
 unsigned int TRIAL_ENTRY_SOUTH_EVENT = 29;
-unsigned int TRIAL_BROKEN_EVENT = 30;
+unsigned int BROKEN_FIXATION_EVENT = 30;
 unsigned int TRIAL_SUCCESSFUL_EVENT = 31;
 unsigned int TRIAL_UNSUCCESSFUL_EVENT = 32;
 
