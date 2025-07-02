@@ -531,9 +531,6 @@ void finite_state_machine(){
                     // timeout, go to ITI
                     log_code(TRIAL_AVAILABLE_TIMEOUT_EVENT);
 
-                    // cue
-                    incorrect_choice_cue();
-
                     // udpate leds
                     ClearNeopixel(pokesNeopixel[0]);
                     ClearNeopixel(pokesNeopixel[1]);

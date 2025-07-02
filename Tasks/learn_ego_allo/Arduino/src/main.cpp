@@ -830,7 +830,7 @@ void finite_state_machine(){
                     t_poke_remain = now();
                 }
 
-                if (is_poking == false && now()-t_poke_remain > grace_period){
+                if (is_poking == false && (now()-t_poke_remain) > grace_period){
                     // trial broken
                     ClearNeopixel(pokesNeopixel[0]);
                     ClearNeopixel(pokesNeopixel[1]);
