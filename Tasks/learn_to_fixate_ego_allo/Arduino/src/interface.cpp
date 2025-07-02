@@ -122,10 +122,6 @@ void processSerialData() {
             log_ulong("dec_fix_dur", dec_fix_dur);
         }
 
-        if (strcmp(varname,"sigma_fix")==0){
-            log_ulong("sigma_fix", sigma_fix);
-        }
-
         if (strcmp(varname,"init_port_blocks")==0){
             log_ulong("init_port_blocks", init_port_blocks);
         }
@@ -190,10 +186,6 @@ void processSerialData() {
 
         if (strcmp(varname,"dec_fix_dur")==0){
             dec_fix_dur = strtoul(varvalue,NULL,10);
-        }
-
-        if (strcmp(varname,"sigma_fix")==0){
-            sigma_fix = strtoul(varvalue,NULL,10);
         }
 
         if (strcmp(varname,"init_port_blocks")==0){

@@ -49,7 +49,7 @@ unsigned long reward_tone_freq = 1750;
 unsigned long reward_valve_dur = 2000; // more than enough for pump to push water
 unsigned long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 70; // Total number of toggles to perform , double of pump steps
-long grace_period = 100; // ms to avoid poke fluctuations
+unsigned long grace_period = 50; // ms to avoid poke fluctuations
 
 // speaker
 Tone tone_control_east;
@@ -422,7 +422,7 @@ int sample_interval(float mean, float sigma){
 unsigned long this_interval;
 
 void set_interval(){
-    this_interval = sample_interval(mean_fix_dur, sigma_fix); 
+    this_interval = sample_interval(mean_fix_dur, 1); 
 }
 
 void get_trial_type(){
@@ -605,10 +605,10 @@ void finite_state_machine(){
                     ClearNeopixel(pokesNeopixel[1]);
 
                     mean_fix_dur = mean_fix_dur - dec_fix_dur;
-                    sigma_fix = sigma_fix - dec_fix_dur*0.2;
+                    // sigma_fix = sigma_fix - dec_fix_dur*0.2;
 
                     log_int("mean_fix_dur", mean_fix_dur);
-                    log_int("sigma_fix", sigma_fix);
+                    // log_int("sigma_fix", sigma_fix);
                     
                     log_code(INIT_POKEOUT_EVENT);
                     log_code(BROKEN_FIXATION_EVENT);
@@ -633,9 +633,9 @@ void finite_state_machine(){
                 ClearNeopixel(pokesNeopixel[1]);
 
                 mean_fix_dur = mean_fix_dur + inc_fix_dur;
-                sigma_fix = sigma_fix + inc_fix_dur*0.25;
+                // sigma_fix = sigma_fix + inc_fix_dur*0.25;
                 log_int("mean_fix_dur", mean_fix_dur);
-                log_int("sigma_fix", sigma_fix);
+                // log_int("sigma_fix", sigma_fix);
 
                 sound_cue();
                 log_code(SECOND_TIMING_CUE_EVENT);

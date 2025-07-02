@@ -8,7 +8,7 @@ __pycache__/*
 local
 old
 Animals
-configs/*
+configs
 *.bonsai.layout
 
 
