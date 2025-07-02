@@ -50,7 +50,7 @@ unsigned long timing_boundary = 1500;
 long reward_valve_dur = 2000; // more than enough for pump
 long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 70; // Total number of toggles to perform , double of pump steps
-long grace_period = 50; // ms to avoid poke fluctuations
+long grace_period = 100; // ms to avoid poke fluctuations
 
 // speaker
 Tone tone_control_east;
@@ -830,7 +830,7 @@ void finite_state_machine(){
                     t_poke_remain = now();
                 }
 
-                if (is_poking == false && now()-t_poke_remain > grace_period){ // 50 ms grace period
+                if (is_poking == false && now()-t_poke_remain > grace_period){
                     // trial broken
                     ClearNeopixel(pokesNeopixel[0]);
                     ClearNeopixel(pokesNeopixel[1]);

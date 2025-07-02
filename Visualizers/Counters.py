@@ -225,7 +225,7 @@ class Timer(QtWidgets.QWidget):
 
         # self-terminate functionality
         Df = pd.DataFrame(
-            [["after (min) ", 90, "int32"]], columns=["name", "value", "dtype"]
+            [["after (min) ", 120, "int32"]], columns=["name", "value", "dtype"]
         )
         self.Terminator = TerminateEdit(self, DataFrame=Df)
         self.Layout.addWidget(self.Terminator)

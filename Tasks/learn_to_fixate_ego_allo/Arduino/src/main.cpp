@@ -49,7 +49,7 @@ unsigned long reward_tone_freq = 1750;
 unsigned long reward_valve_dur = 2000; // more than enough for pump to push water
 unsigned long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 70; // Total number of toggles to perform , double of pump steps
-long grace_period = 50; // ms to avoid poke fluctuations
+long grace_period = 100; // ms to avoid poke fluctuations
 
 // speaker
 Tone tone_control_east;
