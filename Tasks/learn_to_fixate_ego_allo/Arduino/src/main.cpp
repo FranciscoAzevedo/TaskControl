@@ -49,7 +49,7 @@ unsigned long reward_tone_freq = 1750;
 unsigned long reward_valve_dur = 2000; // more than enough for pump to push water
 unsigned long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 70; // Total number of toggles to perform , double of pump steps
-unsigned long grace_period = 150; // ms to avoid poke fluctuations
+unsigned long grace_period = 125; // ms to avoid poke fluctuations
 
 // speaker
 Tone tone_control_east;
@@ -71,7 +71,7 @@ int right = 9;
 int i;
 float r; // for random processes
 long this_ITI_dur;
-int t_poke_remain;
+unsigned long t_poke_remain;
 bool spkrState;
 bool pumpState;
 int choice;
@@ -598,7 +598,7 @@ void finite_state_machine(){
                     t_poke_remain = now();
                 }
 
-                if (is_poking == false && (now()-t_poke_remain) > grace_period){ // 50 ms grace period
+                if (is_poking == false && now()-t_poke_remain > grace_period){ 
 
                     // trial broken
                     ClearNeopixel(pokesNeopixel[0]);
