@@ -245,11 +245,11 @@ void ClearNeopixel(Adafruit_NeoPixel &neopixel) {
 void trial_available_cue(){
     // turn the respective port light ON
     if (init_port == north){
-        SetNeopixelClr(pokesNeopixel[0], whiteColor, halfBrightness);
+        SetNeopixelClr(pokesNeopixel[0], whiteColor, fullBrightness);
         log_code(LIGHT_NORTH_CUE_EVENT);
     }
     else {
-        SetNeopixelClr(pokesNeopixel[1], whiteColor, halfBrightness);
+        SetNeopixelClr(pokesNeopixel[1], whiteColor, fullBrightness);
         log_code(LIGHT_SOUTH_CUE_EVENT);
     }
 }
