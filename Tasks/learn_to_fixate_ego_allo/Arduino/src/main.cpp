@@ -49,7 +49,7 @@ unsigned long reward_tone_freq = 1750;
 unsigned long reward_valve_dur = 2000; // more than enough for pump to push water
 unsigned long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 70; // Total number of toggles to perform , double of pump steps
-unsigned long grace_period = 125; // ms to avoid poke fluctuations
+unsigned long grace_period = 100; // ms to avoid poke fluctuations
 
 // speaker
 Tone tone_control_east;
@@ -409,26 +409,12 @@ void sync_pin_controller(){
    ##    ##     ## #### ##     ## ########       ##       ##    ##        ########
 */
 
-int sample_interval(float mean, float sigma){
-    // Generate a random number from a normal distribution using Box-Muller transform
-
-    float u1 = random(0, 1000) / 1000.0; // uniform random number between 0 and 1
-    float u2 = random(0, 1000) / 1000.0; // another uniform random number between 0 and 1
-    float z = sqrt(-2.0 * log(u1)) * cos(2.0 * 3.14 * u2); // Box-Muller transform
-    float x = mean + z * sigma; // scale and shift to desired mean and standard deviation
-    return round(x);
-} 
-
 unsigned long this_interval;
-
-void set_interval(){
-    this_interval = sample_interval(mean_fix_dur, 1); 
-}
 
 void get_trial_type(){
 
     // now is called to update
-    set_interval();
+    this_interval = mean_fix_dur;
 
     // logging for analysis
     trial_counter++;
@@ -605,10 +591,7 @@ void finite_state_machine(){
                     ClearNeopixel(pokesNeopixel[1]);
 
                     mean_fix_dur = mean_fix_dur - dec_fix_dur;
-                    // sigma_fix = sigma_fix - dec_fix_dur*0.2;
-
                     log_int("mean_fix_dur", mean_fix_dur);
-                    // log_int("sigma_fix", sigma_fix);
                     
                     log_code(INIT_POKEOUT_EVENT);
                     log_code(BROKEN_FIXATION_EVENT);
@@ -633,9 +616,7 @@ void finite_state_machine(){
                 ClearNeopixel(pokesNeopixel[1]);
 
                 mean_fix_dur = mean_fix_dur + inc_fix_dur;
-                // sigma_fix = sigma_fix + inc_fix_dur*0.25;
                 log_int("mean_fix_dur", mean_fix_dur);
-                // log_int("sigma_fix", sigma_fix);
 
                 sound_cue();
                 log_code(SECOND_TIMING_CUE_EVENT);
