@@ -47,10 +47,10 @@ unsigned long reward_tone_freq = 1750;
 unsigned long timing_boundary = 1500;
 
 // Parameters for current pumps and pokes
-long reward_valve_dur = 2000; // more than enough for pump
-long reward_pump_toggle_dur = 3; // ms
+unsigned long reward_valve_dur = 2000; // more than enough for pump
+unsigned long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 70; // Total number of toggles to perform , double of pump steps
-long grace_period = 75; // ms to avoid poke fluctuations
+unsigned long grace_period = 100; // ms to avoid poke fluctuations
 
 // speaker
 Tone tone_control_east;
@@ -526,7 +526,7 @@ void  set_interval(){
 
 void get_trial_type(){
 
-    if use_correction_loops == 1 {
+    if (use_correction_loops == 1){
 
         // determine if enter corr loop
         if (in_corr_loop == false && (west_error_counter >= corr_loop_entry || east_error_counter >= corr_loop_entry)){
@@ -540,7 +540,7 @@ void get_trial_type(){
         }
     }
 
-    if (in_corr_loop == false and prev_trial_broken == false){ // update
+    if (in_corr_loop == false && prev_trial_broken == false){ // update
 
         // update correct movement (ego coordinates)
         r = random(0,1000) / 1000.0;
@@ -804,7 +804,7 @@ void finite_state_machine(){
                 r = random(0,1000) / 1000.0;
                 if (r < p_cued){
                     log_bool("cued_trial", true);
-                    log_code("CUED_TRIAL_EVENT");
+                    log_code(CUED_TRIAL_EVENT);
 
                     if (correct_side == west){
                         go_cue_west();
