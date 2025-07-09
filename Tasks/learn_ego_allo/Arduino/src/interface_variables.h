@@ -11,5 +11,9 @@ unsigned long block_dur_min = 40;
 unsigned long block_dur_max = 80;
 
 // full task
+int use_correction_loops = 0; // 0 means no correction loops, 1 means correction loops are used
+int corr_loop_entry = 3;
+int corr_loop_exit = 0;
+
 int p_cued = 1; // probability of cued trial - 1 means 100% cued, 0 means 0% cued
 int no_intervals = 1; // 1 means easiest, 3 means whole set - only applies to steady state

@@ -50,7 +50,7 @@ unsigned long timing_boundary = 1500;
 long reward_valve_dur = 2000; // more than enough for pump
 long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 70; // Total number of toggles to perform , double of pump steps
-long grace_period = 100; // ms to avoid poke fluctuations
+long grace_period = 75; // ms to avoid poke fluctuations
 
 // speaker
 Tone tone_control_east;
@@ -93,8 +93,6 @@ int current_init_block_counter = 0;
 
 // corr loops TODO: adapt for stim specific instead of side
 bool in_corr_loop = false;
-int corr_loop_entry = 3;
-int corr_loop_exit = 2;
 int west_error_counter = 0;
 int east_error_counter = 0;
 int succ_trial_counter = 0;
@@ -528,15 +526,18 @@ void  set_interval(){
 
 void get_trial_type(){
 
-    // determine if enter corr loop
-    if (in_corr_loop == false && (west_error_counter >= corr_loop_entry || east_error_counter >= corr_loop_entry)){
-        in_corr_loop = true;
-        log_bool("in_corr_loop", in_corr_loop);
-    }
-    // determine if exit corr loop
-    else if (in_corr_loop == true && succ_trial_counter >= corr_loop_exit){
-        in_corr_loop = false;
-        log_bool("in_corr_loop", in_corr_loop);
+    if use_correction_loops == 1 {
+
+        // determine if enter corr loop
+        if (in_corr_loop == false && (west_error_counter >= corr_loop_entry || east_error_counter >= corr_loop_entry)){
+            in_corr_loop = true;
+            log_bool("in_corr_loop", in_corr_loop);
+        }
+        // determine if exit corr loop
+        else if (in_corr_loop == true && succ_trial_counter >= corr_loop_exit){
+            in_corr_loop = false;
+            log_bool("in_corr_loop", in_corr_loop);
+        }
     }
 
     if (in_corr_loop == false and prev_trial_broken == false){ // update
@@ -801,7 +802,7 @@ void finite_state_machine(){
 
                 // flip a coin for cued trial
                 r = random(0,1000) / 1000.0;
-                if (r > p_cued){
+                if (r < p_cued){
                     log_bool("cued_trial", true);
                     log_code("CUED_TRIAL_EVENT");
 
@@ -840,15 +841,16 @@ void finite_state_machine(){
 
                 // correct choices
                 if ((is_poking_west == true && correct_side == west) || (is_poking_east == true && correct_side == east)) {
-                
-                    succ_trial_counter += 1;
-                    if (correct_side == west){
-                        west_error_counter = 0;
-                    }
+                    
+                    // update CORR LOOP counters
+                    // succ_trial_counter += 1;
+                    // if (correct_side == west){
+                    //     west_error_counter = 0;
+                    // }
 
-                    if (correct_side == east){
-                        east_error_counter = 0;
-                    }
+                    // if (correct_side == east){
+                    //     east_error_counter = 0;
+                    // }
 
                     reward_cue();
                     log_code(TRIAL_SUCCESSFUL_EVENT);
@@ -863,18 +865,18 @@ void finite_state_machine(){
                     log_code(CHOICE_INCORRECT_EVENT);
                     log_code(TRIAL_UNSUCCESSFUL_EVENT);
 
-                    // update counters
-                    if (correct_side == west){
-                        west_error_counter += 1;
-                        east_error_counter = 0;
-                    }
-                    if (correct_side == east){
-                        east_error_counter += 1;
-                        west_error_counter = 0;
-                    }
-                    log_int("west_error_counter", west_error_counter);
-                    log_int("east_error_counter", east_error_counter);
-                    succ_trial_counter = 0;
+                    // update CORR LOOP counters
+                    // if (correct_side == west){
+                    //     west_error_counter += 1;
+                    //     east_error_counter = 0;
+                    // }
+                    // if (correct_side == east){
+                    //     east_error_counter += 1;
+                    //     west_error_counter = 0;
+                    // }
+                    // log_int("west_error_counter", west_error_counter);
+                    // log_int("east_error_counter", east_error_counter);
+                    // succ_trial_counter = 0;
                     
                     // cue
                     incorrect_choice_cue();
