@@ -42,8 +42,6 @@ unsigned int WATER_EAST_VALVE_OFF = 21;
 // EVENTS
 
 // trials and outcomes
-unsigned int CUED_TRIAL_EVENT = 25;
-
 unsigned int TRIAL_AVAILABLE_EVENT = 26;
 unsigned int TRIAL_ENTRY_EVENT = 27;
 unsigned int TRIAL_ENTRY_NORTH_EVENT = 28;

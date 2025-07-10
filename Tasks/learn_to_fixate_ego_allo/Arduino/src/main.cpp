@@ -499,7 +499,7 @@ void finite_state_machine(){
                             init_port = north;
                         }
                         // reset counter and sample new duration
-                        log_bool("init_port", init_port);
+                        log_int("init_port", init_port);
                         current_init_block_counter = 0;
                         this_init_block_dur = (unsigned long) random(port_dur_min, port_dur_max);
                         log_int("this_init_block_dur", this_init_block_dur);

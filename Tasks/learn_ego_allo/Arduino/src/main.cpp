@@ -531,12 +531,12 @@ void get_trial_type(){
         // determine if enter corr loop
         if (in_corr_loop == false && (west_error_counter >= corr_loop_entry || east_error_counter >= corr_loop_entry)){
             in_corr_loop = true;
-            log_bool("in_corr_loop", in_corr_loop);
+            log_int("in_corr_loop", (int) in_corr_loop);
         }
         // determine if exit corr loop
         else if (in_corr_loop == true && succ_trial_counter >= corr_loop_exit){
             in_corr_loop = false;
-            log_bool("in_corr_loop", in_corr_loop);
+            log_int("in_corr_loop", (int) in_corr_loop);
         }
     }
 
@@ -563,6 +563,7 @@ void get_trial_type(){
     log_ulong("this_interval", this_interval);
     log_int("correct_movement", correct_movement);
     log_int("correct_side", correct_side);
+    log_int("is_ego_context", (int) is_ego_context);
 }
 
 void log_choice(){
@@ -649,7 +650,7 @@ void finite_state_machine(){
                         is_ego_context = true;
                     }
                     // reset counter and sample new duration
-                    log_bool("is_ego_context", is_ego_context);
+                    log_int("is_ego_context", (int) is_ego_context);
                     current_context_counter = 0;
                     this_context_dur = (unsigned long) random(block_dur_min, block_dur_max);
                     log_int("this_context_dur", this_context_dur);
@@ -679,7 +680,7 @@ void finite_state_machine(){
                             init_port = north;
                         }
                         // reset counter and sample new duration
-                        log_bool("init_port", init_port);
+                        log_int("init_port", init_port);
                         current_init_block_counter = 0;
                         this_init_block_dur = (unsigned long) random(port_dur_min, port_dur_max);
                         log_int("this_init_block_dur", this_init_block_dur);
@@ -803,8 +804,7 @@ void finite_state_machine(){
                 // flip a coin for cued trial
                 r = random(0,1000) / 1000.0;
                 if (r < p_cued){
-                    log_bool("cued_trial", true);
-                    log_code(CUED_TRIAL_EVENT);
+                    log_int("cued_trial", (int) true);
 
                     if (correct_side == west){
                         go_cue_west();
