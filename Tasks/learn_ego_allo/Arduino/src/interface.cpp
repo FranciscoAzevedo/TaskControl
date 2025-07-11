@@ -139,7 +139,7 @@ void processSerialData() {
         }
 
         if (strcmp(varname,"p_cued")==0){
-            log_int("p_cued", p_cued);
+            log_float("p_cued", p_cued);
         }
 
         if (strcmp(varname,"no_intervals")==0){
@@ -217,7 +217,7 @@ void processSerialData() {
         }
 
         if (strcmp(varname,"p_cued")==0){
-            p_cued = atoi(varvalue);
+            p_cued = atof(varvalue);
         }
 
         if (strcmp(varname,"no_intervals")==0){
