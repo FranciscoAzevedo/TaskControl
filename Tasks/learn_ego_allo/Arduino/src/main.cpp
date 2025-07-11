@@ -775,12 +775,12 @@ void finite_state_machine(){
                 }
 
                 if (is_poking == false) {
-                    if (now()-t_poke_remain < grace_period){
+                    if (now()-t_poke_remain < grace_period && jittering == false){
                         jittering = true;
                         log_code(JITTER_IN);
                     }
     
-                    else {
+                    else if (now()-t_poke_remain > grace_period) {
                         // trial broken
                         ClearNeopixel(pokesNeopixel[0]);
                         ClearNeopixel(pokesNeopixel[1]);
@@ -902,7 +902,7 @@ void finite_state_machine(){
                     // succ_trial_counter = 0;
                     
                     // cue
-                    timeout_flag == 1;
+                    timeout_flag = 1;
                     incorrect_choice_cue();
                     current_state = ITI_STATE;
                     break;
@@ -997,6 +997,7 @@ void finite_state_machine(){
 
             // exit
             if (now() - t_state_entry > timeout_dur && (is_poking_north == false && is_poking_south == false)){
+                timeout_flag = 0; // reset timeout flag
                 current_state = TRIAL_AVAILABLE_STATE;
                 break;
             }
