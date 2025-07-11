@@ -447,8 +447,8 @@ const int max_no_intervals = 3; // max no. of intervals
 unsigned long short_intervals[max_no_intervals] = {600,1050,1380};
 unsigned long long_intervals[max_no_intervals] = {2400,1950,1620}; // inverse order matters
 
-float p_short_intervals[max_no_intervals] = {1/no_intervals,1/no_intervals,1/no_intervals};
-float p_long_intervals[max_no_intervals] = {1/no_intervals,1/no_intervals,1/no_intervals};
+float p_short_intervals[max_no_intervals] = {1.0/no_intervals,1.0/no_intervals,1.0/no_intervals};
+float p_long_intervals[max_no_intervals] = {1.0/no_intervals,1.0/no_intervals,1.0/no_intervals};
 
 float p_cum;
 
