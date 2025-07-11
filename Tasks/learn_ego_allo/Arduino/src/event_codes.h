@@ -39,6 +39,10 @@ unsigned int WATER_WEST_VALVE_OFF = 19;
 unsigned int WATER_EAST_VALVE_ON = 20;
 unsigned int WATER_EAST_VALVE_OFF = 21;
 
+// jitter
+unsigned int JITTER_IN = 23;
+unsigned int JITTER_OUT = 24;
+
 // EVENTS
 
 // trials and outcomes

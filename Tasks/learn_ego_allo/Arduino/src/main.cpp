@@ -83,6 +83,7 @@ int init_port;
 bool is_ego_context;
 
 int timeout_flag = 0; // 0 = no timeout, 1 = timeout
+bool jittering = false; // whether the animal is jittering or not
 
 // context and port related
 int this_context_dur = 0;
@@ -762,26 +763,42 @@ void finite_state_machine(){
 
             // update
             if (last_state == current_state){
+
                 if (is_poking == true){
                     t_poke_remain = now();
+
+                    // animal managed to recover from jitter
+                    if (jittering == true){
+                        log_code(JITTER_OUT);
+                        jittering = false;
+                    }
                 }
 
-                if (is_poking == false && now()-t_poke_remain > grace_period){
+                if (is_poking == false) {
+                    if (now()-t_poke_remain < grace_period){
+                        jittering = true;
+                        log_code(JITTER_IN);
+                    }
+    
+                    else {
+                        // trial broken
+                        ClearNeopixel(pokesNeopixel[0]);
+                        ClearNeopixel(pokesNeopixel[1]);
 
-                    // trial broken
-                    ClearNeopixel(pokesNeopixel[0]);
-                    ClearNeopixel(pokesNeopixel[1]);
+                        prev_trial_broken = true; // set flag to resample trial type
+                        
+                        log_code(JITTER_OUT);
+                        jittering = false;
 
-                    prev_trial_broken = true; // set flag to resample trial type
-                    
-                    log_code(INIT_POKEOUT_EVENT);
-                    log_code(BROKEN_FIXATION_EVENT);
-                    log_code(TRIAL_UNSUCCESSFUL_EVENT);
-                    incorrect_choice_cue();
-                    
-                    timeout_flag = 1; // set timeout delay to 1, so it goes to timeout state
-                    current_state = ITI_STATE;
-                    break;
+                        log_code(INIT_POKEOUT_EVENT);
+                        log_code(BROKEN_FIXATION_EVENT);
+                        log_code(TRIAL_UNSUCCESSFUL_EVENT);
+                        incorrect_choice_cue();
+                        
+                        timeout_flag = 1; // set timeout delay to 1, so it goes to timeout state
+                        current_state = ITI_STATE;
+                        break;
+                    }
                 }
             }
 
@@ -791,6 +808,11 @@ void finite_state_machine(){
                 // in case the animal pokes out within grace period but is still a valid fixation
                 if (is_poking == false){
                     log_code(INIT_POKEOUT_EVENT);
+
+                    if (jittering == true){
+                        log_code(JITTER_OUT);
+                        jittering = false;
+                    }
                 }
 
                 ClearNeopixel(pokesNeopixel[0]);
@@ -880,8 +902,9 @@ void finite_state_machine(){
                     // succ_trial_counter = 0;
                     
                     // cue
+                    timeout_flag == 1;
                     incorrect_choice_cue();
-                    current_state = TIMEOUT_STATE;
+                    current_state = ITI_STATE;
                     break;
                 }
             }
@@ -952,11 +975,17 @@ void finite_state_machine(){
             }
 
             // exit condition
-            if (timeout_flag == 1){
-                current_state = TIMEOUT_STATE;
-            }
-            else if (now() - t_state_entry > this_ITI_dur) {
-                current_state = TRIAL_AVAILABLE_STATE;
+            if (now() - t_state_entry > this_ITI_dur){ // if ITI is over
+
+                // if broken or incorrect go to timeout
+                if (timeout_flag == 1){ 
+                    current_state = TIMEOUT_STATE;
+                }
+
+                // else check if animal is in the port to initiate a trial
+                else if (is_poking_north == false && is_poking_south == false) {
+                    current_state = TRIAL_AVAILABLE_STATE;
+                }
             }
             break;
 
@@ -967,7 +996,7 @@ void finite_state_machine(){
             }
 
             // exit
-            if (now() - t_state_entry > timeout_dur){
+            if (now() - t_state_entry > timeout_dur && (is_poking_north == false && is_poking_south == false)){
                 current_state = TRIAL_AVAILABLE_STATE;
                 break;
             }
