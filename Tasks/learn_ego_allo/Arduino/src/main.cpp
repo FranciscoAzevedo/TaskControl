@@ -902,8 +902,9 @@ void finite_state_machine(){
                     // succ_trial_counter = 0;
                     
                     // cue
+                    timeout_flag == 1;
                     incorrect_choice_cue();
-                    current_state = TIMEOUT_STATE;
+                    current_state = ITI_STATE;
                     break;
                 }
             }
@@ -974,11 +975,17 @@ void finite_state_machine(){
             }
 
             // exit condition
-            if (timeout_flag == 1){
-                current_state = TIMEOUT_STATE;
-            }
-            else if (now() - t_state_entry > this_ITI_dur && (is_poking_north == false && is_poking_south == false)) {
-                current_state = TRIAL_AVAILABLE_STATE;
+            if (now() - t_state_entry > this_ITI_dur){ // if ITI is over
+
+                // if broken or incorrect go to timeout
+                if (timeout_flag == 1){ 
+                    current_state = TIMEOUT_STATE;
+                }
+
+                // else check if animal is in the port to initiate a trial
+                else if (is_poking_north == false && is_poking_south == false) {
+                    current_state = TRIAL_AVAILABLE_STATE;
+                }
             }
             break;
 
