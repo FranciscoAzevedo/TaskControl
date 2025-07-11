@@ -853,6 +853,8 @@ void finite_state_machine(){
                 state_entry_common();
             }
 
+            // TODO: SMT ABOUT POKEOUT HERE?
+
             // exit conditions
 
             // choice made
