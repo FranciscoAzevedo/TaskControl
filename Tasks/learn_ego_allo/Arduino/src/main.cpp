@@ -480,7 +480,6 @@ unsigned long get_long_interval(){
     return -1;
 }
 
-// WHEN LEARNING ENDS - STEADY STATE
 void  set_interval(){
     // init port -> context -> movement sampled
 
@@ -555,6 +554,7 @@ void get_trial_type(){
     }
     else{
         // if in corr loop or resample broken fixation, trial type is not updated
+        set_interval(); // need to reevaluate anyway due to changes in init_port and context
     }
 
     // logging for analysis
@@ -814,6 +814,7 @@ void finite_state_machine(){
                     }         
                 }
                 else { // uncued
+                    log_int("cued_trial", (int) false);
                     go_cue_west();
                     go_cue_east();
                 }
