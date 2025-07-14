@@ -887,8 +887,10 @@ void finite_state_machine(){
 
                 // incorrect choices
                 if ((correct_side == west && is_poking_east) || (correct_side == east && is_poking_west)){
-                    log_code(CHOICE_INCORRECT_EVENT);
                     log_code(TRIAL_UNSUCCESSFUL_EVENT);
+                    log_code(CHOICE_INCORRECT_EVENT);
+                    log_code(CHOICE_EVENT);
+                    log_choice();
 
                     // update CORR LOOP counters
                     // if (correct_side == west){
