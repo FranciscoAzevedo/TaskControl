@@ -443,15 +443,26 @@ void sync_pin_controller(){
 unsigned long this_interval;
 
 const int max_no_intervals = 3; // max no. of intervals
+float p_short_intervals[max_no_intervals] = {0,0,0}; // probabilities for short intervals
+float p_long_intervals[max_no_intervals] = {0,0,0}; // probabilities for long intervals
 
 // allocate with max_no_intervals, limit with no_intervals
 unsigned long short_intervals[max_no_intervals] = {600,1050,1380};
 unsigned long long_intervals[max_no_intervals] = {2400,1950,1620}; // inverse order matters
 
-float p_short_intervals[max_no_intervals] = {1.0/no_intervals,1.0/no_intervals,1.0/no_intervals};
-float p_long_intervals[max_no_intervals] = {1.0/no_intervals,1.0/no_intervals,1.0/no_intervals};
-
 float p_cum;
+
+void update_interval_probabilities() {
+    for (int i = 0; i < max_no_intervals; i++) {
+        if (i < no_intervals) {
+            p_short_intervals[i] = 1.0 / no_intervals;
+            p_long_intervals[i]  = 1.0 / no_intervals;
+        } else {
+            p_short_intervals[i] = 0;
+            p_long_intervals[i]  = 0;
+        }
+    }
+}
 
 unsigned long get_short_interval(){
     r = random(0,1000) / 1000.0;
@@ -483,6 +494,9 @@ unsigned long get_long_interval(){
 
 void  set_interval(){
     // init port -> context -> movement sampled
+
+    // make sure they're updated
+    update_interval_probabilities();
 
     if (init_port == north){ // no difference between ego and allo on north port
 
