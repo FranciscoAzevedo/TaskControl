@@ -49,7 +49,7 @@ unsigned long reward_tone_freq = 1750;
 unsigned long reward_valve_dur = 2000; // more than enough for pump to push water
 unsigned long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 70; // Total number of toggles to perform , double of pump steps
-unsigned long grace_period = 100; // ms to avoid poke fluctuations
+unsigned long grace_period = 75; // ms to avoid poke fluctuations
 
 // speaker
 Tone tone_control_east;
@@ -80,6 +80,7 @@ int correct_movement;
 int init_port;
 
 int timeout_flag = 0; // 0 = no timeout, 1 = timeout
+bool jittering = false; // whether the animal is jittering or not
 int this_init_block_dur = 0;
 int current_init_block_counter = 0;
 int trial_counter = 0; // trial counter
@@ -582,25 +583,40 @@ void finite_state_machine(){
             if (last_state == current_state){
                 if (is_poking == true){
                     t_poke_remain = now();
+
+                    // animal managed to recover from jitter
+                    if (jittering == true){
+                        log_code(JITTER_OUT);
+                        jittering = false;
+                    }
                 }
 
-                if (is_poking == false && now()-t_poke_remain > grace_period){ 
+                if (is_poking == false) {
+                    if (now()-t_poke_remain < grace_period && jittering == false){
+                        jittering = true;
+                        log_code(JITTER_IN);
+                    }
+    
+                    else if (now()-t_poke_remain > grace_period) {
+                        // trial broken
+                        ClearNeopixel(pokesNeopixel[0]);
+                        ClearNeopixel(pokesNeopixel[1]);
 
-                    // trial broken
-                    ClearNeopixel(pokesNeopixel[0]);
-                    ClearNeopixel(pokesNeopixel[1]);
+                        mean_fix_dur = mean_fix_dur - dec_fix_dur;
+                        log_int("mean_fix_dur", mean_fix_dur);
+                        
+                        log_code(JITTER_OUT);
+                        jittering = false;
 
-                    mean_fix_dur = mean_fix_dur - dec_fix_dur;
-                    log_int("mean_fix_dur", mean_fix_dur);
-                    
-                    log_code(INIT_POKEOUT_EVENT);
-                    log_code(BROKEN_FIXATION_EVENT);
-                    log_code(TRIAL_UNSUCCESSFUL_EVENT);
-                    incorrect_choice_cue();
-                    
-                    timeout_flag = 1; // set timeout delay to 1, so it goes to timeout state
-                    current_state = ITI_STATE;
-                    break;
+                        log_code(INIT_POKEOUT_EVENT);
+                        log_code(BROKEN_FIXATION_EVENT);
+                        log_code(TRIAL_UNSUCCESSFUL_EVENT);
+                        incorrect_choice_cue();
+                        
+                        timeout_flag = 1; // set timeout delay to 1, so it goes to timeout state
+                        current_state = ITI_STATE;
+                        break;
+                    }
                 }
             }
 

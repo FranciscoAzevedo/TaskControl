@@ -50,7 +50,7 @@ unsigned long timing_boundary = 1500;
 unsigned long reward_valve_dur = 2000; // more than enough for pump
 unsigned long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 70; // Total number of toggles to perform , double of pump steps
-unsigned long grace_period = 100; // ms to avoid poke fluctuations
+unsigned long grace_period = 75; // ms to avoid poke fluctuations
 
 // speaker
 Tone tone_control_east;
@@ -867,6 +867,8 @@ void finite_state_machine(){
                 state_entry_common();
             }
 
+            // TODO: SMT ABOUT POKEOUT HERE?
+
             // exit conditions
 
             // choice made
@@ -899,8 +901,10 @@ void finite_state_machine(){
 
                 // incorrect choices
                 if ((correct_side == west && is_poking_east) || (correct_side == east && is_poking_west)){
-                    log_code(CHOICE_INCORRECT_EVENT);
                     log_code(TRIAL_UNSUCCESSFUL_EVENT);
+                    log_code(CHOICE_INCORRECT_EVENT);
+                    log_code(CHOICE_EVENT);
+                    log_choice();
 
                     // update CORR LOOP counters
                     // if (correct_side == west){
