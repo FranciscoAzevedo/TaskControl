@@ -880,48 +880,36 @@ void finite_state_machine(){
 
                 // correct choices
                 if ((is_poking_west == true && correct_side == west) || (is_poking_east == true && correct_side == east)) {
-                    
-                    // update CORR LOOP counters
-                    // succ_trial_counter += 1;
-                    // if (correct_side == west){
-                    //     west_error_counter = 0;
-                    // }
-
-                    // if (correct_side == east){
-                    //     east_error_counter = 0;
-                    // }
 
                     reward_cue();
                     log_code(TRIAL_SUCCESSFUL_EVENT);
                     log_code(CHOICE_CORRECT_EVENT);
                     log_code(CHOICE_EVENT);
                     log_choice();
+
                     current_state = REWARD_STATE;
                 }
 
                 // incorrect choices
                 if ((correct_side == west && is_poking_east) || (correct_side == east && is_poking_west)){
+                    
+                    incorrect_choice_cue();
                     log_code(TRIAL_UNSUCCESSFUL_EVENT);
                     log_code(CHOICE_INCORRECT_EVENT);
                     log_code(CHOICE_EVENT);
                     log_choice();
-
-                    // update CORR LOOP counters
-                    // if (correct_side == west){
-                    //     west_error_counter += 1;
-                    //     east_error_counter = 0;
-                    // }
-                    // if (correct_side == east){
-                    //     east_error_counter += 1;
-                    //     west_error_counter = 0;
-                    // }
-                    // log_int("west_error_counter", west_error_counter);
-                    // log_int("east_error_counter", east_error_counter);
-                    // succ_trial_counter = 0;
-                    
-                    // cue
                     timeout_flag = 1;
-                    incorrect_choice_cue();
+                    
+                    // Interval error counter update for corr loops
+                    for (int i = 0; i < no_intervals; i++) {
+                        if (this_interval == short_intervals[i]) {
+                            short_interval_error_counter[i]++;
+                        }
+                        if (this_interval == long_intervals[i]) {
+                            long_interval_error_counter[i]++;
+                        }
+                    }                    
+
                     current_state = ITI_STATE;
                     break;
                 }
