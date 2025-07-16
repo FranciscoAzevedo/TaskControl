@@ -84,6 +84,7 @@ bool is_ego_context;
 
 int timeout_flag = 0; // 0 = no timeout, 1 = timeout
 bool jittering = false; // whether the animal is jittering or not
+bool init_pokeout_logged = false; // flag to log INIT_POKEOUT_EVENT only once per trial
 
 // context and port related
 int this_context_dur = 0;
@@ -865,9 +866,16 @@ void finite_state_machine(){
             // state entry
             if (current_state != last_state){
                 state_entry_common();
+                init_pokeout_logged = false; // Reset flag on entry
             }
 
-            // TODO: SMT ABOUT POKEOUT HERE?
+            // Detect pokeout - what if the animal does not poke out? mvmt time metric will be Nan
+            if (!init_pokeout_logged && last_state == current_state) {
+                if (is_poking == false) {
+                    log_code(INIT_POKEOUT_EVENT);
+                    init_pokeout_logged = true;
+                }
+            }
 
             // exit conditions
 
