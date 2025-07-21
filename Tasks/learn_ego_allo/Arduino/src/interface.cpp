@@ -134,10 +134,6 @@ void processSerialData() {
             log_int("corr_loop_entry", corr_loop_entry);
         }
 
-        if (strcmp(varname,"corr_loop_exit")==0){
-            log_int("corr_loop_exit", corr_loop_exit);
-        }
-
         if (strcmp(varname,"p_cued")==0){
             log_float("p_cued", p_cued);
         }
@@ -210,10 +206,6 @@ void processSerialData() {
 
         if (strcmp(varname,"corr_loop_entry")==0){
             corr_loop_entry = atoi(varvalue);
-        }
-
-        if (strcmp(varname,"corr_loop_exit")==0){
-            corr_loop_exit = atoi(varvalue);
         }
 
         if (strcmp(varname,"p_cued")==0){

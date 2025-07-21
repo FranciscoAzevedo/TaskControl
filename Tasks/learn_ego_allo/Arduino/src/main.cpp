@@ -81,6 +81,8 @@ int correct_side;
 int correct_movement;
 int init_port;
 bool is_ego_context;
+unsigned long this_interval; // no. of intervals changes session to session, declared in interface_variables
+float p_cum;
 
 int timeout_flag = 0; // 0 = no timeout, 1 = timeout
 bool jittering = false; // whether the animal is jittering or not
@@ -93,11 +95,23 @@ int current_context_counter = 0;
 int this_init_block_dur = 0;
 int current_init_block_counter = 0;
 
-// corr loops TODO: adapt for stim specific instead of side
+
+// timing related
+const int max_no_intervals = 3; // max no. of intervals
+float p_short_intervals[max_no_intervals] = {0,0,0}; // probabilities for short intervals
+float p_long_intervals[max_no_intervals] = {0,0,0}; // probabilities for long intervals
+
+// allocate with max_no_intervals, limit with no_intervals defined in interface_variables
+unsigned long short_intervals[max_no_intervals] = {600,1050,1380};
+unsigned long long_intervals[max_no_intervals] = {2400,1950,1620}; // inverse order matters
+
+// corr loops for stimulus specific
 bool in_corr_loop = false;
-int west_error_counter = 0;
-int east_error_counter = 0;
-int succ_trial_counter = 0;
+int short_interval_error_counter[max_no_intervals] = {0, 0, 0};
+int long_interval_error_counter[max_no_intervals] = {0, 0, 0};
+bool is_short_corr_loop = true; // whether the current corr loop is short or long stim
+int corr_loop_interval_idx = -1; // which interval is being corrected
+
 int trial_counter = 0;
 
 /*
@@ -440,19 +454,6 @@ void sync_pin_controller(){
    ##    ##     ## #### ##     ## ########       ##       ##    ##        ########
 */
 
-// no. of intervals can change session to session, declared in interface_variables
-unsigned long this_interval;
-
-const int max_no_intervals = 3; // max no. of intervals
-float p_short_intervals[max_no_intervals] = {0,0,0}; // probabilities for short intervals
-float p_long_intervals[max_no_intervals] = {0,0,0}; // probabilities for long intervals
-
-// allocate with max_no_intervals, limit with no_intervals
-unsigned long short_intervals[max_no_intervals] = {600,1050,1380};
-unsigned long long_intervals[max_no_intervals] = {2400,1950,1620}; // inverse order matters
-
-float p_cum;
-
 void update_interval_probabilities() {
     for (int i = 0; i < max_no_intervals; i++) {
         if (i < no_intervals) {
@@ -493,7 +494,7 @@ unsigned long get_long_interval(){
     return -1;
 }
 
-void  set_interval(){
+void set_interval(){
     // init port -> context -> movement sampled
 
     // make sure they're updated
@@ -541,21 +542,67 @@ void  set_interval(){
 
 void get_trial_type(){
 
-    if (use_correction_loops == 1){
-
-        // determine if enter corr loop
-        if (in_corr_loop == false && (west_error_counter >= corr_loop_entry || east_error_counter >= corr_loop_entry)){
-            in_corr_loop = true;
-            log_int("in_corr_loop", (int) in_corr_loop);
-        }
-        // determine if exit corr loop
-        else if (in_corr_loop == true && succ_trial_counter >= corr_loop_exit){
-            in_corr_loop = false;
-            log_int("in_corr_loop", (int) in_corr_loop);
+    // Check corr loop entry conditions
+    if (!in_corr_loop) {
+        for (int i = 0; i < no_intervals; i++) {
+            if (short_interval_error_counter[i] >= corr_loop_entry) {
+                in_corr_loop = true;
+                is_short_corr_loop = true;
+                corr_loop_interval_idx = i;
+                log_msg("Corr loop ON for" + (char) short_intervals[i]);
+                break;
+            }
+            if (long_interval_error_counter[i] >= corr_loop_entry) {
+                in_corr_loop = true;
+                is_short_corr_loop = false;
+                corr_loop_interval_idx = i;
+                log_msg("Corr loop ON for" + (char) long_intervals[i]);
+                break;
+            }
         }
     }
 
-    if (in_corr_loop == false && prev_trial_broken == false){ // update
+    // If in corr loop, only sample the interval being corrected
+    if (in_corr_loop) {
+        // short corr loop
+        if (is_short_corr_loop) {
+            this_interval = short_intervals[corr_loop_interval_idx];
+            
+            if (init_port == north) {
+                correct_side = east;
+                correct_movement = right;
+            } 
+            else {
+                if (is_ego_context) {
+                    correct_side = west;
+                    correct_movement = right;
+                } else {
+                    correct_side = east;
+                    correct_movement = left;
+                }
+            }
+        }
+        // long corr loop
+        else {
+            this_interval = long_intervals[corr_loop_interval_idx];
+            if (init_port == north) {
+                correct_side = west;
+                correct_movement = left;
+            } 
+            else {
+                if (is_ego_context) {
+                    correct_side = east;
+                    correct_movement = left;
+                } else {
+                    correct_side = west;
+                    correct_movement = right;
+                }
+            }
+        }
+    }
+
+    // if NOT in corr loop, sample new mvmt and set interval based on that
+    if (in_corr_loop == false && prev_trial_broken == false){
 
         // update correct movement (ego coordinates)
         r = random(0,1000) / 1000.0;
@@ -568,8 +615,8 @@ void get_trial_type(){
 
         set_interval();
     }
-    else{
-        // if in corr loop or resample broken fixation, trial type is not updated
+    else if (in_corr_loop == false && prev_trial_broken == true){
+        // resample broken fixation, trial type is not updated
         set_interval(); // need to reevaluate anyway due to changes in init_port and context
     }
 
@@ -895,6 +942,34 @@ void finite_state_machine(){
                     log_code(CHOICE_EVENT);
                     log_choice();
 
+                    // Interval error counter update for corr loops
+                    for (int i = 0; i < no_intervals; i++) {
+                        if (this_interval == short_intervals[i]) {
+                            if (short_interval_error_counter[i] > 0) {
+                                short_interval_error_counter[i]--;
+
+                                // check to exit corr loop
+                                if(short_interval_error_counter[i] == 0){
+                                    in_corr_loop = false;
+                                    corr_loop_interval_idx = -1; // reset index
+                                    log_msg("Corr loop OFF for" + (char) short_intervals[i]);
+                                }
+                            }
+
+                        }
+                        if (this_interval == long_intervals[i]) {
+                            if (long_interval_error_counter[i] > 0) {
+                                long_interval_error_counter[i]--;
+                                
+                                // check to exit corr loop
+                                if(long_interval_error_counter[i] == 0){
+                                    in_corr_loop = false;
+                                    corr_loop_interval_idx = -1; // reset index
+                                    log_msg("Corr loop OFF for" + (char) long_intervals[i]);
+                                }
+                            }
+                        }
+                    }   
                     current_state = REWARD_STATE;
                 }
 
