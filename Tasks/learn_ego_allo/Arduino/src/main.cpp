@@ -80,7 +80,6 @@ int choice;
 int correct_side;
 int correct_movement;
 int init_port;
-bool is_ego_context;
 unsigned long this_interval; // no. of intervals changes session to session, declared in interface_variables
 float p_cum;
 
@@ -90,6 +89,7 @@ bool init_pokeout_logged = false; // flag to log INIT_POKEOUT_EVENT only once pe
 
 // context and port related
 int this_context_dur = 0;
+bool is_ego_context = false;
 int current_context_counter = 0;
 
 int this_init_block_dur = 0;
@@ -601,8 +601,8 @@ void get_trial_type(){
         }
     }
 
-    // if NOT in corr loop, sample new mvmt and set interval based on that
-    if (in_corr_loop == false && prev_trial_broken == false){
+    // if NOT in corr loop NOR prev broken fix, sample new mvmt and set interval based on that
+    else if (in_corr_loop == false && prev_trial_broken == false){
 
         // update correct movement (ego coordinates)
         r = random(0,1000) / 1000.0;
@@ -615,9 +615,43 @@ void get_trial_type(){
 
         set_interval();
     }
+
+    // if only broken fixation - force trial again (akin to a 1-trial corr loop)
+    // fixes allo blocks being easier
     else if (in_corr_loop == false && prev_trial_broken == true){
-        // resample broken fixation, trial type is not updated
-        set_interval(); // need to reevaluate anyway due to changes in init_port and context
+        
+        // short
+        if (this_interval < 1500) {
+            if (init_port == north) {
+                correct_side = east;
+                correct_movement = right;
+            } 
+            else {
+                if (is_ego_context) {
+                    correct_side = west;
+                    correct_movement = right;
+                } else {
+                    correct_side = east;
+                    correct_movement = left;
+                }
+            }
+        }
+        // long
+        else {
+            if (init_port == north) {
+                correct_side = west;
+                correct_movement = left;
+            } 
+            else {
+                if (is_ego_context) {
+                    correct_side = east;
+                    correct_movement = left;
+                } else {
+                    correct_side = west;
+                    correct_movement = right;
+                }
+            }
+        }
     }
 
     // logging for analysis
