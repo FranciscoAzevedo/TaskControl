@@ -19,10 +19,14 @@ class BonsaiController(QtWidgets.QWidget):
 
     def Run(self, folder):
         """folder is the logging folder"""
-        # animal = self.sys_config['current']['animal']
+        animal = self.sys_config['current']['animal']
         task = self.sys_config["current"]["task"]
         task_folder = Path(self.sys_config["paths"]["tasks_folder"]) / task
+        partial_path = Path(folder)
+
         save_path = folder / "bonsai_"  # this needs to be fixed in bonsai # FIXME TODO
+        print(type(save_path))
+        #save_path = 'D://Animals/' + animal + '/' # HOTFIX FOR LATTE PANDA SHORT MEMORY
 
         # constructing the bonsai exe string
         parameters = '-p:save_path="' + str(save_path) + '"'

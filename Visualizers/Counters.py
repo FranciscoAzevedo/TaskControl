@@ -33,8 +33,8 @@ class OutcomeCounter(QtWidgets.QWidget):
 
         # to be removed hardcodes
         self.outcomes = outcomes
-        self.outcomes = ["correct", "incorrect", "missed", "premature"]
-        self.split_by = ["left", "right"]
+        self.outcomes = ["correct", "incorrect", "missed", "broken"]
+        self.split_by = ["left", "right",'east','west']
 
         # init data
         self.data = np.zeros(
