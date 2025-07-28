@@ -89,7 +89,7 @@ bool init_pokeout_logged = false; // flag to log INIT_POKEOUT_EVENT only once pe
 
 // context and port related
 int this_context_dur = 0;
-bool is_ego_context = false;
+bool is_ego_context;
 int current_context_counter = 0;
 
 int this_init_block_dur = 0;

@@ -1,6 +1,7 @@
 from PyQt5 import QtWidgets
 import subprocess
 from pathlib import Path
+import os
 
 import logging
 
@@ -19,14 +20,14 @@ class BonsaiController(QtWidgets.QWidget):
 
     def Run(self, folder):
         """folder is the logging folder"""
- 
+
         task = self.sys_config["current"]["task"]
         task_folder = Path(self.sys_config["paths"]["tasks_folder"]) / task
-        path_parts = folder.parts
+        path_parts = Path(folder).parts
 
         # hotfix due to lattepanda limited memory
-        save_path = 'D:' / path_parts[-3] / path_parts[-2] / path_parts[-1]
-        #save_path = folder / "bonsai_"  # this needs to be fixed in bonsai # FIXME TOD
+        save_path = Path('D:') / path_parts[-3] / path_parts[-2] / path_parts[-1] / Path('bonsai_')
+        os.makedirs(save_path.parent)
 
         # constructing the bonsai exe string
         parameters = '-p:save_path="' + str(save_path) + '"'
