@@ -80,7 +80,6 @@ int choice;
 int correct_side;
 int correct_movement;
 int init_port;
-bool is_ego_context;
 unsigned long this_interval; // no. of intervals changes session to session, declared in interface_variables
 float p_cum;
 
@@ -90,6 +89,7 @@ bool init_pokeout_logged = false; // flag to log INIT_POKEOUT_EVENT only once pe
 
 // context and port related
 int this_context_dur = 0;
+bool is_ego_context = false;
 int current_context_counter = 0;
 
 int this_init_block_dur = 0;
