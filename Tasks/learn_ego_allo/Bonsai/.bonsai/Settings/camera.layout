@@ -1,2 +1,18 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<VisualizerLayout Version="2.9.0" />
+<VisualizerLayout Version="2.9.0">
+  <WindowSettings Index="18">
+    <Visible>false</Visible>
+    <Location>
+      <X>130</X>
+      <Y>130</Y>
+    </Location>
+    <Size>
+      <Width>336</Width>
+      <Height>65</Height>
+    </Size>
+    <VisualizerTypeName>Bonsai.Design.ObjectTextVisualizer</VisualizerTypeName>
+    <VisualizerSettings>
+      <ObjectTextVisualizer />
+    </VisualizerSettings>
+  </WindowSettings>
+</VisualizerLayout>
