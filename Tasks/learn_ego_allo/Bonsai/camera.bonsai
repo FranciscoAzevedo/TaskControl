@@ -94,7 +94,7 @@ pipename = '\\\\.\\pipe\\videotest';
 
 def process(value):
   path = PathHelper.AppendSuffix(value, PathSuffix.Timestamp)
-  os.system(r'ffmpeg -y -f -hwaccel qsv rawvideo -vcodec rawvideo -s 1280x1024 -pix_fmt gray  -r 60 -i \\.\pipe\videotest -c:v h264_qsv -preset medium {0}'.format(path))</ipy:Script>
+  os.system(r'ffmpeg -hwaccel qsv -y -f rawvideo -vcodec rawvideo -s 1280x1024 -pix_fmt gray  -r 60 -i \\.\\pipe\\videotest -c:v h264_qsv -preset medium -qp 18 {0}'.format(path))</ipy:Script>
       </Expression>
     </Nodes>
     <Edges>
