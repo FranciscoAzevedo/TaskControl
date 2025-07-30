@@ -884,7 +884,7 @@ void finite_state_machine(){
                             jittering = true;
                             log_code(JITTER_IN);
                         }
-                        continue;
+                        break;
                     }
                     else if (now()-t_poke_remain > grace_period) {
                         // trial broken

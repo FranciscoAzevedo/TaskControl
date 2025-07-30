@@ -126,6 +126,10 @@ void processSerialData() {
             log_ulong("block_dur_max", block_dur_max);
         }
 
+        if (strcmp(varname,"blind_eye_ON")==0){
+            log_int("blind_eye_ON", blind_eye_ON);
+        }
+
         if (strcmp(varname,"use_correction_loops")==0){
             log_int("use_correction_loops", use_correction_loops);
         }
@@ -198,6 +202,10 @@ void processSerialData() {
 
         if (strcmp(varname,"block_dur_max")==0){
             block_dur_max = strtoul(varvalue,NULL,10);
+        }
+
+        if (strcmp(varname,"blind_eye_ON")==0){
+            blind_eye_ON = atoi(varvalue);
         }
 
         if (strcmp(varname,"use_correction_loops")==0){
