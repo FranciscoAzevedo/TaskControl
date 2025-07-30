@@ -5,7 +5,7 @@
                  xmlns:spk="clr-namespace:Bonsai.Spinnaker;assembly=Bonsai.Spinnaker"
                  xmlns:io="clr-namespace:Bonsai.IO;assembly=Bonsai.System"
                  xmlns:cv="clr-namespace:Bonsai.Vision;assembly=Bonsai.Vision"
-                 xmlns:p1="clr-namespace:Bonsai.Scripting;assembly=Bonsai.Scripting"
+                 xmlns:ipy="clr-namespace:Bonsai.Scripting.IronPython;assembly=Bonsai.Scripting.IronPython"
                  xmlns="https://bonsai-rx.org/2018/workflow">
   <Workflow>
     <Nodes>
@@ -71,20 +71,29 @@
       <Expression xsi:type="Combinator">
         <Combinator xsi:type="rx:SubscribeWhen" />
       </Expression>
-      <Expression xsi:type="p1:PythonTransform">
-        <p1:Script>import os
+      <Expression xsi:type="SubscribeSubject">
+        <Name>base_name</Name>
+      </Expression>
+      <Expression xsi:type="Add">
+        <Operand xsi:type="StringProperty">
+          <Value>camera.avi</Value>
+        </Operand>
+      </Expression>
+      <Expression xsi:type="Combinator">
+        <Combinator xsi:type="rx:WithLatestFrom" />
+      </Expression>
+      <Expression xsi:type="MemberSelector">
+        <Selector>Item2</Selector>
+      </Expression>
+      <Expression xsi:type="ipy:PythonTransform">
+        <ipy:Script>import os
 import clr
 clr.AddReference("Bonsai.System")
 from Bonsai.IO import PathHelper, PathSuffix
 
-pipename = '\\\\.\\pipe\\videotest';
-
 def process(value):
-  path = os.getcwd() + os.path.sep + PathHelper.AppendSuffix(value, PathSuffix.Timestamp)
-  os.system(r'ffmpeg -y -f rawvideo -vcodec rawvideo -s 2048x420 -pix_fmt gray  -r 400 -i \\.\pipe\videotest -c:v h264_nvenc -preset fast -vb 20M {0}'.format(path))</p1:Script>
-      </Expression>
-      <Expression xsi:type="SubscribeSubject">
-        <Name>base_name</Name>
+  path = PathHelper.AppendSuffix(value, PathSuffix.Timestamp)
+  os.system(r'ffmpeg -hwaccel qsv -hwaccel_output_format qsv -y -f rawvideo -vcodec rawvideo -s 1280x1024 -pix_fmt gray  -r 60 -i \\.\\pipe\\videotest -c:v h264_qsv -preset medium {0}'.format(path))</ipy:Script>
       </Expression>
     </Nodes>
     <Edges>
@@ -100,6 +109,11 @@ def process(value):
       <Edge From="9" To="10" Label="Source1" />
       <Edge From="9" To="11" Label="Source1" />
       <Edge From="12" To="13" Label="Source1" />
+      <Edge From="13" To="16" Label="Source1" />
+      <Edge From="14" To="15" Label="Source1" />
+      <Edge From="15" To="16" Label="Source2" />
+      <Edge From="16" To="17" Label="Source1" />
+      <Edge From="17" To="18" Label="Source1" />
     </Edges>
   </Workflow>
 </WorkflowBuilder>
