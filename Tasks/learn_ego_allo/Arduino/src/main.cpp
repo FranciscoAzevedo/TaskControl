@@ -95,6 +95,8 @@ int current_context_counter = 0;
 int this_init_block_dur = 0;
 int current_init_block_counter = 0;
 
+// dealing with broken fixations
+unsigned long blind_eye_period = 300;
 
 // timing related
 const int max_no_intervals = 3; // max no. of intervals
@@ -875,7 +877,15 @@ void finite_state_machine(){
                         jittering = true;
                         log_code(JITTER_IN);
                     }
-    
+                    
+                    // only safeguards breaks <300ms that finish before 350ms
+                    if (blind_eye_ON == true && now()-t_poke_remain < blind_eye_period && now()-t_state_entry<350){
+                        if (jittering == false){
+                            jittering = true;
+                            log_code(JITTER_IN);
+                        }
+                        continue;
+                    }
                     else if (now()-t_poke_remain > grace_period) {
                         // trial broken
                         ClearNeopixel(pokesNeopixel[0]);
