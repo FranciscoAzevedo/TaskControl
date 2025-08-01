@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<WorkflowBuilder Version="2.9.0"
+<WorkflowBuilder Version="2.8.5"
                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                  xmlns:rx="clr-namespace:Bonsai.Reactive;assembly=Bonsai.Core"
                  xmlns:spk="clr-namespace:Bonsai.Spinnaker;assembly=Bonsai.Spinnaker"
@@ -14,7 +14,7 @@
       </Expression>
       <Expression xsi:type="Combinator">
         <Combinator xsi:type="StringProperty">
-          <Value>C:\Users\LattePanda\TaskControl\Animals\B\2025-07-16_13-07-42_learn_ego_allo\bonsai_</Value>
+          <Value>D:Animals\B\2025-07-31_12-58-30_learn_ego_allo\bonsai_</Value>
         </Combinator>
       </Expression>
       <Expression xsi:type="rx:ReplaySubject">
@@ -44,7 +44,7 @@
         <Selector>ChunkData.LineStatusAll,ChunkData.FrameID,ChunkData.Timestamp</Selector>
       </Expression>
       <Expression xsi:type="io:CsvWriter">
-        <io:FileName>C:\Users\LattePanda\TaskControl\Animals\B\2025-07-16_13-07-42_learn_ego_allo\bonsai_frame_stamps.csv</io:FileName>
+        <io:FileName>D:Animals\B\2025-07-31_12-58-30_learn_ego_allo\bonsai_frame_stamps.csv</io:FileName>
         <io:Append>false</io:Append>
         <io:Overwrite>true</io:Overwrite>
         <io:Suffix>None</io:Suffix>
@@ -54,11 +54,16 @@
         <Selector>Image</Selector>
       </Expression>
       <Expression xsi:type="Combinator">
-        <Combinator xsi:type="cv:ImageWriter">
-          <cv:Path>\\.\pipe\videotest</cv:Path>
-          <cv:Suffix>None</cv:Suffix>
-          <cv:Overwrite>false</cv:Overwrite>
-        </Combinator>
+        <Combinator xsi:type="cv:Grayscale" />
+      </Expression>
+      <Expression xsi:type="Disable">
+        <Builder xsi:type="Combinator">
+          <Combinator xsi:type="cv:ImageWriter">
+            <cv:Path>\\.\pipe\videotest</cv:Path>
+            <cv:Suffix>None</cv:Suffix>
+            <cv:Overwrite>false</cv:Overwrite>
+          </Combinator>
+        </Builder>
       </Expression>
       <Expression xsi:type="rx:PublishSubject">
         <Name>CameraView</Name>
@@ -66,6 +71,7 @@
       <Expression xsi:type="Combinator">
         <Combinator xsi:type="rx:Timer">
           <rx:DueTime>PT0S</rx:DueTime>
+          <rx:Period>PT0S</rx:Period>
         </Combinator>
       </Expression>
       <Expression xsi:type="Combinator">
@@ -85,15 +91,17 @@
       <Expression xsi:type="MemberSelector">
         <Selector>Item2</Selector>
       </Expression>
-      <Expression xsi:type="ipy:PythonTransform">
-        <ipy:Script>import os
+      <Expression xsi:type="Disable">
+        <Builder xsi:type="ipy:PythonTransform">
+          <ipy:Script>import os
 import clr
 clr.AddReference("Bonsai.System")
 from Bonsai.IO import PathHelper, PathSuffix
 
 def process(value):
   path = PathHelper.AppendSuffix(value, PathSuffix.Timestamp)
-  os.system(r'ffmpeg -hwaccel qsv -hwaccel_output_format qsv -y -f rawvideo -vcodec rawvideo -s 1280x1024 -pix_fmt gray  -r 60 -i \\.\\pipe\\videotest -c:v h264_qsv -preset medium {0}'.format(path))</ipy:Script>
+  os.system(r'ffmpeg -hwaccel qsv -hwaccel_output_format qsv -y -f rawvideo -vcodec rawvideo -s 1280x1024 -pix_fmt gray -r 60 -i \\.\\pipe\\videotest -c:v h264_qsv -preset medium {0}'.format(path))</ipy:Script>
+        </Builder>
       </Expression>
     </Nodes>
     <Edges>
@@ -104,16 +112,17 @@ def process(value):
       <Edge From="5" To="8" Label="Source1" />
       <Edge From="6" To="7" Label="Source1" />
       <Edge From="6" To="9" Label="Source1" />
-      <Edge From="6" To="13" Label="Source2" />
+      <Edge From="6" To="14" Label="Source2" />
       <Edge From="7" To="8" Label="Source2" />
       <Edge From="9" To="10" Label="Source1" />
-      <Edge From="9" To="11" Label="Source1" />
-      <Edge From="12" To="13" Label="Source1" />
-      <Edge From="13" To="16" Label="Source1" />
-      <Edge From="14" To="15" Label="Source1" />
-      <Edge From="15" To="16" Label="Source2" />
-      <Edge From="16" To="17" Label="Source1" />
+      <Edge From="10" To="11" Label="Source1" />
+      <Edge From="10" To="12" Label="Source1" />
+      <Edge From="13" To="14" Label="Source1" />
+      <Edge From="14" To="17" Label="Source1" />
+      <Edge From="15" To="16" Label="Source1" />
+      <Edge From="16" To="17" Label="Source2" />
       <Edge From="17" To="18" Label="Source1" />
+      <Edge From="18" To="19" Label="Source1" />
     </Edges>
   </Workflow>
 </WorkflowBuilder>
