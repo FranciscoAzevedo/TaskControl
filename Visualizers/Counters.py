@@ -134,7 +134,7 @@ class WaterCounter(QtWidgets.QWidget):
 
         # self terminate
         Df = pd.DataFrame(
-            [["after (ul) ", 7500, "int32"]], columns=["name", "value", "dtype"]
+            [["after (ul) ", 12500, "int32"]], columns=["name", "value", "dtype"]
         )
 
         self.Terminator = TerminateEdit(self, DataFrame=Df)
