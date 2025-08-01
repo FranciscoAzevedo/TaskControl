@@ -1,5 +1,5 @@
 // Parameters to be controlled across task progression 
-unsigned long ITOI_dur = 9000; // Inter trial ONSET interval - 9s in cooling paper
+unsigned long ITOI_dur = 12000; // Inter trial ONSET interval - 9s in cooling paper
 unsigned long timeout_dur = 10000; // from cooling paper
 unsigned long choice_dur = 8000;
 
@@ -7,8 +7,8 @@ unsigned long init_port_blocks = 0; // 0-false, 1-true
 unsigned long port_dur_min = 15;
 unsigned long port_dur_max = 30;
 
-unsigned long block_dur_min = 40;
-unsigned long block_dur_max = 60;
+unsigned long block_dur_min = 80;
+unsigned long block_dur_max = 100;
 
 int blind_eye_ON = 0; // 1 means true - ON
 
