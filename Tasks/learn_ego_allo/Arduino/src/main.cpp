@@ -50,7 +50,7 @@ unsigned long timing_boundary = 1500;
 unsigned long reward_valve_dur = 2000; // more than enough for pump
 unsigned long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 70; // Total number of toggles to perform , double of pump steps
-unsigned long grace_period = 150; // ms to avoid poke fluctuations
+unsigned long grace_period = 110; // ms to avoid poke fluctuations
 
 // speaker
 Tone tone_control_east;
@@ -98,7 +98,7 @@ int this_init_block_dur = 0;
 int current_init_block_counter = 0;
 
 // dealing with broken fixations
-unsigned long blind_eye_period = 300;
+unsigned long blind_eye_period = 150;
 
 // timing related
 const int max_no_intervals = 3; // max no. of intervals
@@ -334,7 +334,7 @@ void punish_tone_controller(){
 
     // for the supposed duration of the error cue
     else if (trigger_punish_tone == true && micros() - error_cue_start < error_cue_dur){
-        punish_tone_ON == true;
+        punish_tone_ON = true;
         spkrState = CoinToss();
 
         digitalWrite(SPEAKER_WEST_PIN, spkrState);
@@ -343,8 +343,8 @@ void punish_tone_controller(){
 
     // put it off at the end
     else if (trigger_punish_tone == true && micros() - error_cue_start > error_cue_dur){
-        trigger_punish_tone == false
-        punish_tone_ON == false;
+        trigger_punish_tone = false;
+        punish_tone_ON = false;
     }
 }
 
@@ -895,8 +895,8 @@ void finite_state_machine(){
                         log_code(JITTER_IN);
                     }
                     
-                    // only safeguards breaks <300ms that finish before 350ms
-                    if (blind_eye_ON == true && now()-t_poke_remain < blind_eye_period && now()-t_state_entry<350){
+                    // only safeguards breaks <150ms that finish before 250ms
+                    if (blind_eye_ON == true && now()-t_poke_remain < blind_eye_period && now()-t_state_entry<250){
                         if (jittering == false){
                             jittering = true;
                             log_code(JITTER_IN);
