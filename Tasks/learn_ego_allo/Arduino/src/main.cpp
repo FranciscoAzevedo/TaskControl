@@ -50,13 +50,13 @@ unsigned long timing_boundary = 1500;
 unsigned long reward_valve_dur = 2000; // more than enough for pump
 unsigned long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 70; // Total number of toggles to perform , double of pump steps
-unsigned long grace_period = 110; // ms to avoid poke fluctuations
+unsigned long grace_period = 150; // ms to avoid poke fluctuations
 
 // speaker
 Tone tone_control_east;
 Tone tone_control_west;
 unsigned long error_cue_start = max_future;
-unsigned long error_cue_dur = tone_dur * 1000; // to save instructions - work in micros
+unsigned long error_cue_dur = 2* tone_dur * 1000; // to save instructions - work in micros
 bool trigger_punish_tone = false; // whether punish tone is active or not
 bool punish_tone_ON = false; // whether the tone is playing or not
 
@@ -329,13 +329,13 @@ void reward_cue(){
 void punish_tone_controller(){
     
     if (trigger_punish_tone == true && punish_tone_ON == false){
+        punish_tone_ON = true;
         error_cue_start = micros();
     }
 
     // for the supposed duration of the error cue
     else if (trigger_punish_tone == true && micros() - error_cue_start < error_cue_dur){
-        punish_tone_ON = true;
-        spkrState = CoinToss();
+        spkrState = random(0,2);
 
         digitalWrite(SPEAKER_WEST_PIN, spkrState);
         digitalWrite(SPEAKER_EAST_PIN, spkrState);
