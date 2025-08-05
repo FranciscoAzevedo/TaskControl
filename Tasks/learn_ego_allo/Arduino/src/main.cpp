@@ -56,7 +56,7 @@ unsigned long grace_period = 150; // ms to avoid poke fluctuations
 Tone tone_control_east;
 Tone tone_control_west;
 unsigned long error_cue_start = max_future;
-unsigned long error_cue_dur = 2* tone_dur * 1000; // to save instructions - work in micros
+unsigned long error_cue_dur = tone_dur * 1000; // to save instructions - work in micros
 bool trigger_punish_tone = false; // whether punish tone is active or not
 bool punish_tone_ON = false; // whether the tone is playing or not
 
