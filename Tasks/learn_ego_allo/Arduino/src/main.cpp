@@ -70,7 +70,7 @@ int east = 6;
 int left = 7;
 int right = 9;
 
-// non-initialized variables
+// misc non-initialized variables
 int i;
 float r; // for random processes
 long this_ITI_dur;
@@ -91,7 +91,7 @@ bool init_pokeout_logged = false; // flag to log INIT_POKEOUT_EVENT only once pe
 
 // context and port related
 int this_context_dur = 0;
-bool is_ego_context;
+bool is_ego_context = rand() & 1;
 int current_context_counter = 0;
 
 int this_init_block_dur = 0;
