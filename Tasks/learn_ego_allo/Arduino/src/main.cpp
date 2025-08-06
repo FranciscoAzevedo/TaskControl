@@ -1061,6 +1061,7 @@ void finite_state_machine(){
                         
             // no choice was made
             if (now() - t_state_entry > choice_dur){
+                
                 // udpate leds
                 ClearNeopixel(pokesNeopixel[2]);
                 ClearNeopixel(pokesNeopixel[3]);
@@ -1068,8 +1069,6 @@ void finite_state_machine(){
                 log_code(CHOICE_MISSED_EVENT);
                 log_code(TRIAL_UNSUCCESSFUL_EVENT);
 
-                // cue
-                trigger_punish_tone = true; // trigger punish tone
                 current_state = ITI_STATE;
                 break;
             }
