@@ -1123,10 +1123,6 @@ void finite_state_machine(){
             // exit condition
             if (now() - t_state_entry > this_ITI_dur){ // if ITI is over
 
-                // speakers
-                digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker
-                digitalWrite(SPEAKER_EAST_PIN, 1); // turn off east speaker
-
                 // if broken or incorrect go to timeout
                 if (timeout_flag == 1){ 
                     current_state = TIMEOUT_STATE;
