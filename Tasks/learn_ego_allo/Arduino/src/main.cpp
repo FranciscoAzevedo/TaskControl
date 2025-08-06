@@ -1155,6 +1155,37 @@ void finite_state_machine(){
     }
 }
 
+/*
+..######..########..######...######..####..#######..##....##....########.##....##.########.
+.##....##.##.......##....##.##....##..##..##.....##.###...##....##.......###...##.##.....##
+.##.......##.......##.......##........##..##.....##.####..##....##.......####..##.##.....##
+..######..######....######...######...##..##.....##.##.##.##....######...##.##.##.##.....##
+.......##.##.............##.......##..##..##.....##.##..####....##.......##..####.##.....##
+.##....##.##.......##....##.##....##..##..##.....##.##...###....##.......##...###.##.....##
+..######..########..######...######..####..#######..##....##....########.##....##.########.
+*/
+
+void lights_off_controller(){
+
+    if (lights_off == true) {
+        // water
+        digitalWrite(REWARD_WEST_VALVE_PIN, LOW);
+        digitalWrite(REWARD_EAST_VALVE_PIN, LOW);
+        digitalWrite(REWARD_PUMP_PIN, LOW);
+
+        // speakers
+        digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker - inverse
+        digitalWrite(SPEAKER_EAST_PIN, 1); // turn off west speaker - inverse
+
+        // BG lights
+        digitalWrite(BCKGND_LIGHTS_PIN, LOW);
+
+        // poke lights
+        for (i = 0; i < NUM_POKES; i++){
+            ClearNeopixel(pokesNeopixel[i]); 
+        }
+    }
+}
 
 /*
 ##     ##    ###    #### ##    ##
@@ -1221,6 +1252,7 @@ void loop() {
     punish_tone_controller();
     reward_valve_controller();
     pump_controller();
+    lights_off_controller(); // turn off everything when session's finished
 
     // sample sensors
     read_pokes();

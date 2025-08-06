@@ -176,6 +176,7 @@ class WaterCounter(QtWidgets.QWidget):
         # check for self terminate
         if self.Terminator.is_enabled:
             if self.current_amount > max_amount:
+                self.send("CMD END") # PACO new for lights off
                 self.parent().Done()
 
     def on_data(self, line):
@@ -270,6 +271,7 @@ class Timer(QtWidgets.QWidget):
             ]
             current_time = dt.seconds / 60
             if current_time >= max_time and max_time > 0:
+                self.send("CMD END") # PACO new for lights off
                 self.parent().Done()
 
     def closeEvent(self, event):
