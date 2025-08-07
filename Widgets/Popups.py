@@ -42,7 +42,7 @@ class RunInfoPopup(QtWidgets.QDialog):
         self.exec()
 
     def done_btn_clicked(self):
-        self.send("CMD END") # PACO new for lights off
+        """ self.send("CMD END") # PACO new for lights off """
         meta = self.parent().Animal.meta
         weight = self.WeigthEditWidget.get_value()
         if "current_weight" not in meta["name"].values:

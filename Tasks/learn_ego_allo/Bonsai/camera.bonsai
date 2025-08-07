@@ -14,7 +14,7 @@
       </Expression>
       <Expression xsi:type="Combinator">
         <Combinator xsi:type="StringProperty">
-          <Value>D:Animals\B\2025-07-31_12-58-30_learn_ego_allo\bonsai_</Value>
+          <Value>D:Animals\B\2025-08-06_11-21-13_learn_ego_allo\bonsai_</Value>
         </Combinator>
       </Expression>
       <Expression xsi:type="rx:ReplaySubject">
@@ -44,7 +44,7 @@
         <Selector>ChunkData.LineStatusAll,ChunkData.FrameID,ChunkData.Timestamp</Selector>
       </Expression>
       <Expression xsi:type="io:CsvWriter">
-        <io:FileName>D:Animals\B\2025-07-31_12-58-30_learn_ego_allo\bonsai_frame_stamps.csv</io:FileName>
+        <io:FileName>D:Animals\B\2025-08-06_11-21-13_learn_ego_allo\bonsai_frame_stamps.csv</io:FileName>
         <io:Append>false</io:Append>
         <io:Overwrite>true</io:Overwrite>
         <io:Suffix>None</io:Suffix>

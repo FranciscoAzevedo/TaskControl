@@ -12,6 +12,7 @@ char buf[numChars];
 bool newData = false;
 bool verbose = true;
 bool run = false;
+bool lights_off = false; // lights off at the end of the session
 bool deliver_reward_west = false;
 bool deliver_reward_east = false;
 bool togglingActive = false;
@@ -37,7 +38,7 @@ void getSerialData() {
     char startMarker = '<';
     char endMarker = '>';
     char rc;
- 
+
     // loop that reads the entire command
     while (Serial.available() > 0 && newData == false) {
         rc = Serial.read();
@@ -272,6 +273,11 @@ void processSerialData() {
                 run = false;
                 Serial.println("<Arduino is halted>");
             }
+
+/*             if (strcmp(CMD,"END")==0){
+                lights_off = true;
+                Serial.println("<Session finished>");
+            } */
 
             if (strcmp(CMD,"w")==0){
                 deliver_reward_west = true;
