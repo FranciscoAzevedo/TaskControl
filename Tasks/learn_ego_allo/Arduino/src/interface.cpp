@@ -274,10 +274,10 @@ void processSerialData() {
                 Serial.println("<Arduino is halted>");
             }
 
-/*             if (strcmp(CMD,"END")==0){
+            if (strcmp(CMD,"END")==0){
                 lights_off = true;
                 Serial.println("<Session finished>");
-            } */
+            }
 
             if (strcmp(CMD,"w")==0){
                 deliver_reward_west = true;
