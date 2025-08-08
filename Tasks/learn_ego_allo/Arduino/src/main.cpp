@@ -1046,10 +1046,10 @@ void finite_state_machine(){
                     
                     // Interval error counter update for corr loops
                     for (int i = 0; i < no_intervals; i++) {
-                        if (this_interval == short_intervals[i]) {
+                        if (this_interval == short_intervals[i] && short_interval_error_counter[i] < 5) {
                             short_interval_error_counter[i]++;
                         }
-                        if (this_interval == long_intervals[i]) {
+                        if (this_interval == long_intervals[i] && long_interval_error_counter[i] < 5) {
                             long_interval_error_counter[i]++;
                         }
                     }                    
