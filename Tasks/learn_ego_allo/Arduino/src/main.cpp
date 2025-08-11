@@ -176,6 +176,8 @@ bool poke_east = false;
 
 bool is_poking = false;
 
+long last_init_port_entry = 0; // to track the last port entry time
+
 void read_pokes(){
     // north
     poke_north = digitalRead(POKE_NORTH_PIN);
@@ -226,6 +228,10 @@ void read_pokes(){
     }
 
     is_poking = (is_poking_north || is_poking_south || is_poking_west || is_poking_east);
+
+    if (is_poking_north == true || is_poking_south == true){
+        last_init_port_entry = now();
+    }
 }
 
 /*
@@ -1127,8 +1133,8 @@ void finite_state_machine(){
                     current_state = TIMEOUT_STATE;
                 }
 
-                // else check if animal is in the port to initiate a trial
-                else if (is_poking_north == false && is_poking_south == false) {
+                // else check if animal was recently in the port
+                else if (now() - last_init_port_entry > 1000) { // one second guard
                     current_state = TRIAL_AVAILABLE_STATE;
                 }
             }
@@ -1141,7 +1147,7 @@ void finite_state_machine(){
             }
 
             // exit
-            if (now() - t_state_entry > timeout_dur && (is_poking_north == false && is_poking_south == false)){
+            if (now() - t_state_entry > timeout_dur && (now() - last_init_port_entry > 1000)){ // one second guard
                 timeout_flag = 0; // reset timeout flag
                 current_state = TRIAL_AVAILABLE_STATE;
                 break;
