@@ -141,14 +141,6 @@ void PinInit(){
     // speakers
     digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker
     digitalWrite(SPEAKER_EAST_PIN, 1); // turn off west speaker
-
-    // lights
-    digitalWrite(BCKGND_LIGHTS_PIN, HIGH); // turn on background lights
-
-    // pokes
-    for (i = 0; i < NUM_POKES; i++){
-        digitalWrite(POKES_PINS[i], LOW); 
-    }
 }
 
 
@@ -1179,7 +1171,7 @@ void lights_off_controller(){
         digitalWrite(SPEAKER_EAST_PIN, 1); // turn off west speaker - inverse
 
         // BG lights
-        digitalWrite(BCKGND_LIGHTS_PIN, LOW);
+        ClearNeopixel(bgNeopixel);
 
         // poke lights
         for (i = 0; i < NUM_POKES; i++){
@@ -1225,7 +1217,7 @@ void setup() {
     pinMode(BCKGND_LIGHTS_PIN,OUTPUT);
     bgNeopixel = Adafruit_NeoPixel(NUM_BCKGND_PIXELS,BCKGND_LIGHTS_PIN,NEO_GRB + NEO_KHZ800);
     bgNeopixel.begin();
-    SetNeopixelClr(bgNeopixel, redColor, fullBrightness); // half brightness red background
+    SetNeopixelClr(bgNeopixel, redColor, fullBrightness); // red background
     bgNeopixel.show();
 
     // ini POKE LEDs 
