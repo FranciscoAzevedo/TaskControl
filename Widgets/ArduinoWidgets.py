@@ -541,9 +541,13 @@ class ArduinoController(QtWidgets.QWidget):
         self.RunBtn.setStyleSheet("background-color: green")
 
     def closeEvent(self, event):
+
         # if serial connection is open, reset arduino and close it
         if hasattr(self.Serial, "connection"):
             if self.Serial.connection.is_open:
+
+                self.Serial.send("CMD END")  # send end command to arduino
+                time.sleep(0.2) # HARDCODED CARE
                 self.Serial.disconnect()
 
         # explicit - should fix windows bug where arduino_log.txt is not written

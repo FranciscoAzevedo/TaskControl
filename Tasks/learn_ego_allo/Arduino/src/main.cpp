@@ -50,7 +50,7 @@ unsigned long timing_boundary = 1500;
 unsigned long reward_valve_dur = 2000; // more than enough for pump
 unsigned long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 70; // Total number of toggles to perform , double of pump steps
-unsigned long grace_period = 125; // ms to avoid poke fluctuations
+unsigned long grace_period = 150; // ms to avoid poke fluctuations
 
 // speaker
 Tone tone_control_east;
@@ -141,14 +141,6 @@ void PinInit(){
     // speakers
     digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker
     digitalWrite(SPEAKER_EAST_PIN, 1); // turn off west speaker
-
-    // lights
-    digitalWrite(BCKGND_LIGHTS_PIN, HIGH); // turn on background lights
-
-    // pokes
-    for (i = 0; i < NUM_POKES; i++){
-        digitalWrite(POKES_PINS[i], LOW); 
-    }
 }
 
 
@@ -175,6 +167,8 @@ bool is_poking_east = false;
 bool poke_east = false;
 
 bool is_poking = false;
+
+long last_init_port_entry = 0; // to track the last port entry time
 
 void read_pokes(){
     // north
@@ -226,6 +220,10 @@ void read_pokes(){
     }
 
     is_poking = (is_poking_north || is_poking_south || is_poking_west || is_poking_east);
+
+    if (is_poking_north == true || is_poking_south == true){
+        last_init_port_entry = now();
+    }
 }
 
 /*
@@ -1046,10 +1044,10 @@ void finite_state_machine(){
                     
                     // Interval error counter update for corr loops
                     for (int i = 0; i < no_intervals; i++) {
-                        if (this_interval == short_intervals[i]) {
+                        if (this_interval == short_intervals[i] && short_interval_error_counter[i] < 5) {
                             short_interval_error_counter[i]++;
                         }
-                        if (this_interval == long_intervals[i]) {
+                        if (this_interval == long_intervals[i] && long_interval_error_counter[i] < 5) {
                             long_interval_error_counter[i]++;
                         }
                     }                    
@@ -1127,8 +1125,8 @@ void finite_state_machine(){
                     current_state = TIMEOUT_STATE;
                 }
 
-                // else check if animal is in the port to initiate a trial
-                else if (is_poking_north == false && is_poking_south == false) {
+                // else check if animal was recently in the port
+                else if (now() - last_init_port_entry > 1000) { // one second guard
                     current_state = TRIAL_AVAILABLE_STATE;
                 }
             }
@@ -1141,7 +1139,7 @@ void finite_state_machine(){
             }
 
             // exit
-            if (now() - t_state_entry > timeout_dur && (is_poking_north == false && is_poking_south == false)){
+            if (now() - t_state_entry > timeout_dur && (now() - last_init_port_entry > 1000)){ // one second guard
                 timeout_flag = 0; // reset timeout flag
                 current_state = TRIAL_AVAILABLE_STATE;
                 break;
@@ -1173,7 +1171,7 @@ void lights_off_controller(){
         digitalWrite(SPEAKER_EAST_PIN, 1); // turn off west speaker - inverse
 
         // BG lights
-        digitalWrite(BCKGND_LIGHTS_PIN, LOW);
+        ClearNeopixel(bgNeopixel);
 
         // poke lights
         for (i = 0; i < NUM_POKES; i++){
@@ -1219,7 +1217,7 @@ void setup() {
     pinMode(BCKGND_LIGHTS_PIN,OUTPUT);
     bgNeopixel = Adafruit_NeoPixel(NUM_BCKGND_PIXELS,BCKGND_LIGHTS_PIN,NEO_GRB + NEO_KHZ800);
     bgNeopixel.begin();
-    SetNeopixelClr(bgNeopixel, redColor, fullBrightness); // half brightness red background
+    SetNeopixelClr(bgNeopixel, redColor, fullBrightness); // red background
     bgNeopixel.show();
 
     // ini POKE LEDs 

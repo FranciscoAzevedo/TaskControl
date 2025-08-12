@@ -242,23 +242,10 @@ class SettingsWidget(QtWidgets.QWidget):
             logger.debug("initializing counter: %s" % Counter.name)
             Counter.init()
 
-    def send(self, command):
-        """sends string command interface to arduino, interface compatible"""
-        if hasattr(self, "connection"):
-            if self.connection.is_open:
-                cmd = "<" + command + ">"
-                # bytestring conversion
-                bytestr = str.encode(cmd)
-                self.connection.write(bytestr)
-        else:
-            # TODO be more explicit what failed to be sent
-            logger.error("%s is not connected" % self.name)
-
     def Done(self):
         """finishing the session"""
         # Flags
         self.is_running = False
-        self.self.send("CMD END")  # send end command to arduino
 
         # UI
         self.DoneBtn.setEnabled(False)
@@ -274,6 +261,8 @@ class SettingsWidget(QtWidgets.QWidget):
         # stop the counters
         for Counter in self.Counters:
             Counter.stop()
+
+        # self.ArduinoController.seria('CMD END')
 
         # stop and take down controllers
         for Controller in self.Controllers:
