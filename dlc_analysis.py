@@ -334,7 +334,7 @@ for i,event in enumerate(events):
 
         # prealloc empty
         D = np.zeros((np.max([ix.shape[0] for ix in inds]),len(inds)))
-        D[:] = sp.nan
+        D[:] = np.nan
 
         # euclid dist
         dists = dlc_utils.calc_dist_bp_point(DlcDf, bp, point, p=0.1, filter=True)

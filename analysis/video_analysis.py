@@ -108,11 +108,11 @@ def calc_bodypart_speed(DlcDf, bodyparts):
         V = sp.sqrt(sp.sum(Vxy**2,axis=1)) # euclid vector norm
         V = V / sp.diff(DlcDf['t'].values) # -> to speed
 
-        V = sp.concatenate([[sp.nan],V]) # pad first to nan (speed undefined)
+        V = sp.concatenate([[np.nan],V]) # pad first to nan (speed undefined)
         DlcDf[(bp,'v')] = V
     return DlcDf
 
-def interpolate_bodypart_pos(DlcDf, bodyparts, p, kind='linear', fill_value=np.NaN):
+def interpolate_bodypart_pos(DlcDf, bodyparts, p, kind='linear', fill_value=np.nan):
     """ interpolates x and y positions for bodyparts where likelihood is below p """
     for bp in tqdm(bodyparts):
         good_inds = DlcDf[bp]['likelihood'].values > p
@@ -260,8 +260,8 @@ ax.axis('off')
 
 # what events to display
 display_events = list(LogDfSlice.name.unique())
-if sp.nan in display_events:
-    display_events.remove(sp.nan)
+if np.nan in display_events:
+    display_events.remove(np.nan)
 
 # image
 ax.set_aspect('equal')
@@ -339,13 +339,13 @@ def update(i):
         if data['likelihood'] > p:
             bp_markers[j].set_data(data['x'], data['y'])
         else:
-            bp_markers[j].set_data(sp.nan, sp.nan)
+            bp_markers[j].set_data(np.nan, np.nan)
     
     # trace
     for j, bp in enumerate(bodyparts):
         i0 = i - n_segments*trace_len
         data = DlcDfSlice[bp].loc[i0:i]
-        data.loc[data['likelihood'] < p] = sp.nan
+        data.loc[data['likelihood'] < p] = np.nan
         data = data[['x','y']].values[::-1,:]
         segments = bp_traces[j].get_segments()
         for k in range(n_segments):

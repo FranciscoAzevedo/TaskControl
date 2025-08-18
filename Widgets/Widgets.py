@@ -262,8 +262,6 @@ class SettingsWidget(QtWidgets.QWidget):
         for Counter in self.Counters:
             Counter.stop()
 
-        # self.ArduinoController.seria('CMD END')
-
         # stop and take down controllers
         for Controller in self.Controllers:
             Controller.close()

@@ -51,7 +51,7 @@ def get_var(
         else:
             var = Df.iloc[0]["value"]
     else:
-        var = np.NaN
+        var = np.nan
 
     name = rename if rename is not None else var_name
     return pd.Series(var, name=name)
@@ -64,7 +64,7 @@ def get_time_between(
         Df = event_slice(TrialDf, event_a, event_b)
         var = Df.iloc[-1]["t"] - Df.iloc[0]["t"]
     else:
-        var = np.NaN
+        var = np.nan
     return pd.Series(var, name=name)
 
 
@@ -80,7 +80,7 @@ def var_is(
         if comp == "is_equal":
             var = True if var == value else False
     else:
-        var = np.NaN
+        var = np.nan
     name = rename if rename is not None else "%s_%s" % (var_name, comp)
     return pd.Series(var, name=name)
 
@@ -180,7 +180,7 @@ def has_premature_reach(TrialDf):
             var = False
     except KeyError:
         # this should take care of incomplete trials
-        var = np.NaN
+        var = np.nan
 
     return pd.Series(var, name=var_name)
 
@@ -194,7 +194,7 @@ def get_chosen_side(TrialDf):
         elif "CHOICE_RIGHT_EVENT" in TrialDf["name"].values:
             var = "right"
     else:
-        var = np.NaN
+        var = np.nan
 
     return pd.Series(var, name=var_name)
 
@@ -208,7 +208,7 @@ def get_chosen_interval(TrialDf):
         elif "CHOICE_LONG_EVENT" in TrialDf["name"].values:
             var = "long"
     else:
-        var = np.NaN
+        var = np.nan
 
     return pd.Series(var, name=var_name)
 
@@ -224,7 +224,7 @@ def get_correct_side(TrialDf):
             var = "right"
 
     except KeyError:
-        var = np.NaN
+        var = np.nan
 
     return pd.Series(var, name=var_name)
 
@@ -241,7 +241,7 @@ def get_interval_category(TrialDf):
             var = "long"
 
     except KeyError:
-        var = np.NaN
+        var = np.nan
 
     return pd.Series(var, name=var_name)
 
@@ -253,7 +253,7 @@ get_interval = partial(get_var, name="this_interval")
 #         Df = TrialDf.groupby('var').get_group(var_name)
 #         var = Df.iloc[0]['value']
 #     except KeyError:
-#         var = np.NaN
+#         var = np.nan
 
 #     return pd.Series(var, name=var_name)
 
@@ -270,7 +270,7 @@ def get_outcome(TrialDf):
     elif "CHOICE_MISSED_EVENT" in TrialDf["name"].values:
         var = "missed"
     else:
-        var = np.NaN
+        var = np.nan
 
     return pd.Series(var, name=var_name)
 
@@ -330,7 +330,7 @@ def get_in_corr_loop(TrialDf):
         Df = TrialDf.groupby("var").get_group(var_name)
         var = Df.iloc[0]["value"].astype("bool")
     except KeyError:
-        var = np.NaN
+        var = np.nan
 
     return pd.Series(var, name=var_name)
 
@@ -341,7 +341,7 @@ def get_timing_trial(TrialDf):
         Df = TrialDf.groupby("var").get_group(var_name)
         var = Df.iloc[0]["value"].astype("bool")
     except KeyError:
-        var = np.NaN
+        var = np.nan
 
     return pd.Series(var, name=var_name)
 
@@ -352,7 +352,7 @@ def get_autodeliver_trial(TrialDf):
         Df = TrialDf.groupby("var").get_group(var_name)
         var = Df.iloc[0]["value"].astype("bool")
     except KeyError:
-        var = np.NaN
+        var = np.nan
 
     return pd.Series(var, name=var_name)
 
@@ -395,7 +395,7 @@ get_init_rt = partial(
 #         Df = event_slice(TrialDf, "TRIAL_AVAILABLE_EVENT", "TRIAL_ENTRY_EVENT")
 #         var = Df.iloc[-1]['t'] - Df.iloc[0]['t']
 #     except IndexError:
-#         var = np.NaN
+#         var = np.nan
 #     return pd.Series(var, name=var_name)
 
 get_premature_rt = partial(
@@ -410,7 +410,7 @@ get_premature_rt = partial(
 #         Df = event_slice(TrialDf, "PRESENT_INTERVAL_STATE", "PREMATURE_CHOICE_EVENT")
 #         var = Df.iloc[-1]['t'] - Df.iloc[0]['t']
 #     except IndexError:
-#         var = np.NaN
+#         var = np.nan
 #     return pd.Series(var, name=var_name)
 
 get_choice_rt = partial(
@@ -422,7 +422,7 @@ get_choice_rt = partial(
 #         Df = event_slice(TrialDf, "CHOICE_STATE", "CHOICE_EVENT")
 #         var = Df.iloc[-1]['t'] - Df.iloc[0]['t']
 #     except IndexError:
-#         var = np.NaN
+#         var = np.nan
 #     return pd.Series(var, name=var_name)
 
 
@@ -435,7 +435,7 @@ def get_reward_collection_rt(TrialDf):
         )
         var = Df.iloc[-1]["t"] - Df.iloc[0]["t"]
     except IndexError:
-        var = np.NaN
+        var = np.nan
     return pd.Series(var, name=var_name)
 
     """
@@ -456,7 +456,7 @@ get_trial_type = partial(get_var, var_name="this_trial_type")
 #         Df = TrialDf.groupby('var').get_group(var_name)
 #         var = Df.iloc[0]['value']
 #     except KeyError:
-#         var = np.NaN
+#         var = np.nan
 
 #     return pd.Series(var, name=var_name)
 
@@ -467,7 +467,7 @@ get_delay = partial(get_var, var_name="this_delay")
 #         Df = TrialDf.groupby('var').get_group(var_name)
 #         var = Df.iloc[0]['value']
 #     except KeyError:
-#         var = np.NaN
+#         var = np.nan
 
 #     return pd.Series(var, name=var_name)
 
@@ -478,7 +478,7 @@ get_reward_magnitude = partial(get_var, var_name="reward_magnitude")
 #         Df = TrialDf.groupby('var').get_group(var_name)
 #         var = Df.iloc[0]['value']
 #     except KeyError:
-#         var = np.NaN
+#         var = np.nan
 
 #     return pd.Series(var, name=var_name)
 
@@ -496,8 +496,8 @@ def get_reward_time(TrialDf):
             Df = TrialDf.groupby("name").get_group(event)
             var = Df.iloc[0]["t"]
         except KeyError:
-            var = np.NaN
+            var = np.nan
     else:
-        var = np.NaN
+        var = np.nan
 
     return pd.Series(var, name=var_name)

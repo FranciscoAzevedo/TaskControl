@@ -223,7 +223,7 @@ def calc_dist_bp_point(DlcDf, bp, point, p=0.99, filter=False):
     if filter is False:
         return D, good_ix
     else:
-        D[~good_ix] = sp.nan
+        D[~good_ix] = np.nan
         return D
 
 
@@ -242,7 +242,7 @@ def calc_dist_bp_bp(DlcDf, bp1, bp2, p=0.99, filter=False):
     if filter is False:
         return d, good_ix
     else:
-        d[~good_ix] = sp.nan
+        d[~good_ix] = np.nan
         return d
 
 
@@ -255,11 +255,11 @@ def get_speed(DlcDf, bp, p=0.99, filter=False):
     V = sp.sqrt(sp.sum(Vxy**2, axis=1))  # euclid vector norm
     V = V / sp.diff(DlcDf["t"].values)  # -> to speed
 
-    V = sp.concatenate([[sp.nan], V])  # pad first to nan (speed undefined)
+    V = sp.concatenate([[np.nan], V])  # pad first to nan (speed undefined)
     good_ix = (DlcDf[bp].likelihood > p).values
 
     if filter is False:
         return V, good_ix
     else:
-        V[~good_ix] = sp.nan
+        V[~good_ix] = np.nan
         return V

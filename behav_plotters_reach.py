@@ -975,10 +975,10 @@ def truncate_pad_vector(arrs, pad_with = None, max_len = None):
         max_len = max(list_len)
 
     if pad_with == None:
-        pad_with = np.NaN
+        pad_with = np.nan
     
     trunc_pad_arr = np.empty((len(arrs), max_len)) 
-    trunc_pad_arr[:] = np.NaN # Initialize with all Nans
+    trunc_pad_arr[:] = np.nan # Initialize with all Nans
 
     for i, arr in enumerate(arrs):
         if len(arr) < max_len:

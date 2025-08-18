@@ -128,7 +128,7 @@ def parse_lines(
     LogDf = LogDf.reset_index(drop=True)
 
     for col in ["name", "var", "value"]:
-        LogDf[col] = np.NaN
+        LogDf[col] = np.nan
 
     # decode
     if code_map is not None:
@@ -136,7 +136,7 @@ def parse_lines(
 
     if decoded:
         LogDf["name"] = LogDf["code"]
-        LogDf["code"] = np.NaN
+        LogDf["code"] = np.nan
 
     if parse_var:
         var_lines = [line.strip() for line in lines if line.startswith("<VAR")]

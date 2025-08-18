@@ -27,7 +27,7 @@ def get_trial_type(TrialDf):
         Df = TrialDf.groupby('var').get_group(var_name)
         var = Df.iloc[0]['value']
     except KeyError:
-        var = np.NaN
+        var = np.nan
 
     return pd.Series(var, name=var_name)
 
@@ -37,7 +37,7 @@ def get_delay(TrialDf):
         Df = TrialDf.groupby('var').get_group(var_name)
         var = Df.iloc[0]['value']
     except KeyError:
-        var = np.NaN
+        var = np.nan
 
     return pd.Series(var, name=var_name)
 
@@ -47,7 +47,7 @@ def get_reward_magnitude(TrialDf):
         Df = TrialDf.groupby('var').get_group(var_name)
         var = Df.iloc[0]['value']
     except KeyError:
-        var = np.NaN
+        var = np.nan
 
     return pd.Series(var, name=var_name)
 

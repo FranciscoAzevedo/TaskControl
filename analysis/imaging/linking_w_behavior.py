@@ -180,7 +180,7 @@ for i,bp in enumerate(tqdm(bodyparts)):
     Vxy = sp.diff(DlcDf[bp][['x','y']].values,axis=0) / DlcDf['t'][:-1].values[:,sp.newaxis]
     V = sp.sqrt(sp.sum(Vxy**2,axis=1)) # euclid vector norm
     V = V / sp.diff(DlcDf['t'].values) # -> to speed
-    V = sp.concatenate([[sp.nan],V]) # pad first to nan (speed undefined)
+    V = sp.concatenate([[np.nan],V]) # pad first to nan (speed undefined)
     DlcDf[(bp,'v')] = V
 
 # %% analysis of too fast movements
@@ -207,7 +207,7 @@ for i,bp in enumerate(tqdm(bodyparts)):
     # Vxy = sp.diff(DlcDf[bp][['x','y']].values,axis=0) / DlcDf['t'][:-1].values[:,sp.newaxis]
     # V = sp.sqrt(sp.sum(Vxy**2,axis=1)) # euclid vector norm
     # V = V / sp.diff(DlcDf['t'].values) # -> to speed
-    # V = sp.concatenate([[sp.nan],V]) # pad first to nan (speed undefined)
+    # V = sp.concatenate([[np.nan],V]) # pad first to nan (speed undefined)
     # DlcDf[(bp,'v')] = V
 
 # %% DLC preprocessing
@@ -873,7 +873,7 @@ SessionDf['exclude'] = False
 #         frame_ix = sp.argmin(sp.absolute(DlcDf['t'].values - t))
 #         SessionDf.loc[i,'paw_resting'] = DlcDf['PAW_L'].loc[frame_ix]['y'] < th
 #     except IndexError:
-#         SessionDf.loc[i,'paw_resting'] = sp.nan
+#         SessionDf.loc[i,'paw_resting'] = np.nan
 """
  
  ########  ##        #######  ######## ######## ######## ########   ######  
@@ -1189,7 +1189,7 @@ def make_annotated_video_cv2(Vid, t_on, t_off, LogDf, DlcDf, fps, outpath):
                       'REWARD_LEFT_EVENT','REWARD_RIGHT_EVENT',
                       'REACH_LEFT_ON', 'REACH_LEFT_OFF', 'REACH_RIGHT_ON', 'REACH_RIGHT_OFF']
 
-    if sp.nan in display_events:
+    if np.nan in display_events:
         display_events.remove(np.nan)
 
     # color setup

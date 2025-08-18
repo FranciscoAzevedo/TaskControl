@@ -265,12 +265,12 @@ for i,log_path in enumerate(log_paths):
     try:
         perc_corr_left.append(len(corr_leftDf)/len(left_trials_with_choiceDf)*100)
     except:
-        perc_corr_left.append(np.NaN)
+        perc_corr_left.append(np.nan)
 
     try:
         perc_corr_right.append(len(corr_rightDf)/len(right_trials_with_choiceDf)*100)
     except:
-        perc_corr_right.append(np.NaN)
+        perc_corr_right.append(np.nan)
 
     perc_correct.append((SessionDf.outcome == 'correct').sum()/len(choiceDf)*100)
 

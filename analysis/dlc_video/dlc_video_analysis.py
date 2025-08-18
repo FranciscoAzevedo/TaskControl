@@ -106,7 +106,7 @@ for i,bp in enumerate(tqdm(bodyparts)):
     Vxy = sp.diff(DlcDf[bp][['x','y']].values,axis=0) / DlcDf['t'][:-1].values[:,sp.newaxis]
     V = sp.sqrt(sp.sum(Vxy**2,axis=1)) # euclid vector norm
     V = V / sp.diff(DlcDf['t'].values) # -> to speed
-    V = sp.concatenate([[sp.nan],V]) # pad first to nan (speed undefined)
+    V = sp.concatenate([[np.nan],V]) # pad first to nan (speed undefined)
     DlcDf[(bp,'v')] = V
 
 # %% analysis of too fast movements
@@ -133,7 +133,7 @@ for i,bp in enumerate(tqdm(bodyparts)):
     # Vxy = sp.diff(DlcDf[bp][['x','y']].values,axis=0) / DlcDf['t'][:-1].values[:,sp.newaxis]
     # V = sp.sqrt(sp.sum(Vxy**2,axis=1)) # euclid vector norm
     # V = V / sp.diff(DlcDf['t'].values) # -> to speed
-    # V = sp.concatenate([[sp.nan],V]) # pad first to nan (speed undefined)
+    # V = sp.concatenate([[np.nan],V]) # pad first to nan (speed undefined)
     # DlcDf[(bp,'v')] = V
 
 # %% DLC preprocessing
@@ -195,7 +195,7 @@ SessionDf['exclude'] = False
 #         frame_ix = sp.argmin(sp.absolute(DlcDf['t'].values - t))
 #         SessionDf.loc[i,'paw_resting'] = DlcDf['PAW_L'].loc[frame_ix]['y'] < th
 #     except IndexError:
-#         SessionDf.loc[i,'paw_resting'] = sp.nan
+#         SessionDf.loc[i,'paw_resting'] = np.nan
 """
  
  ########  ##        #######  ######## ######## ######## ########   ######  
@@ -425,7 +425,7 @@ def make_annotated_video(Vid, t_on, t_off, LogDf, DlcDf, fps=20, save=None):
     # what events to display
     display_events = list(LogDfSlice.name.unique())
     # display_events = ['GO_CUE_SHORT_EVENT', 'GO_CUE_LONG_EVENT', 'CHOICE_CORRECT_EVENT', 'CHOICE_INCORRECT_EVENT', 'REWARD_LEFT_EVENT','REWARD_RIGHT_EVENT', 'REACH_LEFT_ON', 'REACH_LEFT_OFF', 'REACH_RIGHT_ON', 'REACH_RIGHT_OFF']
-    if sp.nan in display_events:
+    if np.nan in display_events:
         display_events.remove(np.nan)
 
     frame_on = DlcDfSlice.index[0]
@@ -525,13 +525,13 @@ def make_annotated_video(Vid, t_on, t_off, LogDf, DlcDf, fps=20, save=None):
             if data['likelihood'] > p:
                 bp_markers[j].set_data(data['x'], data['y'])
             else:
-                bp_markers[j].set_data(sp.nan, sp.nan)
+                bp_markers[j].set_data(np.nan, np.nan)
         
         # trace
         for j, bp in enumerate(bodyparts):
             i0 = i - n_segments*trace_len
             data = DlcDfSlice[bp].loc[i0:i]
-            data.loc[data['likelihood'] < p] = sp.nan
+            data.loc[data['likelihood'] < p] = np.nan
             data = data[['x','y']].values[::-1,:]
             segments = bp_traces[j].get_segments()
             for k in range(n_segments):
@@ -677,7 +677,7 @@ def make_annotated_video_cv2(Vid, t_on, t_off, LogDf, DlcDf, fps, outpath):
     #                     'REWARD_LEFT_EVENT','REWARD_RIGHT_EVENT',
     #                     'REACH_LEFT_ON', 'REACH_LEFT_OFF', 'REACH_RIGHT_ON', 'REACH_RIGHT_OFF']
 
-    # if sp.nan in display_events:
+    # if np.nan in display_events:
     #     display_events.remove(np.nan)
 
     # color setup

@@ -539,12 +539,12 @@ for i,log_path in enumerate(log_paths):
     try:
         left_attempts.append(len(left_trials_missedDf[left_trials_missedDf['any_reach'] == True])/len(MissedDf))
     except:
-        left_attempts.append(np.NaN)
+        left_attempts.append(np.nan)
 
     try:   
         right_attempts.append(len(right_trials_missedDf[right_trials_missedDf['any_reach'] == True])/len(MissedDf))
     except:
-        right_attempts.append(np.NaN)
+        right_attempts.append(np.nan)
 
     corr_leftDf = bhv.groupby_dict(SessionDf, dict(outcome='correct', correct_side='left'))
     left_trials_with_choiceDf = bhv.groupby_dict(SessionDf, dict(has_choice=True, correct_side='left'))
@@ -555,12 +555,12 @@ for i,log_path in enumerate(log_paths):
     try:
         perc_corr_left.append(len(corr_leftDf)/len(left_trials_with_choiceDf)*100)
     except:
-        perc_corr_left.append(np.NaN)
+        perc_corr_left.append(np.nan)
 
     try:
         perc_corr_right.append(len(corr_rightDf)/len(right_trials_with_choiceDf)*100)
     except:
-        perc_corr_right.append(np.NaN)
+        perc_corr_right.append(np.nan)
 
     perc_correct.append((SessionDf.outcome == 'correct').sum()/len(choiceDf)*100)
 
