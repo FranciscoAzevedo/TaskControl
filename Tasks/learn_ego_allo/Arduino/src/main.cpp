@@ -258,7 +258,7 @@ float fullBrightness = 1.0;
 void SetEgoNeopixelClr(Adafruit_NeoPixel &neopixel, Color c, float b) {
     neopixel.clear();
     for (int i = 0; i < neopixel.numPixels(); i++) {
-        if ((i > neopixel.numPixels() / 2 + 2 && i < neopixel.numPixels() - 1) || (i > 1 && i < neopixel.numPixels() / 2)) { // left and right
+        if ((i > neopixel.numPixels() / 2 + 2 && i < neopixel.numPixels() - 1) || (i > 2 && i < (neopixel.numPixels() / 2 -1))) { // left and right
             neopixel.setPixelColor(i, c.getR() * b, c.getG() * b, c.getB() * b);
         }
     }
@@ -269,7 +269,7 @@ void SetEgoNeopixelClr(Adafruit_NeoPixel &neopixel, Color c, float b) {
 void SetAlloNeopixelClr(Adafruit_NeoPixel &neopixel, Color c, float b) {
     neopixel.clear();
     for (int i = 0; i < neopixel.numPixels(); i++) {
-        if ((i > 5 && i < 11) || (i < 3) || (i > 13)) { // up and down
+        if ((i > 6 && i < 11) || (i < 3) || (i > 14)) { // up and down
             neopixel.setPixelColor(i, c.getR() * b, c.getG() * b, c.getB() * b);
         }
     }
@@ -303,22 +303,22 @@ void trial_available_cue(){
     // turn the respective port light ON
     if (init_port == north){
         if(is_ego_context == true){
-            SetNeopixelClr(pokesNeopixel[0], egoColor, fullBrightness);
+            SetEgoNeopixelClr(pokesNeopixel[0], egoColor, fullBrightness);
             log_code(LIGHT_NORTH_CUE_EVENT);
         }
         else {
-            SetNeopixelClr(pokesNeopixel[0], alloColor, fullBrightness);
+            SetAlloNeopixelClr(pokesNeopixel[0], alloColor, fullBrightness);
             log_code(LIGHT_NORTH_CUE_EVENT);
         }
 
     }
     else { // south
         if(is_ego_context == true){
-            SetNeopixelClr(pokesNeopixel[1], egoColor, fullBrightness);
+            SetEgoNeopixelClr(pokesNeopixel[1], egoColor, fullBrightness);
             log_code(LIGHT_SOUTH_CUE_EVENT);
         }
         else {
-            SetNeopixelClr(pokesNeopixel[1], alloColor, fullBrightness);
+            SetAlloNeopixelClr(pokesNeopixel[1], alloColor, fullBrightness);
             log_code(LIGHT_SOUTH_CUE_EVENT);
         }
     }
