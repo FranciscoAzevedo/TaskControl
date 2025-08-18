@@ -91,7 +91,7 @@ bool init_pokeout_logged = false; // flag to log INIT_POKEOUT_EVENT only once pe
 
 // context and port related
 int this_context_dur = 0;
-bool is_ego_context = rand() & 1;
+bool is_ego_context = random(0, 2) & 1; // this hasnt been random...
 int current_context_counter = 0;
 
 int this_init_block_dur = 0;
@@ -254,6 +254,28 @@ float dimBrightness = 0.1;
 float halfBrightness = 0.5;
 float fullBrightness = 1.0;
 
+// ego is Left/Right () pattern
+void SetEgoNeopixelClr(Adafruit_NeoPixel &neopixel, Color c, float b) {
+    neopixel.clear();
+    for (int i = 0; i < neopixel.numPixels(); i++) {
+        if ((i > neopixel.numPixels() / 2 + 2 && i < neopixel.numPixels() - 1) || (i > 1 && i < neopixel.numPixels() / 2)) { // left and right
+            neopixel.setPixelColor(i, c.getR() * b, c.getG() * b, c.getB() * b);
+        }
+    }
+    neopixel.show();
+}
+
+// allo is Up/Down () pattern 
+void SetAlloNeopixelClr(Adafruit_NeoPixel &neopixel, Color c, float b) {
+    neopixel.clear();
+    for (int i = 0; i < neopixel.numPixels(); i++) {
+        if ((i > 5 && i < 11) || (i < 3) || (i > 13)) { // up and down
+            neopixel.setPixelColor(i, c.getR() * b, c.getG() * b, c.getB() * b);
+        }
+    }
+    neopixel.show();
+}
+
 void SetNeopixelClr(Adafruit_NeoPixel &neopixel, Color c, float b) {
     neopixel.clear();
     for (unsigned int i = 0; i < neopixel.numPixels(); i++) {
@@ -303,12 +325,22 @@ void trial_available_cue(){
 }
 
 void go_cue_west(){
-    SetNeopixelClr(pokesNeopixel[2], whiteColor, fullBrightness);
+    if (is_ego_context == true) {
+        SetNeopixelClr(pokesNeopixel[2], egoColor, fullBrightness);
+    }
+    else{
+        SetNeopixelClr(pokesNeopixel[2], alloColor, fullBrightness);
+    }
     log_code(LIGHT_WEST_CUE_EVENT);
 }
 
 void go_cue_east(){
-    SetNeopixelClr(pokesNeopixel[3], whiteColor, fullBrightness);
+    if (is_ego_context == true) {
+        SetNeopixelClr(pokesNeopixel[3], egoColor, fullBrightness);
+    }
+    else{
+        SetNeopixelClr(pokesNeopixel[3], alloColor, fullBrightness);
+    }    
     log_code(LIGHT_EAST_CUE_EVENT);
 }
 
