@@ -844,10 +844,10 @@ void finite_state_machine(){
                 if (init_port == north){
                     if (is_poking_north == true){
                         if (is_ego_context == true){
-                            SetNeopixelClr(pokesNeopixel[0], egoColor, dimBrightness);
+                            SetEgoNeopixelClr(pokesNeopixel[0], egoColor, dimBrightness);
                         }
                         else {
-                            SetNeopixelClr(pokesNeopixel[0], alloColor, dimBrightness);
+                            SetAlloNeopixelClr(pokesNeopixel[0], alloColor, dimBrightness);
                         }
 
                         log_code(TRIAL_ENTRY_NORTH_EVENT);
@@ -858,10 +858,10 @@ void finite_state_machine(){
                 else {
                     if (is_poking_south == true){
                         if (is_ego_context == true){
-                            SetNeopixelClr(pokesNeopixel[1], egoColor, dimBrightness);
+                            SetEgoNeopixelClr(pokesNeopixel[1], egoColor, dimBrightness);
                         }
                         else {
-                            SetNeopixelClr(pokesNeopixel[1], alloColor, dimBrightness);
+                            SetAlloNeopixelClr(pokesNeopixel[1], alloColor, dimBrightness);
                         }
 
                         log_code(TRIAL_ENTRY_SOUTH_EVENT);
