@@ -142,7 +142,7 @@ class TerminateEdit(QtWidgets.QWidget):
 
         # self terminate
         self.selfTerminateCheckBox = QtWidgets.QCheckBox()
-        self.selfTerminateCheckBox.setChecked(True)
+        self.selfTerminateCheckBox.setChecked(False)
         self.is_enabled = True
         self.selfTerminateCheckBox.stateChanged.connect(self.TerminateCheckBoxToggle)
         self.FormLayout.addRow("self terminate", self.selfTerminateCheckBox)
