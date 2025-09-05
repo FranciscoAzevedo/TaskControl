@@ -1045,7 +1045,7 @@ void finite_state_machine(){
                                 if(short_interval_error_counter[i] == 0){
                                     in_corr_loop = false;
                                     corr_loop_interval_idx = -1; // reset index
-                                    log_msg("Corr loop OFF for" + (char) short_intervals[i]);
+                                    log_msg("Corr loop OFF for");
                                     log_int("in_corr_loop", (int) in_corr_loop);
                                 }
                             }
@@ -1059,7 +1059,7 @@ void finite_state_machine(){
                                 if(long_interval_error_counter[i] == 0){
                                     in_corr_loop = false;
                                     corr_loop_interval_idx = -1; // reset index
-                                    log_msg("Corr loop OFF for" + (char) long_intervals[i]);
+                                    log_msg("Corr loop OFF for");
                                     log_int("in_corr_loop", (int) in_corr_loop);
                                 }
                             }
