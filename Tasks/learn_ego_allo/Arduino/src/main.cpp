@@ -49,7 +49,7 @@ unsigned long timing_boundary = 1500;
 // Parameters for current pumps and pokes
 unsigned long reward_valve_dur = 2000; // more than enough for pump
 unsigned long reward_pump_toggle_dur = 3; // ms
-int targetToggles = 74; // Total number of toggles to perform , double of pump steps
+int targetToggles = 71; // Total number of toggles to perform , double of pump steps
 unsigned long grace_period = 200; // ms to avoid poke fluctuations
 
 // speaker
@@ -596,16 +596,18 @@ void get_trial_type(){
         for (int i = 0; i < no_intervals; i++) {
             if (short_interval_error_counter[i] >= corr_loop_entry) {
                 in_corr_loop = true;
+                log_int("in_corr_loop", (int) in_corr_loop);
                 is_short_corr_loop = true;
                 corr_loop_interval_idx = i;
-                log_msg("Corr loop ON for" + (char) short_intervals[i]);
+                log_msg("Corr loop ON");
                 break;
             }
             if (long_interval_error_counter[i] >= corr_loop_entry) {
                 in_corr_loop = true;
+                log_int("in_corr_loop", (int) in_corr_loop);
                 is_short_corr_loop = false;
                 corr_loop_interval_idx = i;
-                log_msg("Corr loop ON for" + (char) long_intervals[i]);
+                log_msg("Corr loop ON");
                 break;
             }
         }
@@ -1044,6 +1046,7 @@ void finite_state_machine(){
                                     in_corr_loop = false;
                                     corr_loop_interval_idx = -1; // reset index
                                     log_msg("Corr loop OFF for" + (char) short_intervals[i]);
+                                    log_int("in_corr_loop", (int) in_corr_loop);
                                 }
                             }
 
@@ -1057,6 +1060,7 @@ void finite_state_machine(){
                                     in_corr_loop = false;
                                     corr_loop_interval_idx = -1; // reset index
                                     log_msg("Corr loop OFF for" + (char) long_intervals[i]);
+                                    log_int("in_corr_loop", (int) in_corr_loop);
                                 }
                             }
                         }
