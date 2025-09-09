@@ -97,9 +97,6 @@ int current_context_counter = 0;
 int this_init_block_dur = 0;
 int current_init_block_counter = 0;
 
-// dealing with broken fixations
-unsigned long blind_eye_period = 150;
-
 // timing related
 const int max_no_intervals = 3; // max no. of intervals
 float p_short_intervals[max_no_intervals] = {0,0,0}; // probabilities for short intervals
@@ -594,7 +591,7 @@ void get_trial_type(){
     // Check corr loop entry conditions
     if (!in_corr_loop) {
         for (int i = 0; i < no_intervals; i++) {
-            if (short_interval_error_counter[i] >= corr_loop_entry) {
+            if (short_interval_error_counter[i] >= corr_loop_entry && use_correction_loops == 1) {
                 in_corr_loop = true;
                 log_int("in_corr_loop", (int) in_corr_loop);
                 is_short_corr_loop = true;
@@ -602,7 +599,7 @@ void get_trial_type(){
                 log_msg("Corr loop ON");
                 break;
             }
-            if (long_interval_error_counter[i] >= corr_loop_entry) {
+            if (long_interval_error_counter[i] >= corr_loop_entry && use_correction_loops == 1) {
                 in_corr_loop = true;
                 log_int("in_corr_loop", (int) in_corr_loop);
                 is_short_corr_loop = false;
@@ -927,13 +924,6 @@ void finite_state_machine(){
                         log_code(JITTER_IN);
                     }
                     
-                    // only safeguards breaks <150ms that finish before 250ms
-                    if (blind_eye_ON == true && now()-t_poke_remain < blind_eye_period && now()-t_state_entry<250){
-                        if (jittering == false){
-                            jittering = true;
-                            log_code(JITTER_IN);
-                        }
-                        break;
                     }
                     else if (now()-t_poke_remain > grace_period) {
                         // trial broken
@@ -1042,7 +1032,7 @@ void finite_state_machine(){
                                 short_interval_error_counter[i]--;
 
                                 // check to exit corr loop
-                                if(short_interval_error_counter[i] == 0){
+                                if(short_interval_error_counter[i] == 1){ // intentional 1 instead of 0, less trials to get out
                                     in_corr_loop = false;
                                     corr_loop_interval_idx = -1; // reset index
                                     log_msg("Corr loop OFF for");
@@ -1056,7 +1046,7 @@ void finite_state_machine(){
                                 long_interval_error_counter[i]--;
                                 
                                 // check to exit corr loop
-                                if(long_interval_error_counter[i] == 0){
+                                if(long_interval_error_counter[i] == 1){ // intentional 1 instead of 0, less trials to get out
                                     in_corr_loop = false;
                                     corr_loop_interval_idx = -1; // reset index
                                     log_msg("Corr loop OFF for");

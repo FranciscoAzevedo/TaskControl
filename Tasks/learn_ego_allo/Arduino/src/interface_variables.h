@@ -10,8 +10,6 @@ unsigned long port_dur_max = 30;
 unsigned long block_dur_min = 80;
 unsigned long block_dur_max = 100;
 
-int blind_eye_ON = 0; // 1 means true - ON
-
 // full task
 int use_correction_loops = 0; // 0 means no correction loops, 1 means correction loops are used
 int corr_loop_entry = 3; // threshold for entering correction loop
