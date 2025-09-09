@@ -1,18 +1,2 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<VisualizerLayout Version="2.9.0">
-  <WindowSettings Index="4">
-    <Visible>false</Visible>
-    <Location>
-      <X>1023</X>
-      <Y>134</Y>
-    </Location>
-    <Size>
-      <Width>638</Width>
-      <Height>526</Height>
-    </Size>
-    <VisualizerTypeName>Bonsai.Vision.Design.IplImageVisualizer</VisualizerTypeName>
-    <VisualizerSettings>
-      <IplImageVisualizer />
-    </VisualizerSettings>
-  </WindowSettings>
-</VisualizerLayout>
+<VisualizerLayout Version="2.9.0" />
