@@ -924,7 +924,6 @@ void finite_state_machine(){
                         log_code(JITTER_IN);
                     }
                     
-                    }
                     else if (now()-t_poke_remain > grace_period) {
                         // trial broken
                         ClearNeopixel(pokesNeopixel[0]);
