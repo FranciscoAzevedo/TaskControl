@@ -81,7 +81,7 @@ bool pumpState;
 int choice;
 int correct_side;
 int correct_movement;
-int init_port;
+int init_port = 8;
 unsigned long this_interval; // no. of intervals changes session to session, declared in interface_variables
 float p_cum;
 
@@ -106,10 +106,12 @@ float p_long_intervals[max_no_intervals] = {0,0,0}; // probabilities for long in
 unsigned long short_intervals[max_no_intervals] = {600,1050,1380};
 unsigned long long_intervals[max_no_intervals] = {2400,1950,1620}; // inverse order matters
 
-// corr loops for stimulus specific
+// corr loops for stimulus- and port- specific
 bool in_corr_loop = false;
-int short_interval_error_counter[max_no_intervals] = {0, 0, 0};
-int long_interval_error_counter[max_no_intervals] = {0, 0, 0};
+int corr_loop_port_idx = -1;
+int port_idx = (init_port == north) ? 0 : 1; // 0 = north, 1 = south
+int short_interval_error_counter[max_no_intervals][2] = {{0}};
+int long_interval_error_counter[max_no_intervals][2] = {{0}};
 bool is_short_corr_loop = true; // whether the current corr loop is short or long stim
 int corr_loop_interval_idx = -1; // which interval is being corrected
 
@@ -588,22 +590,28 @@ void set_interval(){
 
 void get_trial_type(){
 
+    port_idx = (init_port == north) ? 0 : 1;
+
     // Check corr loop entry conditions
     if (!in_corr_loop) {
         for (int i = 0; i < no_intervals; i++) {
-            if (short_interval_error_counter[i] >= corr_loop_entry && use_correction_loops == 1) {
+            if (short_interval_error_counter[i][port_idx] >= corr_loop_entry && use_correction_loops == 1) {
                 in_corr_loop = true;
-                log_int("in_corr_loop", (int) in_corr_loop);
                 is_short_corr_loop = true;
                 corr_loop_interval_idx = i;
+                corr_loop_port_idx = port_idx;
+
+                log_int("in_corr_loop", (int) in_corr_loop);
                 log_msg("Corr loop ON");
                 break;
             }
-            if (long_interval_error_counter[i] >= corr_loop_entry && use_correction_loops == 1) {
+            if (long_interval_error_counter[i][port_idx] >= corr_loop_entry && use_correction_loops == 1) {
                 in_corr_loop = true;
-                log_int("in_corr_loop", (int) in_corr_loop);
                 is_short_corr_loop = false;
                 corr_loop_interval_idx = i;
+                corr_loop_port_idx = port_idx;
+
+                log_int("in_corr_loop", (int) in_corr_loop);
                 log_msg("Corr loop ON");
                 break;
             }
@@ -612,6 +620,8 @@ void get_trial_type(){
 
     // If in corr loop, only sample the interval being corrected
     if (in_corr_loop) {
+        init_port = (corr_loop_port_idx == 0) ? north : south;
+
         // short corr loop
         if (is_short_corr_loop) {
             this_interval = short_intervals[corr_loop_interval_idx];
@@ -1026,28 +1036,30 @@ void finite_state_machine(){
 
                     // Interval error counter update for corr loops
                     for (int i = 0; i < no_intervals; i++) {
-                        if (this_interval == short_intervals[i]) {
+                        if (this_interval == short_intervals[i] && init_port == ((corr_loop_port_idx == 0) ? north : south)) {
                             if (short_interval_error_counter[i] > 0) {
                                 short_interval_error_counter[i]--;
 
                                 // check to exit corr loop
-                                if(short_interval_error_counter[i] == 1){ // intentional 1 instead of 0, less trials to get out
+                                if(short_interval_error_counter[i][port_idx] == 1){ // intentional 1 instead of 0, less trials to get out
                                     in_corr_loop = false;
                                     corr_loop_interval_idx = -1; // reset index
+                                    corr_loop_port_idx = -1;
                                     log_msg("Corr loop OFF for");
                                     log_int("in_corr_loop", (int) in_corr_loop);
                                 }
                             }
 
                         }
-                        if (this_interval == long_intervals[i]) {
+                        if (this_interval == long_intervals[i] && init_port == ((corr_loop_port_idx == 0) ? north : south)) {
                             if (long_interval_error_counter[i] > 0) {
                                 long_interval_error_counter[i]--;
                                 
                                 // check to exit corr loop
-                                if(long_interval_error_counter[i] == 1){ // intentional 1 instead of 0, less trials to get out
+                                if(long_interval_error_counter[i][port_idx]  == 1){ // intentional 1 instead of 0, less trials to get out
                                     in_corr_loop = false;
                                     corr_loop_interval_idx = -1; // reset index
+                                    corr_loop_port_idx = -1;
                                     log_msg("Corr loop OFF for");
                                     log_int("in_corr_loop", (int) in_corr_loop);
                                 }
@@ -1069,10 +1081,10 @@ void finite_state_machine(){
                     
                     // Interval error counter update for corr loops
                     for (int i = 0; i < no_intervals; i++) {
-                        if (this_interval == short_intervals[i] && short_interval_error_counter[i] < 5) {
+                        if (this_interval == short_intervals[i] && port_idx == ((init_port == north) ? 0 : 1) && short_interval_error_counter[i] < 4) {
                             short_interval_error_counter[i]++;
                         }
-                        if (this_interval == long_intervals[i] && long_interval_error_counter[i] < 5) {
+                        if (this_interval == long_intervals[i] && port_idx == ((init_port == north) ? 0 : 1) && long_interval_error_counter[i] < 4) {
                             long_interval_error_counter[i]++;
                         }
                     }                    
