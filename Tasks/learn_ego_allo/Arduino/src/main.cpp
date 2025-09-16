@@ -1037,8 +1037,8 @@ void finite_state_machine(){
                     // Interval error counter update for corr loops
                     for (int i = 0; i < no_intervals; i++) {
                         if (this_interval == short_intervals[i] && init_port == ((corr_loop_port_idx == 0) ? north : south)) {
-                            if (short_interval_error_counter[i] > 0) {
-                                short_interval_error_counter[i]+= -1;
+                            if (short_interval_error_counter[i][port_idx] > 0) {
+                                short_interval_error_counter[i][port_idx]--;
 
                                 // check to exit corr loop
                                 if(short_interval_error_counter[i][port_idx] == 1){ // intentional 1 instead of 0, less trials to get out
@@ -1052,8 +1052,8 @@ void finite_state_machine(){
 
                         }
                         if (this_interval == long_intervals[i] && init_port == ((corr_loop_port_idx == 0) ? north : south)) {
-                            if (long_interval_error_counter[i] > 0) {
-                                long_interval_error_counter[i]+= -1;
+                            if (long_interval_error_counter[i][port_idx] > 0) {
+                                long_interval_error_counter[i][port_idx]--;
                                 
                                 // check to exit corr loop
                                 if(long_interval_error_counter[i][port_idx]  == 1){ // intentional 1 instead of 0, less trials to get out
@@ -1081,11 +1081,11 @@ void finite_state_machine(){
                     
                     // Interval error counter update for corr loops
                     for (int i = 0; i < no_intervals; i++) {
-                        if (this_interval == short_intervals[i] && port_idx == ((init_port == north) ? 0 : 1) && short_interval_error_counter[i] < 4) {
-                            short_interval_error_counter[i]+= 1;
+                        if (this_interval == short_intervals[i] && port_idx == ((init_port == north) ? 0 : 1) && short_interval_error_counter[i][port_idx] < 4) {
+                            short_interval_error_counter[i][port_idx]++;
                         }
-                        if (this_interval == long_intervals[i] && port_idx == ((init_port == north) ? 0 : 1) && long_interval_error_counter[i] < 4) {
-                            long_interval_error_counter[i]+= 1;
+                        if (this_interval == long_intervals[i] && port_idx == ((init_port == north) ? 0 : 1) && long_interval_error_counter[i][port_idx] < 4) {
+                            long_interval_error_counter[i][port_idx]++;
                         }
                     }                    
 
