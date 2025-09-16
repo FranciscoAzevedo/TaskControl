@@ -600,9 +600,6 @@ void get_trial_type(){
                 is_short_corr_loop = true;
                 corr_loop_interval_idx = i;
                 corr_loop_port_idx = port_idx;
-
-                log_int("in_corr_loop", (int) in_corr_loop);
-                log_msg("Corr loop ON");
                 break;
             }
             if (long_interval_error_counter[i][port_idx] >= corr_loop_entry && use_correction_loops == 1) {
@@ -610,9 +607,6 @@ void get_trial_type(){
                 is_short_corr_loop = false;
                 corr_loop_interval_idx = i;
                 corr_loop_port_idx = port_idx;
-
-                log_int("in_corr_loop", (int) in_corr_loop);
-                log_msg("Corr loop ON");
                 break;
             }
         }
@@ -675,7 +669,6 @@ void get_trial_type(){
     }
 
     // if only broken fixation - force trial again (akin to a 1-trial corr loop)
-    // fixes allo blocks being easier
     else if (in_corr_loop == false && prev_trial_broken == true){
         
         // short
@@ -716,6 +709,7 @@ void get_trial_type(){
     trial_counter++;
     log_int("trial_counter", trial_counter);
     log_ulong("this_interval", this_interval);
+    log_int("in_corr_loop", (int) in_corr_loop);
     log_int("correct_movement", correct_movement);
     log_int("correct_side", correct_side);
     log_int("is_ego_context", (int) is_ego_context);
@@ -1037,7 +1031,7 @@ void finite_state_machine(){
                     // Interval error counter update for corr loops
                     for (int i = 0; i < no_intervals; i++) {
                         if (this_interval == short_intervals[i] && init_port == ((corr_loop_port_idx == 0) ? north : south)) {
-                            if (short_interval_error_counter[i][port_idx] > 0) {
+                            if (short_interval_error_counter[i][port_idx] > 1) {
                                 short_interval_error_counter[i][port_idx]--;
 
                                 // check to exit corr loop
@@ -1045,23 +1039,21 @@ void finite_state_machine(){
                                     in_corr_loop = false;
                                     corr_loop_interval_idx = -1; // reset index
                                     corr_loop_port_idx = -1;
-                                    log_msg("Corr loop OFF for");
-                                    log_int("in_corr_loop", (int) in_corr_loop);
+                                    log_msg("Corr loop OFF");
                                 }
                             }
 
                         }
                         if (this_interval == long_intervals[i] && init_port == ((corr_loop_port_idx == 0) ? north : south)) {
-                            if (long_interval_error_counter[i][port_idx] > 0) {
+                            if (long_interval_error_counter[i][port_idx] > 1) {
                                 long_interval_error_counter[i][port_idx]--;
                                 
                                 // check to exit corr loop
-                                if(long_interval_error_counter[i][port_idx]  == 1){ // intentional 1 instead of 0, less trials to get out
+                                if(long_interval_error_counter[i][port_idx] == 1){ // intentional 1 instead of 0, less trials to get out
                                     in_corr_loop = false;
                                     corr_loop_interval_idx = -1; // reset index
                                     corr_loop_port_idx = -1;
                                     log_msg("Corr loop OFF for");
-                                    log_int("in_corr_loop", (int) in_corr_loop);
                                 }
                             }
                         }
