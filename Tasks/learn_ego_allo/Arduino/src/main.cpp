@@ -109,11 +109,13 @@ unsigned long long_intervals[max_no_intervals] = {2400,1950,1620}; // inverse or
 // corr loops for stimulus- and port- specific
 bool in_corr_loop = false;
 int corr_loop_port_idx = -1;
-int port_idx = (init_port == north) ? 0 : 1; // 0 = north, 1 = south
-int short_interval_error_counter[max_no_intervals][2] = {{0}};
-int long_interval_error_counter[max_no_intervals][2] = {{0}};
 bool is_short_corr_loop = true; // whether the current corr loop is short or long stim
-int corr_loop_interval_idx = -1; // which interval is being corrected
+
+int idx = 0;
+int short_north_error_counter = 0;
+int short_south_error_counter = 0;
+int long_north_error_counter = 0;
+int long_south_error_counter = 0;
 
 int trial_counter = 0;
 
@@ -590,25 +592,27 @@ void set_interval(){
 
 void get_trial_type(){
 
-    port_idx = (init_port == north) ? 0 : 1;
-
-    // Check corr loop entry conditions
+    // Correction loop entry
     if (!in_corr_loop) {
-        for (int i = 0; i < no_intervals; i++) {
-            if (short_interval_error_counter[i][port_idx] >= corr_loop_entry && use_correction_loops == 1) {
-                in_corr_loop = true;
-                is_short_corr_loop = true;
-                corr_loop_interval_idx = i;
-                corr_loop_port_idx = port_idx;
-                break;
-            }
-            if (long_interval_error_counter[i][port_idx] >= corr_loop_entry && use_correction_loops == 1) {
-                in_corr_loop = true;
-                is_short_corr_loop = false;
-                corr_loop_interval_idx = i;
-                corr_loop_port_idx = port_idx;
-                break;
-            }
+        if (short_north_error_counter >= corr_loop_entry && init_port == north && use_correction_loops == 1) {
+            in_corr_loop = true;
+            is_short_corr_loop = true;
+            corr_loop_port_idx = 0;
+        }
+        if (short_south_error_counter >= corr_loop_entry && init_port == south && use_correction_loops == 1) {
+            in_corr_loop = true;
+            is_short_corr_loop = true;
+            corr_loop_port_idx = 1;
+        }
+        if (long_north_error_counter >= corr_loop_entry && init_port == north && use_correction_loops == 1) {
+            in_corr_loop = true;
+            is_short_corr_loop = false;
+            corr_loop_port_idx = 0;
+        }
+        if (long_south_error_counter >= corr_loop_entry && init_port == south && use_correction_loops == 1) {
+            in_corr_loop = true;
+            is_short_corr_loop = false;
+            corr_loop_port_idx = 1;
         }
     }
 
@@ -618,7 +622,8 @@ void get_trial_type(){
 
         // short corr loop
         if (is_short_corr_loop) {
-            this_interval = short_intervals[corr_loop_interval_idx];
+            idx = random(0, no_intervals);
+            this_interval = short_intervals[idx];
             
             if (init_port == north) {
                 correct_side = east;
@@ -636,7 +641,8 @@ void get_trial_type(){
         }
         // long corr loop
         else {
-            this_interval = long_intervals[corr_loop_interval_idx];
+            idx = random(0, no_intervals);
+            this_interval = long_intervals[idx];
             if (init_port == north) {
                 correct_side = west;
                 correct_movement = left;
@@ -791,18 +797,25 @@ void finite_state_machine(){
                 log_code(TRIAL_AVAILABLE_EVENT);
 
                 // evaluate context
-                if (current_context_counter == this_context_dur){ // flip it
-                    if (is_ego_context == true){
-                        is_ego_context = false;
-                    }
-                    else{
-                        is_ego_context = true;
-                    }
+                if (current_context_counter == this_context_dur){ 
+                    is_ego_context = !is_ego_context; // flip it
+
                     // reset counter and sample new duration
                     log_int("is_ego_context", (int) is_ego_context);
                     current_context_counter = 0;
+
                     this_context_dur = (unsigned long) random(block_dur_min, block_dur_max);
                     log_int("this_context_dur", this_context_dur);
+
+                    // Exit correction loop and reset counter if in correction loop
+                    if (in_corr_loop) {
+                        if (corr_loop_port_idx == 0 && is_short_corr_loop) short_north_error_counter = 0;
+                        if (corr_loop_port_idx == 1 && is_short_corr_loop) short_south_error_counter = 0;
+                        if (corr_loop_port_idx == 0 && !is_short_corr_loop) long_north_error_counter = 0;
+                        if (corr_loop_port_idx == 1 && !is_short_corr_loop) long_south_error_counter = 0;
+                        in_corr_loop = false;
+                        log_msg("Correction loop exited due to context change");
+                    }
                 }
                 else{ // increase counter
                     current_context_counter++;
@@ -1028,36 +1041,38 @@ void finite_state_machine(){
                     log_code(CHOICE_EVENT);
                     log_choice();
 
-                    // Interval error counter update for corr loops
-                    for (int i = 0; i < no_intervals; i++) {
-                        if (this_interval == short_intervals[i] && init_port == ((corr_loop_port_idx == 0) ? north : south)) {
-                            if (short_interval_error_counter[i][port_idx] > 1) {
-                                short_interval_error_counter[i][port_idx]--;
-
-                                // check to exit corr loop
-                                if(short_interval_error_counter[i][port_idx] == 1){ // intentional 1 instead of 0, less trials to get out
-                                    in_corr_loop = false;
-                                    corr_loop_interval_idx = -1; // reset index
-                                    corr_loop_port_idx = -1;
-                                    log_msg("Corr loop OFF");
-                                }
-                            }
-
-                        }
-                        if (this_interval == long_intervals[i] && init_port == ((corr_loop_port_idx == 0) ? north : south)) {
-                            if (long_interval_error_counter[i][port_idx] > 1) {
-                                long_interval_error_counter[i][port_idx]--;
-                                
-                                // check to exit corr loop
-                                if(long_interval_error_counter[i][port_idx] == 1){ // intentional 1 instead of 0, less trials to get out
-                                    in_corr_loop = false;
-                                    corr_loop_interval_idx = -1; // reset index
-                                    corr_loop_port_idx = -1;
-                                    log_msg("Corr loop OFF for");
-                                }
+                    // Update error counters and check for correction loop exit
+                    if (init_port == north) {
+                        if (this_interval < timing_boundary && short_north_error_counter > 0) {
+                            short_north_error_counter--;
+                            if (short_north_error_counter == 0) {
+                                in_corr_loop = false;
+                                log_msg("Corr loop short north OFF");
                             }
                         }
-                    }   
+                        if (this_interval >= timing_boundary && long_north_error_counter > 0) {
+                            long_north_error_counter--;
+                            if (long_north_error_counter == 0) {
+                                in_corr_loop = false;
+                                log_msg("Corr loop long north OFF");
+                            }
+                        }
+                    } else {
+                        if (this_interval < timing_boundary && short_south_error_counter > 0) {
+                            short_south_error_counter--;
+                            if (short_south_error_counter == 0) {
+                                in_corr_loop = false;
+                                log_msg("Corr loop short south OFF");
+                            }
+                        }
+                        if (this_interval >= timing_boundary && long_south_error_counter > 0) {
+                            long_south_error_counter--;
+                            if (long_south_error_counter == 0) {
+                                in_corr_loop = false;
+                                log_msg("Corr loop long south OFF");
+                            }
+                        }
+                    }  
                     current_state = REWARD_STATE;
                 }
 
@@ -1071,15 +1086,14 @@ void finite_state_machine(){
                     log_choice();
                     timeout_flag = 1;
                     
-                    // Interval error counter update for corr loops
-                    for (int i = 0; i < no_intervals; i++) {
-                        if (this_interval == short_intervals[i] && port_idx == ((init_port == north) ? 0 : 1) && short_interval_error_counter[i][port_idx] < 4) {
-                            short_interval_error_counter[i][port_idx]++;
-                        }
-                        if (this_interval == long_intervals[i] && port_idx == ((init_port == north) ? 0 : 1) && long_interval_error_counter[i][port_idx] < 4) {
-                            long_interval_error_counter[i][port_idx]++;
-                        }
-                    }                    
+                    // Update error counters
+                    if (init_port == north) {
+                        if (this_interval < timing_boundary && short_north_error_counter < 4) short_north_error_counter++;
+                        if (this_interval >= timing_boundary && long_north_error_counter < 4) long_north_error_counter++;
+                    } else {
+                        if (this_interval < timing_boundary && short_south_error_counter < 4) short_south_error_counter++;
+                        if (this_interval >= timing_boundary && long_south_error_counter < 4) long_south_error_counter++;
+                    }                 
 
                     current_state = ITI_STATE;
                     break;
