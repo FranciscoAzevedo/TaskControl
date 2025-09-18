@@ -821,37 +821,50 @@ void finite_state_machine(){
                     current_context_counter++;
                 }
 
-                // evaluate port
-                if (init_port_blocks == 0){ // no blocks
-                    // flip a coin for N or S port
-                    r = random(0,1000) / 1000.0;
-                    if (r > 0.5){
+                if (in_corr_loop && use_correction_loops == 1) {
+                    if (short_north_error_counter >= corr_loop_entry || long_north_error_counter >= corr_loop_entry) {
+                        log_msg("In correction loop: North port");
                         init_port = north;
                     }
-                    else {
+                    if (short_south_error_counter >= corr_loop_entry || long_south_error_counter >= corr_loop_entry) {
+                        log_msg("In correction loop: South port");
                         init_port = south;
                     }
-                    log_int("init_port", init_port);
-                }
-                else{ // block initation port
-                    if (current_init_block_counter == this_init_block_dur){ // flip it
-                        if (init_port == north){
-                            init_port = south;
-                        }
-                        else{
+
+                else{
+                    // evaluate port
+                    if (init_port_blocks == 0){ // no blocks
+                        // flip a coin for N or S port
+                        r = random(0,1000) / 1000.0;
+                        if (r > 0.5){
                             init_port = north;
                         }
-                        // reset counter and sample new duration
+                        else {
+                            init_port = south;
+                        }
                         log_int("init_port", init_port);
-                        current_init_block_counter = 0;
-                        this_init_block_dur = (unsigned long) random(port_dur_min, port_dur_max);
-                        log_int("this_init_block_dur", this_init_block_dur);
                     }
-                    else{ // increase counter
-                        current_init_block_counter++;
+                    else{ 
+                        // block initation port
+                        if (current_init_block_counter == this_init_block_dur){ // flip it
+                            if (init_port == north){
+                                init_port = south;
+                            }
+                            else{
+                                init_port = north;
+                            }
+                            // reset counter and sample new duration
+                            log_int("init_port", init_port);
+                            current_init_block_counter = 0;
+                            this_init_block_dur = (unsigned long) random(port_dur_min, port_dur_max);
+                            log_int("this_init_block_dur", this_init_block_dur);
+                        }
+                        else{ // increase counter
+                            current_init_block_counter++;
+                        }
                     }
                 }
-                
+
                 trial_available_cue();
             }
 
