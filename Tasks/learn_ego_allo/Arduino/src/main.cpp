@@ -830,8 +830,8 @@ void finite_state_machine(){
                         log_msg("In correction loop: South port");
                         init_port = south;
                     }
-
-                else{
+                }
+                else {
                     // evaluate port
                     if (init_port_blocks == 0){ // no blocks
                         // flip a coin for N or S port
