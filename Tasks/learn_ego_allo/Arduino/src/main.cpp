@@ -108,7 +108,7 @@ unsigned long long_intervals[max_no_intervals] = {2400,1950,1620}; // inverse or
 
 // corr loops for stimulus- and port- specific
 bool in_corr_loop = false;
-int corr_loop_port_idx = -1;
+int corr_loop_port_idx = -1; // 0-north, 1-south
 bool is_short_corr_loop = true; // whether the current corr loop is short or long stim
 
 int idx = 0;
@@ -822,11 +822,9 @@ void finite_state_machine(){
 
                 if (in_corr_loop && use_correction_loops == 1) {
                     if (short_north_error_counter >= corr_loop_entry || long_north_error_counter >= corr_loop_entry) {
-                        log_msg("In correction loop: North port");
                         init_port = north;
                     }
                     if (short_south_error_counter >= corr_loop_entry || long_south_error_counter >= corr_loop_entry) {
-                        log_msg("In correction loop: South port");
                         init_port = south;
                     }
                 }
@@ -1057,32 +1055,20 @@ void finite_state_machine(){
                     if (init_port == north) {
                         if (this_interval < timing_boundary && short_north_error_counter > 0) {
                             short_north_error_counter--;
-                            if (short_north_error_counter == 0) {
-                                in_corr_loop = false;
-                                log_msg("Corr loop short north OFF");
-                            }
+                            if (short_north_error_counter == 0 && in_corr_loop == true) {in_corr_loop = false;}
                         }
                         if (this_interval >= timing_boundary && long_north_error_counter > 0) {
                             long_north_error_counter--;
-                            if (long_north_error_counter == 0) {
-                                in_corr_loop = false;
-                                log_msg("Corr loop long north OFF");
-                            }
+                            if (long_north_error_counter == 0 && in_corr_loop == true) {in_corr_loop = false;}
                         }
                     } else {
                         if (this_interval < timing_boundary && short_south_error_counter > 0) {
                             short_south_error_counter--;
-                            if (short_south_error_counter == 0) {
-                                in_corr_loop = false;
-                                log_msg("Corr loop short south OFF");
-                            }
+                            if (short_south_error_counter == 0 && in_corr_loop == true) {in_corr_loop = false;}
                         }
                         if (this_interval >= timing_boundary && long_south_error_counter > 0) {
                             long_south_error_counter--;
-                            if (long_south_error_counter == 0) {
-                                in_corr_loop = false;
-                                log_msg("Corr loop long south OFF");
-                            }
+                            if (long_south_error_counter == 0 && in_corr_loop == true) {in_corr_loop = false;}
                         }
                     }  
                     current_state = REWARD_STATE;
