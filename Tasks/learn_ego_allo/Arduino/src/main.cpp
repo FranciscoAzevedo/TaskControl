@@ -594,22 +594,22 @@ void get_trial_type(){
 
     // Correction loop entry
     if (!in_corr_loop) {
-        if (short_north_error_counter >= corr_loop_entry && init_port == north && use_correction_loops == 1) {
+        if (short_north_error_counter >= corr_loop_entry && use_correction_loops == 1) {
             in_corr_loop = true;
             is_short_corr_loop = true;
             corr_loop_port_idx = 0;
         }
-        if (short_south_error_counter >= corr_loop_entry && init_port == south && use_correction_loops == 1) {
+        if (short_south_error_counter >= corr_loop_entry && use_correction_loops == 1) {
             in_corr_loop = true;
             is_short_corr_loop = true;
             corr_loop_port_idx = 1;
         }
-        if (long_north_error_counter >= corr_loop_entry && init_port == north && use_correction_loops == 1) {
+        if (long_north_error_counter >= corr_loop_entry && use_correction_loops == 1) {
             in_corr_loop = true;
             is_short_corr_loop = false;
             corr_loop_port_idx = 0;
         }
-        if (long_south_error_counter >= corr_loop_entry && init_port == south && use_correction_loops == 1) {
+        if (long_south_error_counter >= corr_loop_entry && use_correction_loops == 1) {
             in_corr_loop = true;
             is_short_corr_loop = false;
             corr_loop_port_idx = 1;
@@ -618,7 +618,6 @@ void get_trial_type(){
 
     // If in corr loop, only sample the interval being corrected
     if (in_corr_loop) {
-        init_port = (corr_loop_port_idx == 0) ? north : south;
 
         // short corr loop
         if (is_short_corr_loop) {
