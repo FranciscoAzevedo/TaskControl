@@ -108,7 +108,6 @@ unsigned long long_intervals[max_no_intervals] = {2400,1950,1620}; // inverse or
 
 // corr loops for stimulus- and port- specific
 bool in_corr_loop = false;
-int corr_loop_port_idx = -1; // 0-north, 1-south
 bool is_short_corr_loop = true; // whether the current corr loop is short or long stim
 
 int idx = 0;
@@ -597,22 +596,18 @@ void get_trial_type(){
         if (short_north_error_counter >= corr_loop_entry && use_correction_loops == 1) {
             in_corr_loop = true;
             is_short_corr_loop = true;
-            corr_loop_port_idx = 0;
         }
         if (short_south_error_counter >= corr_loop_entry && use_correction_loops == 1) {
             in_corr_loop = true;
             is_short_corr_loop = true;
-            corr_loop_port_idx = 1;
         }
         if (long_north_error_counter >= corr_loop_entry && use_correction_loops == 1) {
             in_corr_loop = true;
             is_short_corr_loop = false;
-            corr_loop_port_idx = 0;
         }
         if (long_south_error_counter >= corr_loop_entry && use_correction_loops == 1) {
             in_corr_loop = true;
             is_short_corr_loop = false;
-            corr_loop_port_idx = 1;
         }
     }
 
@@ -808,10 +803,10 @@ void finite_state_machine(){
 
                     // Exit correction loop and reset counter if in correction loop
                     if (in_corr_loop) {
-                        if (corr_loop_port_idx == 0 && is_short_corr_loop) short_north_error_counter = 0;
-                        if (corr_loop_port_idx == 1 && is_short_corr_loop) short_south_error_counter = 0;
-                        if (corr_loop_port_idx == 0 && !is_short_corr_loop) long_north_error_counter = 0;
-                        if (corr_loop_port_idx == 1 && !is_short_corr_loop) long_south_error_counter = 0;
+                        if (init_port == north && is_short_corr_loop) short_north_error_counter = 0;
+                        if (init_port == south && is_short_corr_loop) short_south_error_counter = 0;
+                        if (init_port == north && !is_short_corr_loop) long_north_error_counter = 0;
+                        if (init_port == south && !is_short_corr_loop) long_south_error_counter = 0;
                         in_corr_loop = false;
                         log_msg("Correction loop exited due to context change");
                     }
