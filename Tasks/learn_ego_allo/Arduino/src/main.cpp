@@ -818,12 +818,11 @@ void finite_state_machine(){
                 if (in_corr_loop && use_correction_loops == 1) {
                     if (short_north_error_counter >= corr_loop_entry || long_north_error_counter >= corr_loop_entry) {
                         init_port = north;
-                        log_int("init_port", init_port);
                     }
                     if (short_south_error_counter >= corr_loop_entry || long_south_error_counter >= corr_loop_entry) {
                         init_port = south;
-                        log_int("init_port", init_port);
                     }
+                    log_int("init_port", init_port);
                 }
                 else {
                     // evaluate port
