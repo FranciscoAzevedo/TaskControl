@@ -97,6 +97,9 @@ int current_context_counter = 0;
 int this_init_block_dur = 0;
 int current_init_block_counter = 0;
 
+float p_allo_south_bias = 0.7;    // prob to pick SOUTH when in ALLO context (0.5 = no bias)
+float ego_context_shrink = 0.7;  // multiply block duration when in EGO context (0<<=1)
+
 // timing related
 const int max_no_intervals = 3; // max no. of intervals
 float p_short_intervals[max_no_intervals] = {0,0,0}; // probabilities for short intervals
@@ -798,7 +801,17 @@ void finite_state_machine(){
                     log_int("is_ego_context", (int) is_ego_context);
                     current_context_counter = 0;
 
-                    this_context_dur = (unsigned long) random(block_dur_min, block_dur_max);
+                    // sample new context duration: make ego contexts shorter
+                    if (is_ego_context) {
+                        int ego_min = (int)(block_dur_min * ego_context_shrink);
+                        if (ego_min < 1) ego_min = 1;
+                        int ego_max = (int)(block_dur_max * ego_context_shrink);
+                        if (ego_max <= ego_min) ego_max = ego_min + 1;
+                        this_context_dur = (unsigned long) random(ego_min, ego_max);
+                    }
+                    else {
+                        this_context_dur = (unsigned long) random(block_dur_min, block_dur_max);
+                    }
                     log_int("this_context_dur", this_context_dur);
 
                     // Exit correction loop and reset counter if in correction loop
@@ -827,14 +840,19 @@ void finite_state_machine(){
                 else {
                     // evaluate port
                     if (init_port_blocks == 0){ // no blocks
-                        // flip a coin for N or S port
+
+                        // weighted sampling: bias SOUTH in ALLO context
+                        float p_south = 0.5;
+                        if (!is_ego_context) { // allo
+                            p_south = p_allo_south_bias;
+                        }
                         r = random(0,1000) / 1000.0;
-                        if (r > 0.5){
+                        if (r < p_south) {
+                            init_port = south;
+                        } else {
                             init_port = north;
                         }
-                        else {
-                            init_port = south;
-                        }
+
                         log_int("init_port", init_port);
                     }
                     else{ 
