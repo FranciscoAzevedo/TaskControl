@@ -1069,20 +1069,20 @@ void finite_state_machine(){
                     if (init_port == north) {
                         if (this_interval < timing_boundary && short_north_error_counter > 0) {
                             short_north_error_counter--;
-                            if (short_north_error_counter == 0 && in_corr_loop == true) {in_corr_loop = false;}
+                            if (short_north_error_counter == 1 && in_corr_loop == true) {in_corr_loop = false;} // SEE "1" HERE
                         }
                         if (this_interval >= timing_boundary && long_north_error_counter > 0) {
                             long_north_error_counter--;
-                            if (long_north_error_counter == 0 && in_corr_loop == true) {in_corr_loop = false;}
+                            if (long_north_error_counter == 1 && in_corr_loop == true) {in_corr_loop = false;} // SEE "1" HERE
                         }
                     } else {
                         if (this_interval < timing_boundary && short_south_error_counter > 0) {
                             short_south_error_counter--;
-                            if (short_south_error_counter == 0 && in_corr_loop == true) {in_corr_loop = false;}
+                            if (short_south_error_counter == 1 && in_corr_loop == true) {in_corr_loop = false;} // SEE "1" HERE
                         }
                         if (this_interval >= timing_boundary && long_south_error_counter > 0) {
                             long_south_error_counter--;
-                            if (long_south_error_counter == 0 && in_corr_loop == true) {in_corr_loop = false;}
+                            if (long_south_error_counter == 1 && in_corr_loop == true) {in_corr_loop = false;} // SEE "1" HERE
                         }
                     }  
                     current_state = REWARD_STATE;
