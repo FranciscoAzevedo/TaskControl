@@ -329,20 +329,20 @@ void trial_available_cue(){
 
 void go_cue_west(){
     if (is_ego_context == true) {
-        SetNeopixelClr(pokesNeopixel[2], egoColor, fullBrightness);
+        SetEgoNeopixelClr(pokesNeopixel[2], egoColor, fullBrightness);
     }
     else{
-        SetNeopixelClr(pokesNeopixel[2], alloColor, fullBrightness);
+        SetAlloNeopixelClr(pokesNeopixel[2], alloColor, fullBrightness);
     }
     log_code(LIGHT_WEST_CUE_EVENT);
 }
 
 void go_cue_east(){
     if (is_ego_context == true) {
-        SetNeopixelClr(pokesNeopixel[3], egoColor, fullBrightness);
+        SetEgoNeopixelClr(pokesNeopixel[3], egoColor, fullBrightness);
     }
     else{
-        SetNeopixelClr(pokesNeopixel[3], alloColor, fullBrightness);
+        SetAlloNeopixelClr(pokesNeopixel[3], alloColor, fullBrightness);
     }    
     log_code(LIGHT_EAST_CUE_EVENT);
 }
