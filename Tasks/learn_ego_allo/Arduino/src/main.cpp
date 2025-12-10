@@ -97,8 +97,7 @@ int current_context_counter = 0;
 int this_init_block_dur = 0;
 int current_init_block_counter = 0;
 
-float p_allo_south_bias = 0.7;    // prob to pick SOUTH when in ALLO context (0.5 = no bias)
-float ego_context_shrink = 0.7;  // multiply block duration when in EGO context (0<<=1)
+float p_south_bias = 0.6;    // prob to pick SOUTH when in ALLO context (0.5 = no bias)
 
 // timing related
 const int max_no_intervals = 3; // max no. of intervals
@@ -803,10 +802,10 @@ void finite_state_machine(){
 
                     // sample new context duration: make ego contexts shorter
                     if (is_ego_context) {
-                        int ego_min = (int)(block_dur_min * ego_context_shrink);
-                        if (ego_min < 1) ego_min = 1;
-                        int ego_max = (int)(block_dur_max * ego_context_shrink);
-                        if (ego_max <= ego_min) ego_max = ego_min + 1;
+
+                        int ego_min = block_dur_min;
+                        int ego_max = block_dur_max;
+
                         this_context_dur = (unsigned long) random(ego_min, ego_max);
                     }
                     else {
@@ -841,11 +840,9 @@ void finite_state_machine(){
                     // evaluate port
                     if (init_port_blocks == 0){ // no blocks
 
-                        // weighted sampling: bias SOUTH in ALLO context
-                        float p_south = 0.5;
-                        if (!is_ego_context) { // allo
-                            p_south = p_allo_south_bias;
-                        }
+                        // weighted sampling: bias SOUTH overall
+                        float p_south = p_south_bias;
+
                         r = random(0,1000) / 1000.0;
                         if (r < p_south) {
                             init_port = south;
