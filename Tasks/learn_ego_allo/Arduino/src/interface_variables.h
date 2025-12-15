@@ -7,8 +7,8 @@ unsigned long init_port_blocks = 0; // 0-false, 1-true
 unsigned long port_dur_min = 15;
 unsigned long port_dur_max = 30;
 
-unsigned long block_dur_min = 80;
-unsigned long block_dur_max = 100;
+unsigned long block_dur_min = 150;
+unsigned long block_dur_max = 180;
 
 // full task
 int use_correction_loops = 0; // 0 means no correction loops, 1 means correction loops are used
