@@ -97,7 +97,7 @@ int current_context_counter = 0;
 int this_init_block_dur = 0;
 int current_init_block_counter = 0;
 
-float p_south_bias = 0.6;    // prob to pick SOUTH when in ALLO context (0.5 = no bias)
+float p_south_bias = 0.6;    // prob to pick SOUTH (0.5 = no bias)
 
 // timing related
 const int max_no_intervals = 3; // max no. of intervals
@@ -594,24 +594,27 @@ void set_interval(){
 
 void get_trial_type(){
 
-    // Correction loop entry
+    // Correction loop entry - order matters for concurrent activations
     if (!in_corr_loop) {
-        if (short_north_error_counter >= corr_loop_entry && use_correction_loops == 1) {
-            in_corr_loop = true;
-            is_short_corr_loop = true;
-            corr_loop_port = 0; // north
-        }
-        if (short_south_error_counter >= corr_loop_entry && use_correction_loops == 1) {
-            in_corr_loop = true;
-            is_short_corr_loop = true;
-            corr_loop_port = 1; // south
-        }
         if (long_north_error_counter >= corr_loop_entry && use_correction_loops == 1) {
             in_corr_loop = true;
             is_short_corr_loop = false;
             corr_loop_port = 0; // north
         }
-        if (long_south_error_counter >= corr_loop_entry && use_correction_loops == 1) {
+
+        else if (short_south_error_counter >= corr_loop_entry && use_correction_loops == 1) {
+            in_corr_loop = true;
+            is_short_corr_loop = true;
+            corr_loop_port = 1; // south
+        }
+
+        else if (short_north_error_counter >= corr_loop_entry && use_correction_loops == 1) {
+            in_corr_loop = true;
+            is_short_corr_loop = true;
+            corr_loop_port = 0; // north
+        }
+
+        else if (long_south_error_counter >= corr_loop_entry && use_correction_loops == 1) {
             in_corr_loop = true;
             is_short_corr_loop = false;
             corr_loop_port = 1; // south
