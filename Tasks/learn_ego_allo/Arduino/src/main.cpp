@@ -594,33 +594,6 @@ void set_interval(){
 
 void get_trial_type(){
 
-    // Correction loop entry - order matters for concurrent activations
-    if (!in_corr_loop) {
-        if (long_north_error_counter >= corr_loop_entry && use_correction_loops == 1) {
-            in_corr_loop = true;
-            is_short_corr_loop = false;
-            corr_loop_port = 0; // north
-        }
-
-        else if (short_south_error_counter >= corr_loop_entry && use_correction_loops == 1) {
-            in_corr_loop = true;
-            is_short_corr_loop = true;
-            corr_loop_port = 1; // south
-        }
-
-        else if (short_north_error_counter >= corr_loop_entry && use_correction_loops == 1) {
-            in_corr_loop = true;
-            is_short_corr_loop = true;
-            corr_loop_port = 0; // north
-        }
-
-        else if (long_south_error_counter >= corr_loop_entry && use_correction_loops == 1) {
-            in_corr_loop = true;
-            is_short_corr_loop = false;
-            corr_loop_port = 1; // south
-        }
-    }
-
     // If in corr loop, only sample the interval being corrected
     if (in_corr_loop) {
 
@@ -837,13 +810,35 @@ void finite_state_machine(){
                     current_context_counter++;
                 }
 
+                // Correction loop entry - order matters for concurrent activations
+                if (!in_corr_loop) {
+                    if (long_north_error_counter >= corr_loop_entry && use_correction_loops == 1) {
+                        in_corr_loop = true;
+                        is_short_corr_loop = false;
+                        corr_loop_port = 0; // north
+                    }
+
+                    else if (short_south_error_counter >= corr_loop_entry && use_correction_loops == 1) {
+                        in_corr_loop = true;
+                        is_short_corr_loop = true;
+                        corr_loop_port = 1; // south
+                    }
+
+                    else if (short_north_error_counter >= corr_loop_entry && use_correction_loops == 1) {
+                        in_corr_loop = true;
+                        is_short_corr_loop = true;
+                        corr_loop_port = 0; // north
+                    }
+
+                    else if (long_south_error_counter >= corr_loop_entry && use_correction_loops == 1) {
+                        in_corr_loop = true;
+                        is_short_corr_loop = false;
+                        corr_loop_port = 1; // south
+                    }
+                }
+
                 if (in_corr_loop && use_correction_loops == 1) {
-                    if (short_north_error_counter >= corr_loop_entry || long_north_error_counter >= corr_loop_entry) {
-                        init_port = north;
-                    }
-                    if (short_south_error_counter >= corr_loop_entry || long_south_error_counter >= corr_loop_entry) {
-                        init_port = south;
-                    }
+                    init_port = (corr_loop_port == 0) ? north : south;
                     log_int("init_port", init_port);
                 }
                 else {
