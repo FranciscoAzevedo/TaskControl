@@ -138,6 +138,12 @@ void PinInit(){
     digitalWrite(REWARD_EAST_VALVE_PIN, LOW);
     digitalWrite(REWARD_PUMP_PIN, LOW);
 
+    // odor
+    digitalWrite(ODOR1_NORTH_VALVE_PIN, LOW); // turn off odor 1 north valve
+    digitalWrite(ODOR2_NORTH_VALVE_PIN, LOW); // turn off odor 2 north valve
+    digitalWrite(ODOR1_SOUTH_VALVE_PIN, LOW); // turn off odor 1 south valve
+    digitalWrite(ODOR2_SOUTH_VALVE_PIN, LOW); // turn off odor 2 south valve
+
     // cam
     digitalWrite(CAM_SYNC_PIN, LOW); // turn off camera sync pin
 
@@ -462,6 +468,95 @@ void pump_controller() {
             }
         }
     }
+}
+
+/*
+..#######..########...#######..########.
+.##.....##.##.....##.##.....##.##.....##
+.##.....##.##.....##.##.....##.##.....##
+.##.....##.##.....##.##.....##.########.
+.##.....##.##.....##.##.....##.##...##..
+.##.....##.##.....##.##.....##.##....##.
+..#######..########...#######..##.....##
+*/
+
+unsigned long t_odor_valve_open = max_future;
+
+bool odor1_valve_north_is_closed = true; // north
+bool odor2_valve_north_is_closed = true; // north
+
+bool odor1_valve_south_is_closed = true; // south
+bool odor2_valve_south_is_closed = true; // south
+
+void odor_valve_controller(){
+    // a self terminating digital pin switch (switches to high transiently for t_odor_valve_open)
+    // since the odor valves are 3 way, the neutral flow is the default state
+    // setting the valve HIGH delivers odor, LOW delivers neutral flow
+    // flipped by setting deliver_odor to true somewhere in the FSM
+
+    // North
+        // Odor 1
+        if (odor1_valve_north_is_closed == true && deliver_odor1_north == true) {
+
+            t_odor_valve_open = now();
+            digitalWrite(ODOR1_NORTH_VALVE_PIN, HIGH);
+            log_code(ODOR1_NORTH_VALVE_ON);
+            odor1_valve_north_is_closed = false;
+            deliver_odor1_north = false;
+        }
+
+        if (odor1_valve_north_is_closed == false &&  now() - t_odor_valve_open > odor_valve_dur) {
+            digitalWrite(ODOR1_NORTH_VALVE_PIN, LOW);
+            log_code(ODOR1_NORTH_VALVE_OFF);
+            odor1_valve_north_is_closed = true;
+        }
+
+        // Odor 2
+        if (odor2_valve_north_is_closed == true && deliver_odor2_north == true) {
+
+            t_odor_valve_open = now();
+            digitalWrite(ODOR2_NORTH_VALVE_PIN, HIGH);
+            log_code(ODOR2_NORTH_VALVE_ON);
+            odor2_valve_north_is_closed = false;
+            deliver_odor2_north = false;
+        }
+
+        if (odor2_valve_north_is_closed == false &&  now() - t_odor_valve_open > odor_valve_dur) {
+            digitalWrite(ODOR2_NORTH_VALVE_PIN, LOW);
+            log_code(ODOR2_NORTH_VALVE_OFF);
+            odor2_valve_north_is_closed = true;
+        }
+
+    // South
+        // Odor 1
+        if (odor1_valve_south_is_closed == true && deliver_odor1_south == true) {
+
+            t_odor_valve_open = now();
+            digitalWrite(ODOR1_SOUTH_VALVE_PIN, HIGH);
+            log_code(ODOR1_SOUTH_VALVE_ON);
+            odor1_valve_south_is_closed = false;
+            deliver_odor1_south = false;
+        }
+        if (odor1_valve_south_is_closed == false &&  now() - t_odor_valve_open > odor_valve_dur) {
+            digitalWrite(ODOR1_SOUTH_VALVE_PIN, LOW);
+            log_code(ODOR1_SOUTH_VALVE_OFF);
+            odor1_valve_south_is_closed = true;
+        }
+
+        // Odor 2
+        if (odor2_valve_south_is_closed == true && deliver_odor2_south == true) {
+
+            t_odor_valve_open = now();
+            digitalWrite(ODOR2_SOUTH_VALVE_PIN, HIGH);
+            log_code(ODOR2_SOUTH_VALVE_ON);
+            odor2_valve_south_is_closed = false;
+            deliver_odor2_south = false;
+        }
+        if (odor2_valve_south_is_closed == false &&  now() - t_odor_valve_open > odor_valve_dur) {
+            digitalWrite(ODOR2_SOUTH_VALVE_PIN, LOW);
+            log_code(ODOR2_SOUTH_VALVE_OFF);
+            odor2_valve_south_is_closed = true;
+        }
 }
 
 /*
@@ -1271,7 +1366,7 @@ void setup() {
     pinMode(SPEAKER_EAST_PIN,OUTPUT);
     tone_control_east.begin(SPEAKER_EAST_PIN);
 
-    // ini valves 
+    // ini water valves 
     pinMode(REWARD_WEST_VALVE_PIN,OUTPUT);
     pinMode(REWARD_EAST_VALVE_PIN,OUTPUT);
     pinMode(REWARD_PUMP_PIN,OUTPUT);
@@ -1297,6 +1392,12 @@ void setup() {
         pokesNeopixel[i].show(); // init as off
     }
 
+    // ini odor valves 
+    pinMode(ODOR1_NORTH_VALVE_PIN,OUTPUT);
+    pinMode(ODOR2_NORTH_VALVE_PIN,OUTPUT);
+    pinMode(ODOR1_SOUTH_VALVE_PIN,OUTPUT);
+    pinMode(ODOR2_SOUTH_VALVE_PIN,OUTPUT);
+
     PinInit(); // pin initialization
 
     Serial.println("<Arduino is ready to receive commands>");
@@ -1313,6 +1414,7 @@ void loop() {
     punish_tone_controller();
     reward_valve_controller();
     pump_controller();
+    odor_valve_controller();
     lights_off_controller(); // turn off everything when session's finished
 
     // sample sensors

@@ -13,8 +13,18 @@ bool newData = false;
 bool verbose = true;
 bool run = false;
 bool lights_off = false; // lights off at the end of the session
+
+// water
 bool deliver_reward_west = false;
 bool deliver_reward_east = false;
+
+// odors
+bool deliver_odor1_north = false;
+bool deliver_odor2_north = false;
+
+bool deliver_odor1_south = false;
+bool deliver_odor2_south = false;
+
 bool togglingActive = false;
 unsigned long previousMillis = 0; // Tracks the last time the pin was toggled
 bool punish = false;
