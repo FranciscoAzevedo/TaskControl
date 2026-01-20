@@ -52,6 +52,9 @@ unsigned long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 71; // Total number of toggles to perform , double of pump steps
 unsigned long grace_period = 200; // ms to avoid poke fluctuations
 
+// odors
+unsigned long odor_valve_dur = 1000; // will be set to this_interval in odor_valve_controller
+
 // speaker
 Tone tone_control_east;
 Tone tone_control_west;
