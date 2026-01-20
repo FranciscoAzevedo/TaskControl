@@ -494,6 +494,8 @@ void odor_valve_controller(){
     // setting the valve HIGH delivers odor, LOW delivers neutral flow
     // flipped by setting deliver_odor to true somewhere in the FSM
 
+    odor_valve_dur = this_interval; 
+
     // North
         // Odor 1
         if (odor1_valve_north_is_closed == true && deliver_odor1_north == true) {

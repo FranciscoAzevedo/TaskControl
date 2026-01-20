@@ -133,35 +133,6 @@ void processSerialData() {
 
         }
 
-        // UPD - update trial probs - HARDCODED for now, n trials
-        // format UPD 0 0.031 or similar
-        // if (strcmp(mode,"UPD")==0){
-            
-        //     char line[len-4+1];
-        //     strlcpy(line, receivedChars+4, len-4+1);
-
-        //     // get index of space
-        //     len = sizeof(line)/sizeof(char);
-        //     unsigned int split = 0;
-        //     for (unsigned int i = 0; i < numChars; i++){
-        //         if (line[i] == ' '){
-        //             split = i;
-        //             break;
-        //         }
-        //     }
-
-        //     // split by space
-        //     char varname[split+1];
-        //     strlcpy(varname, line, split+1);
-
-        //     char varvalue[len-split+1];
-        //     strlcpy(varvalue, line+split+1, len-split+1);
-
-        //     int ix = atoi(varname);
-        //     float p = atof(varvalue);
-        //     p_interval[ix] = p;
-        // }
-
         // CMD
         if (strcmp(mode,"CMD")==0){
             char CMD[len-4+1];
@@ -184,7 +155,8 @@ void processSerialData() {
                 lights_off = true;
                 Serial.println("<Session finished>");
             }
-
+            
+            // water trigger
             if (strcmp(CMD,"w")==0){
                 deliver_reward_west = true;
                 togglingActive = true;
@@ -195,6 +167,21 @@ void processSerialData() {
                 deliver_reward_east = true;
                 togglingActive = true;
                 previousMillis = millis();
+            }
+            
+            // odor trigger
+            if (strcmp(CMD,"y")==0){
+                deliver_odor1_north = true;
+            }
+            if (strcmp(CMD,"u")==0){
+                deliver_odor2_north = true;
+            }
+
+            if (strcmp(CMD,"h")==0){
+                deliver_odor1_south = true;
+            }
+            if (strcmp(CMD,"j")==0){
+                deliver_odor2_south = true;
             }
 
             if (strcmp(CMD,"p")==0){

@@ -22,6 +22,8 @@ const unsigned int ITI_STATE = 6;
 const unsigned int TIMEOUT_STATE = 7;
 
 // SPANS
+
+// pokes
 unsigned int POKE_NORTH_IN = 8;
 unsigned int POKE_NORTH_OUT = 9;
 unsigned int POKE_SOUTH_IN = 10;
@@ -31,6 +33,7 @@ unsigned int POKE_WEST_OUT = 13;
 unsigned int POKE_EAST_IN = 14;
 unsigned int POKE_EAST_OUT = 15;
 
+// water valves and pump
 unsigned int WATER_PUMP_ON = 16;
 unsigned int WATER_PUMP_OFF = 17;
 
@@ -43,6 +46,18 @@ unsigned int WATER_EAST_VALVE_OFF = 21;
 unsigned int JITTER_IN = 23;
 unsigned int JITTER_OUT = 24;
 
+// odors
+unsigned int ODOR1_NORTH_VALVE_ON = 60;
+unsigned int ODOR1_NORTH_VALVE_OFF = 61;
+unsigned int ODOR2_NORTH_VALVE_ON = 62;
+unsigned int ODOR2_NORTH_VALVE_OFF = 63;
+
+unsigned int ODOR1_SOUTH_VALVE_ON = 64;
+unsigned int ODOR1_SOUTH_VALVE_OFF = 65;
+unsigned int ODOR2_SOUTH_VALVE_ON = 66;
+unsigned int ODOR2_SOUTH_VALVE_OFF = 67;
+
+
 // EVENTS
 
 // trials and outcomes
@@ -54,15 +69,15 @@ unsigned int BROKEN_FIXATION_EVENT = 30;
 unsigned int TRIAL_SUCCESSFUL_EVENT = 31;
 unsigned int TRIAL_UNSUCCESSFUL_EVENT = 32;
 
-unsigned int CHOICE_MISSED_EVENT = 33;
-unsigned int CHOICE_INCORRECT_EVENT = 34;
-unsigned int CHOICE_CORRECT_EVENT = 35;
-
 // reward 
 unsigned int REWARD_WEST_EVENT = 36;
 unsigned int REWARD_EAST_EVENT = 37;
 
 // choice 
+unsigned int CHOICE_MISSED_EVENT = 33;
+unsigned int CHOICE_INCORRECT_EVENT = 34;
+unsigned int CHOICE_CORRECT_EVENT = 35;
+
 unsigned int CHOICE_EVENT = 40;
 unsigned int CHOICE_WEST_EVENT = 42;
 unsigned int CHOICE_EAST_EVENT = 43;
