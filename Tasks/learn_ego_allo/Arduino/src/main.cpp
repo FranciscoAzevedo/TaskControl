@@ -987,9 +987,11 @@ void finite_state_machine(){
                     if (is_poking_north == true){
                         if (is_ego_context == true){
                             SetEgoNeopixelClr(pokesNeopixel[0], egoColor, dimBrightness);
+                            deliver_odor1_north = true; // deliver odor 1 on north port
                         }
                         else {
                             SetAlloNeopixelClr(pokesNeopixel[0], alloColor, dimBrightness);
+                            deliver_odor2_north = true; // deliver odor 2 on north port
                         }
 
                         log_code(TRIAL_ENTRY_NORTH_EVENT);
@@ -1001,9 +1003,11 @@ void finite_state_machine(){
                     if (is_poking_south == true){
                         if (is_ego_context == true){
                             SetEgoNeopixelClr(pokesNeopixel[1], egoColor, dimBrightness);
+                            deliver_odor1_south = true; // deliver odor 1 on south port
                         }
                         else {
                             SetAlloNeopixelClr(pokesNeopixel[1], alloColor, dimBrightness);
+                            deliver_odor2_south = true; // deliver odor 2 on south port
                         }
 
                         log_code(TRIAL_ENTRY_SOUTH_EVENT);
