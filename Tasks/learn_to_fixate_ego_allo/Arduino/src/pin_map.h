@@ -2,9 +2,11 @@
 
 #define NUM_POKES 4
 
-// UNUSED SO FAR: ODOR VALVES - poke valve pins used for odor instead of water 
-const int ODOR_NORTH_VALVE_PIN = 50; // poke0 valve 
-const int ODOR_SOUTH_VALVE_PIN = 4; // poke1 valve
+// ODOR VALVES - the neutral flow carrier is the normally open path on the 3-way valves
+const int ODOR1_NORTH_VALVE_PIN = 38; // these 4 connections come soldered from the PCB, not via terminal block
+const int ODOR2_NORTH_VALVE_PIN = 39; // 
+const int ODOR1_SOUTH_VALVE_PIN = 40; // 
+const int ODOR2_SOUTH_VALVE_PIN = 41; // 
 
 // WATER VALVES AND PUMP
 const int REWARD_WEST_VALVE_PIN = 10; // poke2 valve
