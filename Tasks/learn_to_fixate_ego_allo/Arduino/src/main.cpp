@@ -49,7 +49,10 @@ unsigned long reward_tone_freq = 1750;
 unsigned long reward_valve_dur = 2000; // more than enough for pump to push water
 unsigned long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 71; // Total number of toggles to perform , double of pump steps
-unsigned long grace_period = 150; // ms to avoid poke fluctuations
+unsigned long grace_period = 100; // ms to avoid poke fluctuations
+
+// odors
+unsigned long odor_valve_dur = 1000; // will be set to this_interval in odor_valve_controller
 
 // speaker
 Tone tone_control_east;
@@ -108,6 +111,13 @@ void PinInit(){
     // speakers
     digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker
     digitalWrite(SPEAKER_EAST_PIN, 1); // turn off east speaker
+
+    // odor
+    digitalWrite(ODOR1_NORTH_VALVE_PIN, LOW); // turn off odor 1 north valve
+    digitalWrite(ODOR2_NORTH_VALVE_PIN, LOW); // turn off odor 2 north valve
+    digitalWrite(ODOR1_SOUTH_VALVE_PIN, LOW); // turn off odor 1 south valve
+    digitalWrite(ODOR2_SOUTH_VALVE_PIN, LOW); // turn off odor 2 south valve
+
 
     // lights
     digitalWrite(BCKGND_LIGHTS_PIN, HIGH); // turn on background lights
@@ -412,10 +422,31 @@ void sync_pin_controller(){
 
 unsigned long this_interval;
 
-void get_trial_type(){
 
-    // now is called to update
-    this_interval = mean_fix_dur;
+// Helper: Box-Muller transform for normal distribution
+float rand_normal(float mean, float stddev) {
+    float u1 = random(1, 10000) / 10000.0;
+    float u2 = random(1, 10000) / 10000.0;
+    float z0 = sqrt(-2.0 * log(u1)) * cos(2.0 * PI * u2);
+    return z0 * stddev + mean;
+}
+
+void get_trial_type(){
+    // Enforce minimum mean_fix_dur
+    const float min_fix_dur = 1.0; // ms, set to 1 as absolute minimum
+    if (mean_fix_dur < min_fix_dur) mean_fix_dur = min_fix_dur;
+
+    // Calculate sigma as a fraction of mean_fix_dur
+    float sigma = mean_fix_dur * sigma_fix_dur_frac;
+    float sampled = rand_normal(mean_fix_dur, sigma);
+    // Clamp to [mean_fix_dur - 2*sigma, mean_fix_dur + 2*sigma], but not below min_fix_dur
+    float min_val = mean_fix_dur - 2.0 * sigma;
+    float max_val = mean_fix_dur + 2.0 * sigma;
+    if (min_val < min_fix_dur) min_val = min_fix_dur;
+    if (sampled < min_val) sampled = min_val;
+    if (sampled > max_val) sampled = max_val;
+    this_interval = (unsigned long)sampled;
+    if (this_interval < (unsigned long)min_fix_dur) this_interval = (unsigned long)min_fix_dur;
 
     // logging for analysis
     trial_counter++;
@@ -807,6 +838,12 @@ void setup() {
         ClearNeopixel(pokesNeopixel[i]); // clear poke
         pokesNeopixel[i].show(); // init as off
     }
+
+    // ini odor valves 
+    pinMode(ODOR1_NORTH_VALVE_PIN,OUTPUT);
+    pinMode(ODOR2_NORTH_VALVE_PIN,OUTPUT);
+    pinMode(ODOR1_SOUTH_VALVE_PIN,OUTPUT);
+    pinMode(ODOR2_SOUTH_VALVE_PIN,OUTPUT);
 
     PinInit(); // pin initialization
 

@@ -4,9 +4,13 @@ unsigned long timeout_dur = 5000; // from cooling paper
 unsigned long choice_dur = 20000;
 unsigned long t_init_max = 60000; // max time to wait for trial entry
 
+
 unsigned long mean_fix_dur = 20; // starting point
 unsigned long inc_fix_dur = 10; // go from 10,20,50
 unsigned long dec_fix_dur = 5; // go from 5,10,20
+
+// Sigma for fixation duration (as a fraction of mean_fix_dur, e.g. 0.25 for 25%)
+float sigma_fix_dur_frac = 0.25; // default: 25% of mean_fix_dur
 
 unsigned long init_port_blocks = 0; // 0-false, 1-true
 unsigned long port_dur_min = 15;
