@@ -49,6 +49,10 @@ unsigned long reward_valve_dur = 2000; // more than enough for pump
 unsigned long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 70; // Total number of toggles to perform , double of pump steps
 
+// speaker
+Tone tone_control_east;
+Tone tone_control_west;
+
 //  named variables that are easier to compare in numbers than strings
 int north = 8;
 int south = 2;
@@ -67,6 +71,38 @@ bool spkrState;
 bool pumpState;
 int choice;
 int correct_side;
+
+/*
+.########..####.##....##.....######...#######..##....##.########.####..######..
+.##.....##..##..###...##....##....##.##.....##.###...##.##........##..##....##.
+.##.....##..##..####..##....##.......##.....##.####..##.##........##..##.......
+.########...##..##.##.##....##.......##.....##.##.##.##.######....##..##...####
+.##.........##..##..####....##.......##.....##.##..####.##........##..##....##.
+.##.........##..##...###....##....##.##.....##.##...###.##........##..##....##.
+.##........####.##....##.....######...#######..##....##.##.......####..######..
+*/
+
+void PinInit(){
+
+    // water
+    digitalWrite(REWARD_WEST_VALVE_PIN, LOW);
+    digitalWrite(REWARD_EAST_VALVE_PIN, LOW);
+    digitalWrite(REWARD_PUMP_PIN, LOW);
+
+    // odor
+    digitalWrite(ODOR1_NORTH_VALVE_PIN, LOW); // turn off odor 1 north valve
+    digitalWrite(ODOR2_NORTH_VALVE_PIN, LOW); // turn off odor 2 north valve
+    digitalWrite(ODOR1_SOUTH_VALVE_PIN, LOW); // turn off odor 1 south valve
+    digitalWrite(ODOR2_SOUTH_VALVE_PIN, LOW); // turn off odor 2 south valve
+
+    // cam
+    digitalWrite(CAM_SYNC_PIN, LOW); // turn off camera sync pin
+
+    // speakers
+    digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker
+    digitalWrite(SPEAKER_EAST_PIN, 1); // turn off west speaker
+}
+
 
 /*
 .########...#######..##....##.########..######.
@@ -193,8 +229,6 @@ void ClearNeopixel(Adafruit_NeoPixel &neopixel) {
 */
 
 // speaker
-Tone tone_controller;
-
 void go_cue_west(){
     SetNeopixelClr(pokesNeopixel[2], whiteColor, fullBrightness);
     log_code(LIGHT_WEST_CUE_EVENT);
@@ -205,26 +239,15 @@ void go_cue_east(){
     log_code(LIGHT_EAST_CUE_EVENT);
 }
 
-void sound_cue(){     
-    tone_controller.play(tone_freq, tone_dur);
+void sound_cue(){
+    tone_control_west.play(tone_freq, tone_dur);
+    tone_control_east.play(tone_freq, tone_dur);
 }
 
 void reward_cue(){
-    tone_controller.play(reward_tone_freq, tone_dur);
+    tone_control_west.play(reward_tone_freq, tone_dur);
+    tone_control_east.play(reward_tone_freq, tone_dur);
 }
-
-unsigned long error_cue_start = max_future;
-unsigned long error_cue_dur = tone_dur * 1000; // to save instructions - work in micros
-
-void incorrect_choice_cue(){
-    error_cue_start = micros();
-    while (micros() - error_cue_start < error_cue_dur){
-        spkrState = random(0,2);
-        digitalWrite(SPEAKER_WEST_PIN, spkrState);
-        digitalWrite(SPEAKER_EAST_PIN, spkrState);
-    }
-}
-
 
 /*
 ##     ##    ###    ##       ##     ## ########
@@ -452,7 +475,6 @@ void finite_state_machine(){
                 ClearNeopixel(pokesNeopixel[3]);
 
                 // cue
-                incorrect_choice_cue();
                 current_state = ITI_STATE;
                 break;
             }
@@ -506,6 +528,37 @@ void finite_state_machine(){
     }
 }
 
+/*
+..######..########..######...######..####..#######..##....##....########.##....##.########.
+.##....##.##.......##....##.##....##..##..##.....##.###...##....##.......###...##.##.....##
+.##.......##.......##.......##........##..##.....##.####..##....##.......####..##.##.....##
+..######..######....######...######...##..##.....##.##.##.##....######...##.##.##.##.....##
+.......##.##.............##.......##..##..##.....##.##..####....##.......##..####.##.....##
+.##....##.##.......##....##.##....##..##..##.....##.##...###....##.......##...###.##.....##
+..######..########..######...######..####..#######..##....##....########.##....##.########.
+*/
+
+void lights_off_controller(){
+
+    if (lights_off == true) {
+        // water
+        digitalWrite(REWARD_WEST_VALVE_PIN, LOW);
+        digitalWrite(REWARD_EAST_VALVE_PIN, LOW);
+        digitalWrite(REWARD_PUMP_PIN, LOW);
+
+        // speakers
+        digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker - inverse
+        digitalWrite(SPEAKER_EAST_PIN, 1); // turn off west speaker - inverse
+
+        // BG lights
+        ClearNeopixel(bgNeopixel);
+
+        // poke lights
+        for (i = 0; i < NUM_POKES; i++){
+            ClearNeopixel(pokesNeopixel[i]); 
+        }
+    }
+}
 
 /*
 ##     ##    ###    #### ##    ##
@@ -556,6 +609,14 @@ void setup() {
         pokesNeopixel[i].show(); // init as off
     }
 
+    // ini odor valves 
+    pinMode(ODOR1_NORTH_VALVE_PIN,OUTPUT);
+    pinMode(ODOR2_NORTH_VALVE_PIN,OUTPUT);
+    pinMode(ODOR1_SOUTH_VALVE_PIN,OUTPUT);
+    pinMode(ODOR2_SOUTH_VALVE_PIN,OUTPUT);
+
+    PinInit(); // pin initialization
+
     Serial.println("<Arduino is ready to receive commands>");
     delay(1000);
 }
@@ -569,6 +630,7 @@ void loop() {
     // Controllers
     reward_valve_controller();
     pump_controller();
+    lights_off_controller(); // turn off everything when session's finished
 
     // sample sensors
     read_pokes();

@@ -13,13 +13,13 @@ const int REWARD_EAST_VALVE_PIN = 7; // poke3 valve
 const int REWARD_PUMP_PIN = 53; // "STIM" on diagram
 
 // POKES  (redundant definitions for clarity)
-const int POKE_NORTH_PIN = 13; // poke0 receiver
+const int POKE_NORTH_PIN = 22; // poke0 receiver //DUE TO BOARD HACK DO NOT UPLOAD DIFF ACROSS BOXES
 const int POKE_SOUTH_PIN = 11; // poke1
 const int POKE_WEST_PIN = 8; // poke2
 const int POKE_EAST_PIN = 5; // poke3
 
 const unsigned int POKES_PINS[NUM_POKES] = {
-    13, // poke0
+    13, // poke0 //DUE TO BOARD HACK DO NOT UPLOAD DIFF ACROSS BOXES
     11, // poke1
     8,  // poke2
     5   // poke3  
