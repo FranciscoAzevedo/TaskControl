@@ -579,11 +579,10 @@ void setup() {
 
     // ini speakers
     pinMode(SPEAKER_WEST_PIN,OUTPUT);
-    tone_controller.begin(SPEAKER_WEST_PIN);
-
+    tone_control_west.begin(SPEAKER_WEST_PIN);
     pinMode(SPEAKER_EAST_PIN,OUTPUT);
-    tone_controller.begin(SPEAKER_EAST_PIN);
-
+    tone_control_east.begin(SPEAKER_EAST_PIN);
+    
     // ini valves 
     pinMode(REWARD_WEST_VALVE_PIN,OUTPUT);
     pinMode(REWARD_EAST_VALVE_PIN,OUTPUT);

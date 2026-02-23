@@ -16,3 +16,5 @@ Boxes
 *src/interface.cpp
 TaskControl.py
 TaskControl-requirements.yml
+
+*/src/pin_map.h
