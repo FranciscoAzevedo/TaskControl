@@ -43,6 +43,8 @@ unsigned long t_state_entry = max_future;
 unsigned long pokeout_wait_ms = 2000; // 2 seconds wait after poke-out
 unsigned long t_last_west_pokeout = 0;
 unsigned long t_last_east_pokeout = 0;
+bool west_clear = true;
+bool east_clear = true;
 
 // Parameters from Thiago Gouvea's eLife paper
 unsigned long tone_dur = 150;
@@ -440,18 +442,14 @@ void finite_state_machine(){
                 log_int("correct_side", correct_side);
             }
 
-            // Only show cue if animal is not poking and has been out for pokeout_wait_ms
             if (correct_side == west) {
                 go_cue_west();
             } else {
                 go_cue_east();
             }
 
-            // Only allow transition if cue is visible (i.e., animal is not poking and waited)
-            bool port_clear = (correct_side == west) ? (!is_poking_west && (millis() - t_last_west_pokeout >= pokeout_wait_ms)) : (!is_poking_east && (millis() - t_last_east_pokeout >= pokeout_wait_ms));
-            if (port_clear) {
-                current_state = CHOICE_STATE;
-            }
+            current_state = CHOICE_STATE;
+
             break;
 
         case CHOICE_STATE:
@@ -543,9 +541,14 @@ void finite_state_machine(){
                 this_ITI_dur = (unsigned long) random(ITI_dur_min, ITI_dur_max);
             }
 
-            // exit condition
+            // exit condition - only go to TRIAL_AVAILABLE if ITI has passed AND animal hasn't poked in 2 seconds
             if (now() - t_state_entry > this_ITI_dur) {
-                current_state = TRIAL_AVAILABLE_STATE;
+                // Check if animal hasn't poked at either port for at least pokeout_wait_ms
+                west_clear = (millis() - t_last_west_pokeout >= pokeout_wait_ms);
+                east_clear = (millis() - t_last_east_pokeout >= pokeout_wait_ms);
+                if (west_clear && east_clear && !is_poking) { 
+                    current_state = TRIAL_AVAILABLE_STATE;
+                }
             }
             break;
     }
