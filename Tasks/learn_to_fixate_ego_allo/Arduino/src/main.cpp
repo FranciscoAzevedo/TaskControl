@@ -40,6 +40,12 @@ unsigned long max_future = 4294967295; // 2**32 -1
 unsigned long t_state_entry = max_future;
 long trial_init_time = 0; // to avoid first trial issues
 
+// --- Poke-out wait logic ---
+unsigned long pokeout_wait_ms = 2000; // 2 seconds wait after poke-out
+unsigned long t_last_north_pokeout = 0;
+unsigned long t_last_south_pokeout = 0;
+bool waiting_for_pokeout = false;
+
 // Parameters from Thiago Gouvea's eLife paper
 unsigned long tone_dur = 150;
 unsigned long tone_freq = 7500;
@@ -163,6 +169,7 @@ void read_pokes(){
     if (is_poking_north == true && poke_north == false){
         log_code(POKE_NORTH_OUT);
         is_poking_north = false;
+        t_last_north_pokeout = millis();
     }
 
     // south
@@ -175,6 +182,7 @@ void read_pokes(){
     if (is_poking_south == true && poke_south == false){
         log_code(POKE_SOUTH_OUT);
         is_poking_south = false;
+        t_last_south_pokeout = millis();
     }
 
     // west
@@ -540,10 +548,25 @@ void finite_state_machine(){
                         current_init_block_counter++;
                     }
                 }
+                waiting_for_pokeout = true;
                 trial_available_cue();
             }
 
             if (current_state == last_state){
+                // Wait for poke-out from the future initiation port for a minimum duration
+                unsigned long now_ms = millis();
+                bool port_clear = false;
+                if (init_port == north) {
+                    port_clear = !is_poking_north && (now_ms - t_last_north_pokeout >= pokeout_wait_ms);
+                } else {
+                    port_clear = !is_poking_south && (now_ms - t_last_south_pokeout >= pokeout_wait_ms);
+                }
+                if (!port_clear) {
+                    // Keep lights off if animal is inside, or waiting period not elapsed
+                    ClearNeopixel(pokesNeopixel[0]);
+                    ClearNeopixel(pokesNeopixel[1]);
+                    break;
+                }
 
                 if(now()-t_state_entry > t_init_max){
                     // timeout, go to ITI

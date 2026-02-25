@@ -39,6 +39,11 @@ int last_state = -1; // whatever other state
 unsigned long max_future = 4294967295; // 2**32 -1
 unsigned long t_state_entry = max_future;
 
+// --- Poke-out wait logic for reward ports ---
+unsigned long pokeout_wait_ms = 2000; // 2 seconds wait after poke-out
+unsigned long t_last_west_pokeout = 0;
+unsigned long t_last_east_pokeout = 0;
+
 // Parameters from Thiago Gouvea's eLife paper
 unsigned long tone_dur = 150;
 unsigned long tone_freq = 7500;
@@ -163,6 +168,7 @@ void read_pokes(){
     if (is_poking_west == true && poke_west == false){
         log_code(POKE_WEST_OUT);
         is_poking_west = false;
+        t_last_west_pokeout = millis();
     }
 
     // east
@@ -175,6 +181,7 @@ void read_pokes(){
     if (is_poking_east == true && poke_east == false){
         log_code(POKE_EAST_OUT);
         is_poking_east = false;
+        t_last_east_pokeout = millis();
     }
 
     is_poking = (is_poking_north || is_poking_south || is_poking_west || is_poking_east);
@@ -230,13 +237,23 @@ void ClearNeopixel(Adafruit_NeoPixel &neopixel) {
 
 // speaker
 void go_cue_west(){
-    SetNeopixelClr(pokesNeopixel[2], whiteColor, fullBrightness);
-    log_code(LIGHT_WEST_CUE_EVENT);
+    // Only light up if animal is not poking and has been out for pokeout_wait_ms
+    if (!is_poking_west && (millis() - t_last_west_pokeout >= pokeout_wait_ms)) {
+        SetNeopixelClr(pokesNeopixel[2], whiteColor, fullBrightness);
+        log_code(LIGHT_WEST_CUE_EVENT);
+    } else {
+        ClearNeopixel(pokesNeopixel[2]);
+    }
 }
 
 void go_cue_east(){
-    SetNeopixelClr(pokesNeopixel[3], whiteColor, fullBrightness);
-    log_code(LIGHT_EAST_CUE_EVENT);
+    // Only light up if animal is not poking and has been out for pokeout_wait_ms
+    if (!is_poking_east && (millis() - t_last_east_pokeout >= pokeout_wait_ms)) {
+        SetNeopixelClr(pokesNeopixel[3], whiteColor, fullBrightness);
+        log_code(LIGHT_EAST_CUE_EVENT);
+    } else {
+        ClearNeopixel(pokesNeopixel[3]);
+    }
 }
 
 void sound_cue(){
@@ -416,17 +433,23 @@ void finite_state_machine(){
                 r = random(0,1000) / 1000.0;
                 if (r > 0.5){
                     correct_side = west;
-                    go_cue_west();
                 }
                 else {
                     correct_side = east;
-                    go_cue_east();
                 }
-
                 log_int("correct_side", correct_side);
             }
 
-            if (true) {
+            // Only show cue if animal is not poking and has been out for pokeout_wait_ms
+            if (correct_side == west) {
+                go_cue_west();
+            } else {
+                go_cue_east();
+            }
+
+            // Only allow transition if cue is visible (i.e., animal is not poking and waited)
+            bool port_clear = (correct_side == west) ? (!is_poking_west && (millis() - t_last_west_pokeout >= pokeout_wait_ms)) : (!is_poking_east && (millis() - t_last_east_pokeout >= pokeout_wait_ms));
+            if (port_clear) {
                 current_state = CHOICE_STATE;
             }
             break;
