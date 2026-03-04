@@ -212,6 +212,7 @@ Color whiteColor = Color(255, 255, 255); // white
 
 float offBrightness = 0.0;
 float dimBrightness = 0.1;
+float halfBrightness = 0.5;
 float fullBrightness = 1.0;
 
 void SetNeopixelClr(Adafruit_NeoPixel &neopixel, Color c, float b) {
@@ -623,7 +624,7 @@ void setup() {
     pinMode(BCKGND_LIGHTS_PIN,OUTPUT);
     bgNeopixel = Adafruit_NeoPixel(NUM_BCKGND_PIXELS,BCKGND_LIGHTS_PIN,NEO_GRB + NEO_KHZ800);
     bgNeopixel.begin();
-    SetNeopixelClr(bgNeopixel, redColor, fullBrightness); // max brightness red background
+    SetNeopixelClr(bgNeopixel, redColor, halfBrightness); // max brightness red background
     bgNeopixel.show();
 
     for (int i = 0; i < NUM_POKES; i++){

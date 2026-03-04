@@ -41,10 +41,11 @@ unsigned long t_state_entry = max_future;
 long trial_init_time = 0; // to avoid first trial issues
 
 // --- Poke-out wait logic ---
-unsigned long pokeout_wait_ms = 2000; // 2 seconds wait after poke-out
+unsigned long pokeout_wait_ms = 3000; // 3 seconds wait before trial init
 unsigned long t_last_north_pokeout = 0;
 unsigned long t_last_south_pokeout = 0;
-bool waiting_for_pokeout = false;
+bool north_clear = true;
+bool south_clear = true;
 
 // Parameters from Thiago Gouvea's eLife paper
 unsigned long tone_dur = 150;
@@ -235,7 +236,7 @@ Color whiteColor = Color(255, 255, 255); // white
 
 float offBrightness = 0.0;
 float dimBrightness = 0.1;
-float halfBrightness = 0.5;
+flaot halfBrightness = 0.5;
 float fullBrightness = 1.0;
 
 void SetNeopixelClr(Adafruit_NeoPixel &neopixel, Color c, float b) {
@@ -548,26 +549,10 @@ void finite_state_machine(){
                         current_init_block_counter++;
                     }
                 }
-                waiting_for_pokeout = true;
                 trial_available_cue();
             }
 
             if (current_state == last_state){
-                // Wait for poke-out from the future initiation port for a minimum duration
-                unsigned long now_ms = millis();
-                bool port_clear = false;
-                if (init_port == north) {
-                    port_clear = !is_poking_north && (now_ms - t_last_north_pokeout >= pokeout_wait_ms);
-                } else {
-                    port_clear = !is_poking_south && (now_ms - t_last_south_pokeout >= pokeout_wait_ms);
-                }
-                if (!port_clear) {
-                    // Keep lights off if animal is inside, or waiting period not elapsed
-                    ClearNeopixel(pokesNeopixel[0]);
-                    ClearNeopixel(pokesNeopixel[1]);
-                    break;
-                }
-
                 if(now()-t_state_entry > t_init_max){
                     // timeout, go to ITI
                     log_code(TRIAL_AVAILABLE_TIMEOUT_EVENT);
@@ -794,7 +779,11 @@ void finite_state_machine(){
                 current_state = TIMEOUT_STATE;
             }
             else if (now() - t_state_entry > this_ITI_dur) {
-                current_state = TRIAL_AVAILABLE_STATE;
+                north_clear = (millis() - t_last_north_pokeout >= pokeout_wait_ms);
+                south_clear = (millis() - t_last_south_pokeout >= pokeout_wait_ms);
+                if (north_clear && south_clear && !is_poking) {
+                    current_state = TRIAL_AVAILABLE_STATE; 
+                }
             }
             break;
 
@@ -850,7 +839,7 @@ void setup() {
     pinMode(BCKGND_LIGHTS_PIN,OUTPUT);
     bgNeopixel = Adafruit_NeoPixel(NUM_BCKGND_PIXELS,BCKGND_LIGHTS_PIN,NEO_GRB + NEO_KHZ800);
     bgNeopixel.begin();
-    SetNeopixelClr(bgNeopixel, redColor, fullBrightness);
+    SetNeopixelClr(bgNeopixel, redColor, halfBrightness);
     bgNeopixel.show();
 
     // ini POKE LEDs 
