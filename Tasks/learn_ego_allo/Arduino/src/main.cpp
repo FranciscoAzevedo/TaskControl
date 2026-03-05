@@ -1389,7 +1389,7 @@ void setup() {
     pinMode(BCKGND_LIGHTS_PIN,OUTPUT);
     bgNeopixel = Adafruit_NeoPixel(NUM_BCKGND_PIXELS,BCKGND_LIGHTS_PIN,NEO_GRB + NEO_KHZ800);
     bgNeopixel.begin();
-    SetNeopixelClr(bgNeopixel, redColor, fullBrightness); // red background
+    SetNeopixelClr(bgNeopixel, redColor, halfBrightness); // red background
     bgNeopixel.show();
 
     // ini POKE LEDs 

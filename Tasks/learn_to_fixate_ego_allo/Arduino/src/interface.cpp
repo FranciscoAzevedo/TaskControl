@@ -13,8 +13,18 @@ bool newData = false;
 bool verbose = true;
 bool run = false;
 bool lights_off = false; // lights off at the end of the session
+
+// water
 bool deliver_reward_west = false;
 bool deliver_reward_east = false;
+
+// odors
+bool deliver_odor1_north = false;
+bool deliver_odor2_north = false;
+
+bool deliver_odor1_south = false;
+bool deliver_odor2_south = false;
+
 bool togglingActive = false;
 unsigned long previousMillis = 0; // Tracks the last time the pin was toggled
 bool punish = false;
@@ -123,6 +133,10 @@ void processSerialData() {
             log_ulong("dec_fix_dur", dec_fix_dur);
         }
 
+        if (strcmp(varname,"sigma_fix_dur_frac")==0){
+            log_float("sigma_fix_dur_frac", sigma_fix_dur_frac);
+        }
+
         if (strcmp(varname,"init_port_blocks")==0){
             log_ulong("init_port_blocks", init_port_blocks);
         }
@@ -189,6 +203,10 @@ void processSerialData() {
             dec_fix_dur = strtoul(varvalue,NULL,10);
         }
 
+        if (strcmp(varname,"sigma_fix_dur_frac")==0){
+            sigma_fix_dur_frac = atof(varvalue);
+        }
+
         if (strcmp(varname,"init_port_blocks")==0){
             init_port_blocks = strtoul(varvalue,NULL,10);
         }
@@ -202,35 +220,6 @@ void processSerialData() {
         }
 
         }
-
-        // UPD - update trial probs - HARDCODED for now, n trials
-        // format UPD 0 0.031 or similar
-        // if (strcmp(mode,"UPD")==0){
-            
-        //     char line[len-4+1];
-        //     strlcpy(line, receivedChars+4, len-4+1);
-
-        //     // get index of space
-        //     len = sizeof(line)/sizeof(char);
-        //     unsigned int split = 0;
-        //     for (unsigned int i = 0; i < numChars; i++){
-        //         if (line[i] == ' '){
-        //             split = i;
-        //             break;
-        //         }
-        //     }
-
-        //     // split by space
-        //     char varname[split+1];
-        //     strlcpy(varname, line, split+1);
-
-        //     char varvalue[len-split+1];
-        //     strlcpy(varvalue, line+split+1, len-split+1);
-
-        //     int ix = atoi(varname);
-        //     float p = atof(varvalue);
-        //     p_interval[ix] = p;
-        // }
 
         // CMD
         if (strcmp(mode,"CMD")==0){
@@ -254,7 +243,8 @@ void processSerialData() {
                 lights_off = true;
                 Serial.println("<Session finished>");
             }
-
+            
+            // water trigger
             if (strcmp(CMD,"w")==0){
                 deliver_reward_west = true;
                 togglingActive = true;
@@ -265,6 +255,21 @@ void processSerialData() {
                 deliver_reward_east = true;
                 togglingActive = true;
                 previousMillis = millis();
+            }
+            
+            // odor trigger
+            if (strcmp(CMD,"y")==0){
+                deliver_odor1_north = true;
+            }
+            if (strcmp(CMD,"u")==0){
+                deliver_odor2_north = true;
+            }
+
+            if (strcmp(CMD,"h")==0){
+                deliver_odor1_south = true;
+            }
+            if (strcmp(CMD,"j")==0){
+                deliver_odor2_south = true;
             }
 
             if (strcmp(CMD,"p")==0){
