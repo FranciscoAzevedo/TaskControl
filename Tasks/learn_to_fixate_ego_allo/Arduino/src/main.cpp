@@ -66,6 +66,8 @@ Tone tone_control_east;
 Tone tone_control_west;
 unsigned long error_cue_start = max_future;
 unsigned long error_cue_dur = tone_dur * 1000; // to save instructions - work in micros
+bool trigger_punish_tone = false; // whether punish tone is active or not
+bool punish_tone_ON = false; // whether the tone is playing or not
 
 //  named variables that are easier to compare in numbers than strings
 int north = 8;
@@ -294,12 +296,27 @@ void reward_cue(){
     tone_control_east.play(reward_tone_freq, tone_dur);
 }
 
-void incorrect_choice_cue(){
-    error_cue_start = micros();
-    while (micros() - error_cue_start < error_cue_dur){
+// a self terminating digital pin switch
+// flipped by setting deliver_reward to true somewhere in the FSM
+void punish_tone_controller(){
+    
+    if (trigger_punish_tone == true && punish_tone_ON == false){
+        punish_tone_ON = true;
+        error_cue_start = micros();
+    }
+
+    // for the supposed duration of the error cue
+    else if (trigger_punish_tone == true && micros() - error_cue_start < error_cue_dur){
         spkrState = random(0,2);
+
         digitalWrite(SPEAKER_WEST_PIN, spkrState);
         digitalWrite(SPEAKER_EAST_PIN, spkrState);
+    }
+
+    // put it off at the end
+    else if (trigger_punish_tone == true && micros() - error_cue_start > error_cue_dur){
+        trigger_punish_tone = false;
+        punish_tone_ON = false;
     }
 }
 
@@ -441,9 +458,10 @@ float rand_normal(float mean, float stddev) {
 }
 
 void get_trial_type(){
-    // Enforce minimum mean_fix_dur
-    const float min_fix_dur = 1.0; // ms, set to 1 as absolute minimum
-    if (mean_fix_dur < min_fix_dur) mean_fix_dur = min_fix_dur;
+
+    // Enforce boundaries on mean_fix_dur
+    if (mean_fix_dur < 1.0) mean_fix_dur = 1.0;
+    if (mean_fix_dur > 2400) mean_fix_dur = 2400; // also set an upper bound to avoid too long intervals
 
     // Calculate sigma as a fraction of mean_fix_dur
     float sigma = mean_fix_dur * sigma_fix_dur_frac;
@@ -451,11 +469,12 @@ void get_trial_type(){
     // Clamp to [mean_fix_dur - 2*sigma, mean_fix_dur + 2*sigma], but not below min_fix_dur
     float min_val = mean_fix_dur - 2.0 * sigma;
     float max_val = mean_fix_dur + 2.0 * sigma;
-    if (min_val < min_fix_dur) min_val = min_fix_dur;
+    if (min_val < 1.0) min_val = 1.0;
     if (sampled < min_val) sampled = min_val;
     if (sampled > max_val) sampled = max_val;
     this_interval = (unsigned long)sampled;
-    if (this_interval < (unsigned long)min_fix_dur) this_interval = (unsigned long)min_fix_dur;
+    if (this_interval < 1.0) this_interval = 1.0;
+    if (this_interval > 2400) this_interval = 2400; // also set an upper bound to avoid too long intervals
 
     // logging for analysis
     trial_counter++;
@@ -650,7 +669,7 @@ void finite_state_machine(){
                         log_code(INIT_POKEOUT_EVENT);
                         log_code(BROKEN_FIXATION_EVENT);
                         log_code(TRIAL_UNSUCCESSFUL_EVENT);
-                        incorrect_choice_cue();
+                        trigger_punish_tone = true; // trigger punish tone
                         
                         timeout_flag = 1; // set timeout delay to 1, so it goes to timeout state
                         current_state = ITI_STATE;
@@ -803,6 +822,38 @@ void finite_state_machine(){
 }
 
 /*
+..######..########..######...######..####..#######..##....##....########.##....##.########.
+.##....##.##.......##....##.##....##..##..##.....##.###...##....##.......###...##.##.....##
+.##.......##.......##.......##........##..##.....##.####..##....##.......####..##.##.....##
+..######..######....######...######...##..##.....##.##.##.##....######...##.##.##.##.....##
+.......##.##.............##.......##..##..##.....##.##..####....##.......##..####.##.....##
+.##....##.##.......##....##.##....##..##..##.....##.##...###....##.......##...###.##.....##
+..######..########..######...######..####..#######..##....##....########.##....##.########.
+*/
+
+void lights_off_controller(){
+
+    if (lights_off == true) {
+        // water
+        digitalWrite(REWARD_WEST_VALVE_PIN, LOW);
+        digitalWrite(REWARD_EAST_VALVE_PIN, LOW);
+        digitalWrite(REWARD_PUMP_PIN, LOW);
+
+        // speakers
+        digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker - inverse
+        digitalWrite(SPEAKER_EAST_PIN, 1); // turn off west speaker - inverse
+
+        // BG lights
+        ClearNeopixel(bgNeopixel);
+
+        // poke lights
+        for (i = 0; i < NUM_POKES; i++){
+            ClearNeopixel(pokesNeopixel[i]); 
+        }
+    }
+}
+
+/*
 ##     ##    ###    #### ##    ##
 ###   ###   ## ##    ##  ###   ##
 #### ####  ##   ##   ##  ####  ##
@@ -870,8 +921,10 @@ void loop() {
     }
 
     // Controllers
+    punish_tone_controller();
     reward_valve_controller();
     pump_controller();
+    lights_off_controller(); // turn off everything when session's finished
 
     // sample sensors
     read_pokes();
