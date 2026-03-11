@@ -54,7 +54,7 @@ unsigned long reward_tone_freq = 1750;
 // Parameters for current pumps and pokes
 unsigned long reward_valve_dur = 2000; // more than enough for pump
 unsigned long reward_pump_toggle_dur = 3; // ms
-int targetToggles = 70; // Total number of toggles to perform , double of pump steps
+int targetToggles = 72; // Total number of toggles to perform , double of pump steps
 
 // speaker
 Tone tone_control_east;
