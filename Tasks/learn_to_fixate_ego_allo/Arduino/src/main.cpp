@@ -238,7 +238,7 @@ Color whiteColor = Color(255, 255, 255); // white
 
 float offBrightness = 0.0;
 float dimBrightness = 0.1;
-flaot halfBrightness = 0.5;
+float halfBrightness = 0.5;
 float fullBrightness = 1.0;
 
 void SetNeopixelClr(Adafruit_NeoPixel &neopixel, Color c, float b) {
