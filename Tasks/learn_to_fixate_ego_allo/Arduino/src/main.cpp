@@ -738,7 +738,6 @@ void finite_state_machine(){
                 ClearNeopixel(pokesNeopixel[3]);
 
                 // cue
-                incorrect_choice_cue();
                 current_state = ITI_STATE;
                 break;
             }

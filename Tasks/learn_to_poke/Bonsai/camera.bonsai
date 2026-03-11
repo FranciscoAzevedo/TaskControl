@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<WorkflowBuilder Version="2.9.0"
+<WorkflowBuilder Version="2.8.5"
                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                  xmlns:rx="clr-namespace:Bonsai.Reactive;assembly=Bonsai.Core"
                  xmlns:spk="clr-namespace:Bonsai.Spinnaker;assembly=Bonsai.Spinnaker"
@@ -13,7 +13,7 @@
       </Expression>
       <Expression xsi:type="Combinator">
         <Combinator xsi:type="StringProperty">
-          <Value>C:\Users\User\TaskControl\Animals\JJP-01975\2021-03-18_13-21-09_learn_to_choose\bonsai_</Value>
+          <Value>D:Animals\123\2026-03-04_18-12-05_learn_to_poke\bonsai_</Value>
         </Combinator>
       </Expression>
       <Expression xsi:type="rx:ReplaySubject">
@@ -42,20 +42,22 @@
           <Property Name="FileName" />
         </PropertyMappings>
       </Expression>
-      <Expression xsi:type="Combinator">
-        <Combinator xsi:type="cv:VideoWriter">
-          <cv:FileName>C:\Users\User\TaskControl\Animals\JJP-01975\2021-03-18_13-21-09_learn_to_choose\bonsai_video.avi</cv:FileName>
-          <cv:Suffix>None</cv:Suffix>
-          <cv:Buffered>false</cv:Buffered>
-          <cv:Overwrite>true</cv:Overwrite>
-          <cv:FourCC>FMP4</cv:FourCC>
-          <cv:FrameRate>60</cv:FrameRate>
-          <cv:FrameSize>
-            <cv:Width>0</cv:Width>
-            <cv:Height>0</cv:Height>
-          </cv:FrameSize>
-          <cv:ResizeInterpolation>NearestNeighbor</cv:ResizeInterpolation>
-        </Combinator>
+      <Expression xsi:type="Disable">
+        <Builder xsi:type="Combinator">
+          <Combinator xsi:type="cv:VideoWriter">
+            <cv:FileName>D:Animals\123\2026-03-04_18-12-05_learn_to_poke\bonsai_video.avi</cv:FileName>
+            <cv:Suffix>None</cv:Suffix>
+            <cv:Buffered>false</cv:Buffered>
+            <cv:Overwrite>true</cv:Overwrite>
+            <cv:FourCC>FMP4</cv:FourCC>
+            <cv:FrameRate>60</cv:FrameRate>
+            <cv:FrameSize>
+              <cv:Width>0</cv:Width>
+              <cv:Height>0</cv:Height>
+            </cv:FrameSize>
+            <cv:ResizeInterpolation>NearestNeighbor</cv:ResizeInterpolation>
+          </Combinator>
+        </Builder>
       </Expression>
       <Expression xsi:type="SubscribeSubject">
         <Name>base_name</Name>
@@ -73,15 +75,19 @@
       <Expression xsi:type="MemberSelector">
         <Selector>ChunkData.LineStatusAll,ChunkData.FrameID,ChunkData.Timestamp</Selector>
       </Expression>
-      <Expression xsi:type="io:CsvWriter">
-        <io:FileName>C:\Users\User\TaskControl\Animals\JJP-01975\2021-03-18_13-21-09_learn_to_choose\bonsai_frame_stamps.csv</io:FileName>
-        <io:Append>false</io:Append>
-        <io:Overwrite>true</io:Overwrite>
-        <io:Suffix>None</io:Suffix>
-        <io:IncludeHeader>false</io:IncludeHeader>
+      <Expression xsi:type="Disable">
+        <Builder xsi:type="io:CsvWriter">
+          <io:FileName>D:Animals\123\2026-03-04_18-12-05_learn_to_poke\bonsai_frame_stamps.csv</io:FileName>
+          <io:Append>false</io:Append>
+          <io:Overwrite>true</io:Overwrite>
+          <io:Suffix>None</io:Suffix>
+          <io:IncludeHeader>false</io:IncludeHeader>
+        </Builder>
       </Expression>
-      <Expression xsi:type="MemberSelector">
-        <Selector>ChunkData.LineStatusAll</Selector>
+      <Expression xsi:type="Disable">
+        <Builder xsi:type="MemberSelector">
+          <Selector>ChunkData.LineStatusAll</Selector>
+        </Builder>
       </Expression>
     </Nodes>
     <Edges>
