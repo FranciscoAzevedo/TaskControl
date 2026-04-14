@@ -47,9 +47,9 @@ unsigned long reward_tone_freq = 1750;
 unsigned long timing_boundary = 1500;
 
 // Parameters for current pumps and pokes
-unsigned long reward_valve_dur = 2000; // more than enough for pump
+unsigned long reward_valve_dur = 1500; // more than enough for pump
 unsigned long reward_pump_toggle_dur = 3; // ms
-int targetToggles = 71; // Total number of toggles to perform , double of pump steps
+int targetToggles = 72; // Total number of toggles to perform , double of pump steps
 unsigned long grace_period = 200; // ms to avoid poke fluctuations
 
 // odors
@@ -100,7 +100,7 @@ int current_context_counter = 0;
 int this_init_block_dur = 0;
 int current_init_block_counter = 0;
 
-float p_south_bias = 0.6;    // prob to pick SOUTH (0.5 = no bias)
+float p_south_bias = 0.5;    // prob to pick SOUTH (0.5 = no bias)
 
 // timing related
 const int max_no_intervals = 3; // max no. of intervals
