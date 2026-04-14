@@ -461,7 +461,7 @@ void get_trial_type(){
 
     // Enforce boundaries on mean_fix_dur
     if (mean_fix_dur < 1.0) mean_fix_dur = 1.0;
-    if (mean_fix_dur > 2400) mean_fix_dur = 2400; // also set an upper bound to avoid too long intervals
+    if (mean_fix_dur > 2000) mean_fix_dur = 2000; // also set an upper bound to avoid ceilling effects on sampling
 
     // Calculate sigma as a fraction of mean_fix_dur
     float sigma = mean_fix_dur * sigma_fix_dur_frac;
@@ -474,7 +474,7 @@ void get_trial_type(){
     if (sampled > max_val) sampled = max_val;
     this_interval = (unsigned long)sampled;
     if (this_interval < 1.0) this_interval = 1.0;
-    if (this_interval > 2400) this_interval = 2400; // also set an upper bound to avoid too long intervals
+    if (this_interval > 2600) this_interval = 2600; // also set an upper bound to avoid too long intervals
 
     // logging for analysis
     trial_counter++;
