@@ -8,9 +8,10 @@
 // _EVENT are for actual events (time stamps)
 
 // STATES
-const unsigned int INI_STATE = 0;
-const unsigned int RUN_STATE = 1;
-const unsigned int DONE_STATE = 2;
+const unsigned int STANDBY_STATE = 3;
+const unsigned int CALIB_WEST_STATE = 1;
+const unsigned int CALIB_EAST_STATE = 2;
+const unsigned int DONE_STATE = 0;
 
 // SPANS
 const unsigned int REWARD_VALVE_ON = 12;

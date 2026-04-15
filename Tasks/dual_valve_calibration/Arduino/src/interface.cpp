@@ -9,13 +9,24 @@ const byte numChars = 128;
 char receivedChars[numChars];
 char buf[numChars];
 
-boolean newData = false;
+bool newData = false;
 bool verbose = true;
 bool run = false;
-bool deliver_reward_left = false;
-bool deliver_reward_right = false;
-bool present_reward_left_cue = false;
-bool present_reward_right_cue = false;
+bool lights_off = false; // lights off at the end of the session
+
+// water
+bool deliver_reward_west = false;
+bool deliver_reward_east = false;
+
+// odors
+bool deliver_odor1_north = false;
+bool deliver_odor2_north = false;
+
+bool deliver_odor1_south = false;
+bool deliver_odor2_south = false;
+
+bool togglingActive = false;
+unsigned long previousMillis = 0; // Tracks the last time the pin was toggled
 bool punish = false;
 
 int current_state = 0; // WATCH OUT this is ini state
@@ -37,7 +48,7 @@ void getSerialData() {
     char startMarker = '<';
     char endMarker = '>';
     char rc;
- 
+
     // loop that reads the entire command
     while (Serial.available() > 0 && newData == false) {
         rc = Serial.read();
@@ -94,20 +105,24 @@ void processSerialData() {
 
         // INSERT_GETTERS
 
-        if (strcmp(varname,"reward_valve_open_dur")==0){
-            log_ulong("reward_valve_open_dur", reward_valve_open_dur);
+        if (strcmp(varname,"targetToggles")==0){
+            log_int("targetToggles", targetToggles);
         }
 
-        if (strcmp(varname,"reward_valve_closed_dur")==0){
-            log_ulong("reward_valve_closed_dur", reward_valve_closed_dur);
+        if (strcmp(varname,"waitBetweenPumps")==0){
+            log_ulong("waitBetweenPumps", waitBetweenPumps);
         }
 
-        if (strcmp(varname,"reward_valve_switches")==0){
-            log_ulong("reward_valve_switches", reward_valve_switches);
+        if (strcmp(varname,"numPumpTriggers")==0){
+            log_int("numPumpTriggers", numPumpTriggers);
         }
 
-        if (strcmp(varname,"use_left")==0){
-            log_int("use_left", use_left);
+        if (strcmp(varname,"calibrate_west")==0){
+            log_bool("calibrate_west", calibrate_west);
+        }
+
+        if (strcmp(varname,"calibrate_east")==0){
+            log_bool("calibrate_east", calibrate_east);
         }
 
         }
@@ -136,52 +151,37 @@ void processSerialData() {
 
             // INSERT_SETTERS
 
-        if (strcmp(varname,"reward_valve_open_dur")==0){
-            reward_valve_open_dur = strtoul(varvalue,NULL,10);
+        if (strcmp(varname,"targetToggles")==0){
+            targetToggles = atoi(varvalue);
         }
 
-        if (strcmp(varname,"reward_valve_closed_dur")==0){
-            reward_valve_closed_dur = strtoul(varvalue,NULL,10);
+        if (strcmp(varname,"waitBetweenPumps")==0){
+            waitBetweenPumps = strtoul(varvalue,NULL,10);
         }
 
-        if (strcmp(varname,"reward_valve_switches")==0){
-            reward_valve_switches = strtoul(varvalue,NULL,10);
+        if (strcmp(varname,"numPumpTriggers")==0){
+            numPumpTriggers = atoi(varvalue);
         }
 
-        if (strcmp(varname,"use_left")==0){
-            use_left = atoi(varvalue);
+        if (strcmp(varname,"calibrate_west")==0){
+            if (strcmp(varvalue,"false")==0) {
+                calibrate_west = false;
+            }
+            else {
+                calibrate_west = true;
+            }
+        }
+
+        if (strcmp(varname,"calibrate_east")==0){
+            if (strcmp(varvalue,"false")==0) {
+                calibrate_east = false;
+            }
+            else {
+                calibrate_east = true;
+            }
         }
 
         }
-
-        // UPD - update trial probs - HARDCODED for now, n trials
-        // format UPD 0 0.031 or similar
-        // if (strcmp(mode,"UPD")==0){
-            
-        //     char line[len-4+1];
-        //     strlcpy(line, receivedChars+4, len-4+1);
-
-        //     // get index of space
-        //     len = sizeof(line)/sizeof(char);
-        //     unsigned int split = 0;
-        //     for (unsigned int i = 0; i < numChars; i++){
-        //         if (line[i] == ' '){
-        //             split = i;
-        //             break;
-        //         }
-        //     }
-
-        //     // split by space
-        //     char varname[split+1];
-        //     strlcpy(varname, line, split+1);
-
-        //     char varvalue[len-split+1];
-        //     strlcpy(varvalue, line+split+1, len-split+1);
-
-        //     int ix = atoi(varname);
-        //     float p = atof(varvalue);
-        //     p_interval[ix] = p;
-        // }
 
         // CMD
         if (strcmp(mode,"CMD")==0){
@@ -201,14 +201,37 @@ void processSerialData() {
                 Serial.println("<Arduino is halted>");
             }
 
-            if (strcmp(CMD,"r")==0){
-                deliver_reward_left = true;
-                present_reward_left_cue = true;
+            if (strcmp(CMD,"END")==0){
+                lights_off = true;
+                Serial.println("<Session finished>");
+            }
+            
+            // water trigger
+            if (strcmp(CMD,"w")==0){
+                deliver_reward_west = true;
+                togglingActive = true;
+                previousMillis = millis();
             }
 
-            if (strcmp(CMD,"t")==0){
-                deliver_reward_right = true;
-                present_reward_right_cue = true;
+            if (strcmp(CMD,"e")==0){
+                deliver_reward_east = true;
+                togglingActive = true;
+                previousMillis = millis();
+            }
+            
+            // odor trigger
+            if (strcmp(CMD,"y")==0){
+                deliver_odor1_north = true;
+            }
+            if (strcmp(CMD,"u")==0){
+                deliver_odor2_north = true;
+            }
+
+            if (strcmp(CMD,"h")==0){
+                deliver_odor1_south = true;
+            }
+            if (strcmp(CMD,"j")==0){
+                deliver_odor2_south = true;
             }
 
             if (strcmp(CMD,"p")==0){
