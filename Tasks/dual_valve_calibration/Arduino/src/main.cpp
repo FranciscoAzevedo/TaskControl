@@ -1,26 +1,22 @@
 #include <Arduino.h>
 #include <Tone.h>
+#include <Adafruit_NeoPixel.h>
+
+#include <event_codes.h> // <>?
+#include "interface.cpp"
 #include "pin_map.h"
-#include "interface_variables.h"
-#include "event_codes.h"
+#include "logging.cpp"
 
 // Parameters for pump and valve calibration
 const int pumpToggleDur = 3; // ms per toggle
+int valvePin = -1; // placeholder, will be set in calibration function
 const unsigned long rewardValveDur = 2000; // ms valve open duration
+unsigned long pump_start_time = 0;
 
 // FSM variables
+int last_state = -1; // whatever other state
 unsigned long max_future = 4294967295UL;
-int current_state = STANDBY_STATE;
-int last_state = -1;
 unsigned long t_state_entry = max_future;
-bool calibrate_west_done = false;
-bool calibrate_east_done = false;
-
-unsigned long now() { return millis(); }
-
-void log_code(int code) {
-    Serial.println(code);
-}
 
 void state_entry_common(){
     last_state = current_state;
@@ -30,50 +26,50 @@ void state_entry_common(){
 
 void togglePump(int toggles) {
     for (int i = 0; i < toggles; i++) {
-        digitalWrite(PUMP_PIN, HIGH);
+        digitalWrite(REWARD_PUMP_PIN, HIGH);
         delay(pumpToggleDur);
-        digitalWrite(PUMP_PIN, LOW);
+        digitalWrite(REWARD_PUMP_PIN, LOW);
         delay(pumpToggleDur);
     }
 }
 
-void openValve(int valvePin, unsigned long duration) {
+void calibrateValve(int side) {
+    log_msg("Starting calibration for ");
+    log_int("side",side);
 
-    digitalWrite(valvePin, HIGH);
-    delay(duration);
-    digitalWrite(valvePin, LOW);
-}
-
-void calibrateValve(int valvePin, const char* side) {
-    Serial.print("Starting calibration for ");
-    Serial.println(side);
+    if (side == 1) {
+        valvePin = REWARD_WEST_VALVE_PIN;
+    } else if (side == 2) {
+        valvePin = REWARD_EAST_VALVE_PIN;
+    }
     
     for (int i = 0; i < numPumpTriggers; i++) {
         pump_start_time = now();
 
         digitalWrite(valvePin, HIGH);
-        Serial.println("Valve open");
-        while now() - pump_start_time < rewardValveDur {
+        log_msg("Valve open");
+        while (now() - pump_start_time < rewardValveDur) {
             togglePump(targetToggles);
         }
         
         digitalWrite(valvePin, LOW);
-        Serial.println("Valve closed");
+        log_msg("Valve closed");
 
         // Wait a bit before the next trigger
-        delay(2000);
+        delay(waitBetweenPumps);
     }
-    Serial.print("Calibration complete for ");
-    Serial.println(side);
+    log_msg("Calibration complete for ");
+    log_int("side",side);
+
 }
 
 void finite_state_machine(){
     switch (current_state){
         
         case STANDBY_STATE:
-            if (calibrate_west) {
+            if (calibrate_west == true) {
                 current_state = CALIB_WEST_STATE;
-            } else if (calibrate_east) {
+            } else if (calibrate_east == true) {
                 current_state = CALIB_EAST_STATE;
             }
             break;
@@ -81,23 +77,25 @@ void finite_state_machine(){
         case CALIB_WEST_STATE:
             if (current_state != last_state){
                 state_entry_common();
-                calibrateValve(REWARD_VALVE_WEST_PIN, "West");
-                current_state = DONE_CALIB_STATE;
+                calibrateValve(1);
+                calibrate_west = false; // reset flag
+                current_state = DONE_STATE;
             }
             break;
 
         case CALIB_EAST_STATE:
             if (current_state != last_state){
                 state_entry_common();
-                calibrateValve(REWARD_VALVE_EAST_PIN, "East");
-                current_state = DONE_CALIB_STATE;
+                calibrateValve(2);
+                calibrate_east = false; // reset flag
+                current_state = DONE_STATE;
             }
             break;
 
-        case DONE_CALIB_STATE:
+        case DONE_STATE:
             if (current_state != last_state){
                 state_entry_common();
-                Serial.println("Valve calibration finished.");
+                log_msg("Valve calibration finished.");
                 calibrate_west = false;
                 calibrate_east = false;
                 current_state = STANDBY_STATE;
@@ -108,10 +106,10 @@ void finite_state_machine(){
 
 void setup() {
     Serial.begin(115200);
-    pinMode(PUMP_PIN, OUTPUT);
-    pinMode(REWARD_VALVE_WEST_PIN, OUTPUT);
-    pinMode(REWARD_VALVE_EAST_PIN, OUTPUT);
-    delay(2);
+    pinMode(REWARD_PUMP_PIN, OUTPUT);
+    pinMode(REWARD_WEST_VALVE_PIN, OUTPUT);
+    pinMode(REWARD_EAST_VALVE_PIN, OUTPUT);
+    delay(1000);
 }
 
 void loop() {

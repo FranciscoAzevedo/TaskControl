@@ -14,6 +14,9 @@ bool verbose = true;
 bool run = false;
 bool lights_off = false; // lights off at the end of the session
 
+bool calibrate_west = false;
+bool calibrate_east = false;
+
 // water
 bool deliver_reward_west = false;
 bool deliver_reward_east = false;
@@ -117,14 +120,6 @@ void processSerialData() {
             log_int("numPumpTriggers", numPumpTriggers);
         }
 
-        if (strcmp(varname,"calibrate_west")==0){
-            log_bool("calibrate_west", calibrate_west);
-        }
-
-        if (strcmp(varname,"calibrate_east")==0){
-            log_bool("calibrate_east", calibrate_east);
-        }
-
         }
 
         // SET
@@ -163,24 +158,6 @@ void processSerialData() {
             numPumpTriggers = atoi(varvalue);
         }
 
-        if (strcmp(varname,"calibrate_west")==0){
-            if (strcmp(varvalue,"false")==0) {
-                calibrate_west = false;
-            }
-            else {
-                calibrate_west = true;
-            }
-        }
-
-        if (strcmp(varname,"calibrate_east")==0){
-            if (strcmp(varvalue,"false")==0) {
-                calibrate_east = false;
-            }
-            else {
-                calibrate_east = true;
-            }
-        }
-
         }
 
         // CMD
@@ -204,6 +181,15 @@ void processSerialData() {
             if (strcmp(CMD,"END")==0){
                 lights_off = true;
                 Serial.println("<Session finished>");
+            }
+
+            // calib trigger
+            if (strcmp(CMD,"a")==0){
+                calibrate_west = true;
+            }
+
+            if (strcmp(CMD,"s")==0){
+                calibrate_east = true;
             }
             
             // water trigger
