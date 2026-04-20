@@ -1,6 +1,4 @@
 #include <Arduino.h>
-#include <Tone.h>
-#include <Adafruit_NeoPixel.h>
 
 #include <event_codes.h> // <>?
 #include "interface.cpp"
@@ -48,12 +46,13 @@ void calibrateValve(int side) {
 
         digitalWrite(valvePin, HIGH);
         log_msg("Valve open");
-        while (now() - pump_start_time < rewardValveDur) {
-            togglePump(targetToggles);
-        }
-        
-        digitalWrite(valvePin, LOW);
-        log_msg("Valve closed");
+
+        togglePump(targetToggles);
+
+        if (now() - pump_start_time < rewardValveDur) {
+            digitalWrite(valvePin, LOW);
+            log_msg("Valve closed");
+        } 
 
         // Wait a bit before the next trigger
         delay(waitBetweenPumps);
