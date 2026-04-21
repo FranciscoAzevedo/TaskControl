@@ -13,7 +13,7 @@ from scipy import stats
     3 - Run this script to get slope (m) which is valve_ul_ms value
 """
 
-Df = pd.read_csv('valve_calib_ego_allo_newbox.csv')
+Df = pd.read_csv('valve_calib_ego_allo_box1.csv')
 
 Df['weight'] = Df['weight']*1000
 Df['w_per_rep'] = Df['weight'].values / Df['reps'].values
