@@ -49,8 +49,8 @@ unsigned long timing_boundary = 1500;
 // Parameters for current pumps and pokes
 unsigned long reward_valve_dur = 1500; // more than enough for pump
 unsigned long reward_pump_toggle_dur = 3; // ms
-int targetToggles = 50; // Total number of toggles to perform , double of pump steps
-unsigned long grace_period = 100; // ms to avoid poke fluctuations
+int targetToggles = 72; // Total number of toggles to perform , double of pump steps
+unsigned long grace_period = 200; // ms to avoid poke fluctuations
 
 // odors
 unsigned long odor_valve_dur = 1000; // will be set to this_interval in odor_valve_controller
@@ -108,8 +108,8 @@ float p_short_intervals[max_no_intervals] = {0,0,0}; // probabilities for short 
 float p_long_intervals[max_no_intervals] = {0,0,0}; // probabilities for long intervals
 
 // allocate with max_no_intervals, limit with no_intervals defined in interface_variables
-unsigned long short_intervals[max_no_intervals] = {600,1050,1380};
-unsigned long long_intervals[max_no_intervals] = {2400,1950,1620}; // inverse order matters
+unsigned long short_intervals[max_no_intervals] = {1050,600,1380};
+unsigned long long_intervals[max_no_intervals] = {1950,2400,1620}; // inverse order matters
 
 // corr loops for stimulus- and port- specific
 int corr_loop_port = -1; // 0 = north, 1 = south, -1 = none
