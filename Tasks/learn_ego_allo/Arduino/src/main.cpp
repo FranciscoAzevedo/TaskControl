@@ -1311,7 +1311,7 @@ void finite_state_machine(){
             }
 
             // exit
-            if (now() - t_state_entry > timeout_dur && (now() - last_init_port_entry > 1000)){ // one second guard
+            if (now() - t_state_entry > timeout_dur && (now() - last_init_port_entry > 3000)){ // three second guard
                 timeout_flag = 0; // reset timeout flag
                 current_state = TRIAL_AVAILABLE_STATE;
                 break;

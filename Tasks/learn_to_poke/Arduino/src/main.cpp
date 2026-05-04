@@ -40,7 +40,7 @@ unsigned long max_future = 4294967295; // 2**32 -1
 unsigned long t_state_entry = max_future;
 
 // --- Poke-out wait logic for reward ports ---
-unsigned long pokeout_wait_ms = 2000; // 2 seconds wait after poke-out
+unsigned long pokeout_wait_ms = 3000; // 3 seconds wait after poke-out
 unsigned long t_last_west_pokeout = 0;
 unsigned long t_last_east_pokeout = 0;
 bool west_clear = true;
@@ -531,10 +531,6 @@ void finite_state_machine(){
             break;
 
         case ITI_STATE:
-
-            // speakers
-            digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker
-            digitalWrite(SPEAKER_EAST_PIN, 1); // turn off east speaker
             
             // state entry
             if (current_state != last_state){
