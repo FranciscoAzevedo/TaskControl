@@ -26,7 +26,7 @@ const unsigned int POKES_PINS[NUM_POKES] = {
 };
 
 // SOUND AND LIGHT
-const int BCKGND_LIGHTS_PIN = 44; // "LZR" on diagram
+const int BCKGND_LIGHTS_PIN = 52; // "LZR" on diagram
 
 const unsigned int POKES_LED_PINS[NUM_POKES] = {
     48, // poke0
