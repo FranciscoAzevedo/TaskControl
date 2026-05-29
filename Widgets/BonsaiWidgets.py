@@ -23,11 +23,12 @@ class BonsaiController(QtWidgets.QWidget):
 
         task = self.sys_config["current"]["task"]
         task_folder = Path(self.sys_config["paths"]["tasks_folder"]) / task
-        path_parts = Path(folder).parts
+        save_path = folder / "bonsai_"  # this needs to be fixed in bonsai # FIXME TODO
 
         # hotfix due to lattepanda limited memory
-        save_path = Path('D:') / path_parts[-3] / path_parts[-2] / path_parts[-1] / Path('bonsai_')
-        os.makedirs(save_path.parent, exist_ok=True)
+        #path_parts = Path(folder).parts
+        #save_path = Path('D:') / path_parts[-3] / path_parts[-2] / path_parts[-1] / Path('bonsai_')
+        #os.makedirs(save_path.parent, exist_ok=True)
 
         # constructing the bonsai exe string
         parameters = '-p:save_path="' + str(save_path) + '"'
