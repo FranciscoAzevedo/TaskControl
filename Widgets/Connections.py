@@ -103,8 +103,10 @@ class SerialConnection(QtCore.QObject):
         return self.connection
 
     def listen(self):
+        self._stopped = False
+
         def read_from_port(ser):
-            while ser.is_open:
+            while getattr(ser, "is_open", False) and not getattr(self, "_stopped", False):
                 try:
                     line = ser.readline().decode("utf-8").strip()
                 except AttributeError:
@@ -134,8 +136,13 @@ class SerialConnection(QtCore.QObject):
 
     def disconnect(self):
         """closes"""
-        if self.connection.is_open:
-            self.connection.close()
+        self._stopped = True
+        if self.connection is not None and getattr(self.connection, "is_open", False):
+            try:
+                self.connection.close()
+            except (serial.SerialException, OSError, ValueError):
+                logger.warning("failed to close serial port cleanly: %s" % self.com_port)
+        self.connection = None
 
 
 class SerialMonitorWidget(QtWidgets.QWidget):
