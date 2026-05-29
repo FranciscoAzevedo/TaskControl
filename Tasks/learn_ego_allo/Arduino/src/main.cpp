@@ -263,7 +263,7 @@ Color alloColor = Color(0,0,255); // blue
 
 float offBrightness = 0.0;
 float dimBrightness = 0.1;
-float halfBrightness = 0.5;
+float halfBrightness = 0.35;
 float fullBrightness = 1.0;
 
 // ego is Left/Right () pattern

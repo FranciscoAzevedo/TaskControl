@@ -71,7 +71,7 @@
         </PropertyMappings>
       </Expression>
       <Expression xsi:type="MemberSelector">
-        <Selector>ChunkData.LineStatusAll,ChunkData.FrameID,ChunkData.Timestamp</Selector>
+        <Selector>ChunkData.LineStatusAll,ChunkData.FrameID,ChunkData.Timestamp,ChunkData.ExposureEndLineStatusAll</Selector>
       </Expression>
       <Expression xsi:type="io:CsvWriter">
         <io:FileName>C:\Users\paco_viv_box1\TaskControl\Animals\123\2026-05-28_15-10-05_learn_ego_allo\bonsai_frame_stamps.csv</io:FileName>
