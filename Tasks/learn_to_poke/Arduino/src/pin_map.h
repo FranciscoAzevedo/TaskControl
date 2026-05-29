@@ -18,7 +18,7 @@ const int POKE_WEST_PIN = 8; // poke2
 const int POKE_EAST_PIN = 5; // poke3
 
 const unsigned int POKES_PINS[NUM_POKES] = {
-    13, // poke0 //DUE TO BOARD HACK DO NOT UPLOAD DIFF ACROSS BOXES
+    22, // poke0 //DUE TO BOARD HACK DO NOT UPLOAD DIFF ACROSS BOXES
     11, // poke1
     8,  // poke2
     5   // poke3  

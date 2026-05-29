@@ -13,7 +13,7 @@
       </Expression>
       <Expression xsi:type="Combinator">
         <Combinator xsi:type="StringProperty">
-          <Value>D:Animals\123\2026-03-10_12-07-56_learn_ego_allo\bonsai_</Value>
+          <Value>D:Animals\G\2026-05-13_15-06-31_learn_ego_allo\bonsai_</Value>
         </Combinator>
       </Expression>
       <Expression xsi:type="rx:ReplaySubject">
@@ -42,22 +42,20 @@
           <Property Name="FileName" />
         </PropertyMappings>
       </Expression>
-      <Expression xsi:type="Disable">
-        <Builder xsi:type="Combinator">
-          <Combinator xsi:type="cv:VideoWriter">
-            <cv:FileName>D:Animals\123\2026-03-10_12-07-56_learn_ego_allo\bonsai_video.avi</cv:FileName>
-            <cv:Suffix>None</cv:Suffix>
-            <cv:Buffered>false</cv:Buffered>
-            <cv:Overwrite>true</cv:Overwrite>
-            <cv:FourCC>FMP4</cv:FourCC>
-            <cv:FrameRate>60</cv:FrameRate>
-            <cv:FrameSize>
-              <cv:Width>0</cv:Width>
-              <cv:Height>0</cv:Height>
-            </cv:FrameSize>
-            <cv:ResizeInterpolation>NearestNeighbor</cv:ResizeInterpolation>
-          </Combinator>
-        </Builder>
+      <Expression xsi:type="Combinator">
+        <Combinator xsi:type="cv:VideoWriter">
+          <cv:FileName>D:Animals\G\2026-05-13_15-06-31_learn_ego_allo\bonsai_video.avi</cv:FileName>
+          <cv:Suffix>None</cv:Suffix>
+          <cv:Buffered>false</cv:Buffered>
+          <cv:Overwrite>true</cv:Overwrite>
+          <cv:FourCC>FMP4</cv:FourCC>
+          <cv:FrameRate>30</cv:FrameRate>
+          <cv:FrameSize>
+            <cv:Width>0</cv:Width>
+            <cv:Height>0</cv:Height>
+          </cv:FrameSize>
+          <cv:ResizeInterpolation>NearestNeighbor</cv:ResizeInterpolation>
+        </Combinator>
       </Expression>
       <Expression xsi:type="SubscribeSubject">
         <Name>base_name</Name>
@@ -73,16 +71,14 @@
         </PropertyMappings>
       </Expression>
       <Expression xsi:type="MemberSelector">
-        <Selector>ChunkData.LineStatusAll,ChunkData.FrameID,ChunkData.Timestamp</Selector>
+        <Selector>ChunkData.LineStatusAll,ChunkData.FrameID,ChunkData.Timestamp,ChunkData.ExposureEndLineStatusAll</Selector>
       </Expression>
-      <Expression xsi:type="Disable">
-        <Builder xsi:type="io:CsvWriter">
-          <io:FileName>D:Animals\123\2026-03-10_12-07-56_learn_ego_allo\bonsai_frame_stamps.csv</io:FileName>
-          <io:Append>false</io:Append>
-          <io:Overwrite>true</io:Overwrite>
-          <io:Suffix>None</io:Suffix>
-          <io:IncludeHeader>false</io:IncludeHeader>
-        </Builder>
+      <Expression xsi:type="io:CsvWriter">
+        <io:FileName>D:Animals\G\2026-05-13_15-06-31_learn_ego_allo\bonsai_frame_stamps.csv</io:FileName>
+        <io:Append>false</io:Append>
+        <io:Overwrite>true</io:Overwrite>
+        <io:Suffix>None</io:Suffix>
+        <io:IncludeHeader>false</io:IncludeHeader>
       </Expression>
       <Expression xsi:type="MemberSelector">
         <Selector>ChunkData.LineStatusAll</Selector>
