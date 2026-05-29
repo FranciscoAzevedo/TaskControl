@@ -773,10 +773,6 @@ void finite_state_machine(){
 
         case ITI_STATE:
 
-            // speakers
-            digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker
-            digitalWrite(SPEAKER_EAST_PIN, 1); // turn off east speaker
-
             // state entry
             if (current_state != last_state){
                 state_entry_common();
@@ -799,7 +795,7 @@ void finite_state_machine(){
             else if (now() - t_state_entry > this_ITI_dur) {
                 north_clear = (millis() - t_last_north_pokeout >= pokeout_wait_ms);
                 south_clear = (millis() - t_last_south_pokeout >= pokeout_wait_ms);
-                if (north_clear && south_clear && !is_poking) {
+                if (north_clear && south_clear &&) {
                     current_state = TRIAL_AVAILABLE_STATE; 
                 }
             }
