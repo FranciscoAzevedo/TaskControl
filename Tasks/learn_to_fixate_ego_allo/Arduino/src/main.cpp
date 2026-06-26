@@ -55,7 +55,7 @@ unsigned long reward_tone_freq = 1750;
 // Parameters for current pumps and pokes
 unsigned long reward_valve_dur = 1500; // more than enough for pump to push water
 unsigned long reward_pump_toggle_dur = 3; // ms
-int targetToggles = 50; // Total number of toggles to perform , double of pump steps
+int targetToggles = 70; // Total number of toggles to perform , double of pump steps
 unsigned long grace_period = 100; // ms to avoid poke fluctuations
 
 // odors
@@ -461,7 +461,7 @@ void get_trial_type(){
 
     // Enforce boundaries on mean_fix_dur
     if (mean_fix_dur < 1.0) mean_fix_dur = 1.0;
-    if (mean_fix_dur > 2000) mean_fix_dur = 2000; // also set an upper bound to avoid ceilling effects on sampling
+    if (mean_fix_dur > 1900) mean_fix_dur = 1900; // also set an upper bound to avoid ceilling effects on sampling
 
     // Calculate sigma as a fraction of mean_fix_dur
     float sigma = mean_fix_dur * sigma_fix_dur_frac;
@@ -795,7 +795,7 @@ void finite_state_machine(){
             else if (now() - t_state_entry > this_ITI_dur) {
                 north_clear = (millis() - t_last_north_pokeout >= pokeout_wait_ms);
                 south_clear = (millis() - t_last_south_pokeout >= pokeout_wait_ms);
-                if (north_clear && south_clear &&) {
+                if (!is_poking_north && !is_poking_south && north_clear && south_clear) {
                     current_state = TRIAL_AVAILABLE_STATE; 
                 }
             }
@@ -809,7 +809,13 @@ void finite_state_machine(){
 
             // exit
             if (now() - t_state_entry > timeout_dur){
-                current_state = TRIAL_AVAILABLE_STATE;
+
+                north_clear = (millis() - t_last_north_pokeout >= pokeout_wait_ms);
+                south_clear = (millis() - t_last_south_pokeout >= pokeout_wait_ms);
+                if (!is_poking_north && !is_poking_south && north_clear && south_clear) {
+                    current_state = TRIAL_AVAILABLE_STATE; 
+                }
+
                 break;
             }
             break;
