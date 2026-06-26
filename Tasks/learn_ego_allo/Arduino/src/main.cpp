@@ -58,10 +58,17 @@ unsigned long odor_valve_dur = 1000; // will be set to this_interval in odor_val
 // speaker
 Tone tone_control_east;
 Tone tone_control_west;
+
 unsigned long error_cue_start = max_future;
-unsigned long error_cue_dur = tone_dur * 1000; // to save instructions - work in micros
-bool trigger_punish_tone = false; // whether punish tone is active or not
-bool punish_tone_ON = false; // whether the tone is playing or not
+unsigned long error_cue_dur = tone_dur * 4000; // to save instructions - work in micros
+bool trigger_error_tone = false; // whether error tone is active or not
+bool error_tone_ON = false; // whether the tone is playing or not
+int error_tone_loop_counter = 0; // count loops so the error tone state only changes every 3 loops
+
+unsigned long broken_cue_start = max_future;
+bool trigger_broken_tone = false; // whether broken tone is active or not
+unsigned long broken_cue_dur = tone_dur * 1000; // to save instructions - work in micros
+bool broken_tone_ON = false; // whether the tone is playing or not
 
 //  named variables that are easier to compare in numbers than strings
 int north = 8;
@@ -366,17 +373,46 @@ void reward_cue(){
     tone_control_east.play(reward_tone_freq, tone_dur);
 }
 
+
 // a self terminating digital pin switch
 // flipped by setting deliver_reward to true somewhere in the FSM
-void punish_tone_controller(){
+void error_tone_controller(){
     
-    if (trigger_punish_tone == true && punish_tone_ON == false){
-        punish_tone_ON = true;
+    if (trigger_error_tone == true && error_tone_ON == false){
+        error_tone_ON = true;
         error_cue_start = micros();
+        error_tone_loop_counter = 0;
     }
 
     // for the supposed duration of the error cue
-    else if (trigger_punish_tone == true && micros() - error_cue_start < error_cue_dur){
+    else if (trigger_error_tone == true && micros() - error_cue_start < error_cue_dur){
+        error_tone_loop_counter++;
+        if (error_tone_loop_counter >= 3) {
+            error_tone_loop_counter = 0;
+            spkrState = random(0,2);
+            digitalWrite(SPEAKER_WEST_PIN, spkrState);
+            digitalWrite(SPEAKER_EAST_PIN, spkrState);
+        }
+    }
+
+    // put it off at the end
+    else if (trigger_error_tone == true && micros() - error_cue_start > error_cue_dur){
+        trigger_error_tone = false;
+        error_tone_ON = false;
+    }
+}
+
+// a self terminating digital pin switch
+// flipped by setting deliver_reward to true somewhere in the FSM
+void broken_tone_controller(){
+    
+    if (trigger_broken_tone == true && broken_tone_ON == false){
+        broken_tone_ON = true;
+        broken_cue_start = micros();
+    }
+
+    // for the supposed duration of the error cue
+    else if (trigger_broken_tone == true && micros() - broken_cue_start < error_cue_dur){
         spkrState = random(0,2);
 
         digitalWrite(SPEAKER_WEST_PIN, spkrState);
@@ -384,9 +420,9 @@ void punish_tone_controller(){
     }
 
     // put it off at the end
-    else if (trigger_punish_tone == true && micros() - error_cue_start > error_cue_dur){
-        trigger_punish_tone = false;
-        punish_tone_ON = false;
+    else if (trigger_broken_tone == true && micros() - broken_cue_start > error_cue_dur){
+        trigger_broken_tone = false;
+        broken_tone_ON = false;
     }
 }
 
@@ -1084,7 +1120,7 @@ void finite_state_machine(){
                         log_code(INIT_POKEOUT_EVENT);
                         log_code(BROKEN_FIXATION_EVENT);
                         log_code(TRIAL_UNSUCCESSFUL_EVENT);
-                        trigger_punish_tone = true; // trigger punish tone
+                        trigger_broken_tone = true; // trigger punish tone
                         
                         timeout_flag = 1; // set timeout delay to 1, so it goes to timeout state
                         current_state = ITI_STATE;
@@ -1208,7 +1244,7 @@ void finite_state_machine(){
                 // incorrect choices
                 if ((correct_side == west && is_poking_east) || (correct_side == east && is_poking_west)){
                     
-                    trigger_punish_tone = true; // trigger punish tone
+                    trigger_error_tone = true; // trigger error tone
                     log_code(TRIAL_UNSUCCESSFUL_EVENT);
                     log_code(CHOICE_INCORRECT_EVENT);
                     log_code(CHOICE_EVENT);
@@ -1420,9 +1456,12 @@ void loop() {
     }
 
     // Controllers
-    punish_tone_controller();
+    broken_tone_controller();
+    error_tone_controller();
+
     reward_valve_controller();
     pump_controller();
+
     odor_valve_controller();
     lights_off_controller(); // turn off everything when session's finished
 
