@@ -49,7 +49,7 @@ unsigned long timing_boundary = 1500;
 // Parameters for current pumps and pokes
 unsigned long reward_valve_dur = 1500; // more than enough for pump
 unsigned long reward_pump_toggle_dur = 3; // ms
-int targetToggles = 50; // Total number of toggles to perform , double of pump steps
+int targetToggles = 72; // Total number of toggles to perform , double of pump steps
 unsigned long grace_period = 200; // ms to avoid poke fluctuations
 
 // odors
@@ -104,8 +104,8 @@ float p_south_bias = 0.5;    // prob to pick SOUTH (0.5 = no bias)
 
 // timing related
 const int max_no_intervals = 3; // max no. of intervals
-float p_short_intervals[max_no_intervals] = {0,0,0}; // probabilities for short intervals
-float p_long_intervals[max_no_intervals] = {0,0,0}; // probabilities for long intervals
+float p_short_intervals[max_no_intervals] = {0.35,0.25,0.4}; // probabilities for short intervals
+float p_long_intervals[max_no_intervals] = {0.35,0.25,0.4}; // probabilities for long intervals
 
 // allocate with max_no_intervals, limit with no_intervals defined in interface_variables
 unsigned long short_intervals[max_no_intervals] = {1050,600,1380};
@@ -650,7 +650,7 @@ void set_interval(){
     // init port -> context -> movement sampled
 
     // make sure they're updated
-    update_interval_probabilities();
+    //update_interval_probabilities();
 
     if (init_port == north){ // no difference between ego and allo on north port
 
