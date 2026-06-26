@@ -4,6 +4,7 @@ from PyQt5 import QtWidgets
 import configparser
 import importlib
 from copy import copy
+import serial
 
 from pathlib import Path
 import subprocess
@@ -41,15 +42,20 @@ class FSMSerialConnection(SerialConnection):
 
     def send(self, command):
         """sends string command interface to arduino, interface compatible"""
-        if hasattr(self, "connection"):
-            if self.connection.is_open:
-                cmd = "<" + command + ">"
-                # bytestring conversion
-                bytestr = str.encode(cmd)
-                self.connection.write(bytestr)
-        else:
-            # TODO be more explicit what failed to be sent
-            logger.error("%s is not connected" % self.name)
+        if not hasattr(self, "connection") or self.connection is None:
+            logger.warning("%s is not connected" % self.name)
+            return
+
+        if not getattr(self.connection, "is_open", False):
+            logger.warning("%s is open? no" % self.name)
+            return
+
+        cmd = "<" + command + ">"
+        bytestr = str.encode(cmd)
+        try:
+            self.connection.write(bytestr)
+        except (serial.SerialException, OSError, ValueError) as exc:
+            logger.warning("failed to send command to %s: %s" % (self.name, exc))
 
     def send_variable(self, name, value):
         if hasattr(self, "connection"):
@@ -532,7 +538,15 @@ class ArduinoController(QtWidgets.QWidget):
         self.VariableController.send_all_variables()
 
     def on_data(self, line):
-        self.log_fH.write(line + os.linesep)
+        if not hasattr(self, "log_fH") or self.log_fH is None:
+            return
+
+        try:
+            if not self.log_fH.closed:
+                self.log_fH.write(line + os.linesep)
+                self.log_fH.flush()
+        except (ValueError, OSError) as exc:
+            logger.warning("failed to write arduino log line: %s" % exc)
 
     def stop(self):
         """halts the FSM"""
@@ -542,17 +556,28 @@ class ArduinoController(QtWidgets.QWidget):
 
     def closeEvent(self, event):
 
-        # if serial connection is open, reset arduino and close it
-        if hasattr(self.Serial, "connection"):
-            if self.Serial.connection.is_open:
+        # Stop feeding the log file before we close it.
+        try:
+            self.Serial.data_available.disconnect(self.on_data)
+        except (TypeError, RuntimeError):
+            pass
 
-                self.Serial.send("CMD END")  # send end command to arduino
-                time.sleep(0.5) # HARDCODED CARE
-                self.Serial.disconnect()
+        # if serial connection is open, reset arduino and close it
+        if hasattr(self.Serial, "connection") and self.Serial.connection is not None:
+            if getattr(self.Serial.connection, "is_open", False):
+                try:
+                    self.Serial.send("CMD END")  # send end command to arduino
+                    time.sleep(0.2)
+                except (serial.SerialException, OSError, ValueError) as exc:
+                    logger.warning("failed to send shutdown command: %s" % exc)
+                finally:
+                    self.Serial.disconnect()
 
         # explicit - should fix windows bug where arduino_log.txt is not written
-        if hasattr(self, "log_fH"):
+        if hasattr(self, "log_fH") and self.log_fH is not None and not self.log_fH.closed:
+            self.log_fH.flush()
             self.log_fH.close()
+            self.log_fH = None
 
         # overwrite logged arduino vars file
         if hasattr(self, "run_folder"):

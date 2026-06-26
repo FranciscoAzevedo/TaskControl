@@ -49,7 +49,7 @@ unsigned long timing_boundary = 1500;
 // Parameters for current pumps and pokes
 unsigned long reward_valve_dur = 1500; // more than enough for pump
 unsigned long reward_pump_toggle_dur = 3; // ms
-int targetToggles = 72; // Total number of toggles to perform , double of pump steps
+int targetToggles = 75; // Total number of toggles to perform , double of pump steps
 unsigned long grace_period = 200; // ms to avoid poke fluctuations
 
 // odors
@@ -101,7 +101,7 @@ bool init_pokeout_logged = false; // flag to log INIT_POKEOUT_EVENT only once pe
 
 // context and port related
 int this_context_dur = 0;
-bool is_ego_context = 1; // random(0, 2) == 1; random version, for now its fixed to ego
+bool is_ego_context = 0; // random(0, 2) == 1; random version, for now its fixed to ego
 int current_context_counter = 0;
 
 int this_init_block_dur = 0;
@@ -270,7 +270,7 @@ Color alloColor = Color(0,0,255); // blue
 
 float offBrightness = 0.0;
 float dimBrightness = 0.1;
-float halfBrightness = 0.5;
+float halfBrightness = 0.35;
 float fullBrightness = 1.0;
 
 // ego is Left/Right () pattern
