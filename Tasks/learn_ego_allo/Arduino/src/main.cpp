@@ -60,14 +60,14 @@ Tone tone_control_east;
 Tone tone_control_west;
 
 unsigned long error_cue_start = max_future;
-unsigned long error_cue_dur = tone_dur * 4000; // to save instructions - work in micros
+unsigned long error_cue_dur = tone_dur * 2000; // to save instructions - work in micros
 bool trigger_error_tone = false; // whether error tone is active or not
 bool error_tone_ON = false; // whether the tone is playing or not
 int error_tone_loop_counter = 0; // count loops so the error tone state only changes every 3 loops
 
 unsigned long broken_cue_start = max_future;
-bool trigger_broken_tone = false; // whether broken tone is active or not
 unsigned long broken_cue_dur = tone_dur * 1000; // to save instructions - work in micros
+bool trigger_broken_tone = false; // whether broken tone is active or not
 bool broken_tone_ON = false; // whether the tone is playing or not
 
 //  named variables that are easier to compare in numbers than strings
@@ -101,7 +101,7 @@ bool init_pokeout_logged = false; // flag to log INIT_POKEOUT_EVENT only once pe
 
 // context and port related
 int this_context_dur = 0;
-bool is_ego_context = 0; // random(0, 2) == 1; random version, for now its fixed to ego
+bool is_ego_context = 1; // random(0, 2) == 1; random version, for now its fixed to ego
 int current_context_counter = 0;
 
 int this_init_block_dur = 0;
@@ -389,7 +389,7 @@ void error_tone_controller(){
         error_tone_loop_counter++;
         if (error_tone_loop_counter >= 3) {
             error_tone_loop_counter = 0;
-            spkrState = random(0,2);
+            spkrState = !spkrState;
             digitalWrite(SPEAKER_WEST_PIN, spkrState);
             digitalWrite(SPEAKER_EAST_PIN, spkrState);
         }
@@ -412,7 +412,7 @@ void broken_tone_controller(){
     }
 
     // for the supposed duration of the error cue
-    else if (trigger_broken_tone == true && micros() - broken_cue_start < error_cue_dur){
+    else if (trigger_broken_tone == true && micros() - broken_cue_start < broken_cue_dur){
         spkrState = random(0,2);
 
         digitalWrite(SPEAKER_WEST_PIN, spkrState);
@@ -420,7 +420,7 @@ void broken_tone_controller(){
     }
 
     // put it off at the end
-    else if (trigger_broken_tone == true && micros() - broken_cue_start > error_cue_dur){
+    else if (trigger_broken_tone == true && micros() - broken_cue_start > broken_cue_dur){
         trigger_broken_tone = false;
         broken_tone_ON = false;
     }
