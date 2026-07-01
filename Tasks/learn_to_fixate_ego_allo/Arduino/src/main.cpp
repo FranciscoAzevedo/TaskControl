@@ -936,4 +936,9 @@ void loop() {
     
     // non-blocking cam sync pin
     sync_pin_controller();
+
+    // opto control
+
+    // ephys clock receive
+
 }
