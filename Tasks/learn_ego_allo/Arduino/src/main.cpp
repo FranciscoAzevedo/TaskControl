@@ -830,6 +830,7 @@ void get_trial_type(){
     log_int("correct_movement", correct_movement);
     log_int("correct_side", correct_side);
     log_int("is_ego_context", (int) is_ego_context);
+    log_int("init_port", init_port);
 }
 
 void log_choice(){
