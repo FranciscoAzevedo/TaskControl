@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<VisualizerLayout Version="2.9.0">
+  <WindowSettings Index="4">
+    <Visible>false</Visible>
+    <Location>
+      <X>1021</X>
+      <Y>162</Y>
+    </Location>
+    <Size>
+      <Width>846</Width>
+      <Height>698</Height>
+    </Size>
+    <VisualizerTypeName>Bonsai.Vision.Design.IplImageVisualizer</VisualizerTypeName>
+    <VisualizerSettings>
+      <IplImageVisualizer />
+    </VisualizerSettings>
+  </WindowSettings>
+  <WindowSettings Index="12">
+    <Visible>false</Visible>
+    <Location>
+      <X>130</X>
+      <Y>130</Y>
+    </Location>
+    <Size>
+      <Width>336</Width>
+      <Height>65</Height>
+    </Size>
+    <VisualizerTypeName>Bonsai.Design.ObjectTextVisualizer</VisualizerTypeName>
+    <VisualizerSettings>
+      <ObjectTextVisualizer />
+    </VisualizerSettings>
+  </WindowSettings>
+  <WindowSettings Index="14">
+    <Visible>false</Visible>
+    <Location>
+      <X>1200</X>
+      <Y>656</Y>
+    </Location>
+    <Size>
+      <Width>416</Width>
+      <Height>279</Height>
+    </Size>
+    <VisualizerTypeName>Bonsai.Design.Visualizers.TimeSeriesVisualizer</VisualizerTypeName>
+    <VisualizerSettings>
+      <TimeSeriesVisualizer>
+        <Capacity>640</Capacity>
+        <Min>12</Min>
+        <Max>13.2</Max>
+        <AutoScale>true</AutoScale>
+      </TimeSeriesVisualizer>
+    </VisualizerSettings>
+  </WindowSettings>
+</VisualizerLayout>
