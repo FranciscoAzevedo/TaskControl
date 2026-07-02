@@ -830,7 +830,6 @@ void get_trial_type(){
     log_int("correct_movement", correct_movement);
     log_int("correct_side", correct_side);
     log_int("is_ego_context", (int) is_ego_context);
-    log_int("init_port", init_port);
 }
 
 void log_choice(){
@@ -959,42 +958,39 @@ void finite_state_machine(){
                     }
                 }
 
-                else {
-                    // evaluate port
-                    if (init_port_blocks == 0){ // no blocks
+                // evaluate port
+                if (init_port_blocks == 0){ // no blocks
 
-                        // weighted sampling: bias SOUTH overall
-                        float p_south = p_south_bias;
+                    // weighted sampling: bias SOUTH overall
+                    r = random(0,1000) / 1000.0;
+                    if (r < p_south_bias) {
+                        init_port = south;
+                    } else {
+                        init_port = north;
+                    }
 
-                        r = random(0,1000) / 1000.0;
-                        if (r < p_south) {
+                    log_int("init_port", init_port);
+                }
+                else{ 
+                    // block initation port
+                    if (current_init_block_counter == this_init_block_dur){ // flip it
+                        if (init_port == north){
                             init_port = south;
-                        } else {
+                        }
+                        else{
                             init_port = north;
                         }
-
+                        // reset counter and sample new duration
                         log_int("init_port", init_port);
+                        current_init_block_counter = 0;
+                        this_init_block_dur = (unsigned long) random(port_dur_min, port_dur_max);
+                        log_int("this_init_block_dur", this_init_block_dur);
                     }
-                    else{ 
-                        // block initation port
-                        if (current_init_block_counter == this_init_block_dur){ // flip it
-                            if (init_port == north){
-                                init_port = south;
-                            }
-                            else{
-                                init_port = north;
-                            }
-                            // reset counter and sample new duration
-                            log_int("init_port", init_port);
-                            current_init_block_counter = 0;
-                            this_init_block_dur = (unsigned long) random(port_dur_min, port_dur_max);
-                            log_int("this_init_block_dur", this_init_block_dur);
-                        }
-                        else{ // increase counter
-                            current_init_block_counter++;
-                        }
+                    else{ // increase counter
+                        current_init_block_counter++;
                     }
                 }
+
 
                 trial_available_cue();
             }
