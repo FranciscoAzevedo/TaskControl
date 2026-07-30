@@ -101,7 +101,6 @@ bool init_pokeout_logged = false; // flag to log INIT_POKEOUT_EVENT only once pe
 
 // context and port related
 int this_context_dur = 0;
-bool is_ego_context = 1; // random(0, 2) == 1; random version, for now its fixed to ego
 int current_context_counter = 0;
 
 int this_init_block_dur = 0;
@@ -503,6 +502,39 @@ void pump_controller() {
                 log_code(WATER_PUMP_OFF);
             }
         }
+    }
+}
+
+/*
+..#######..########..########..#######.
+.##.....##.##.....##....##....##.....##
+.##.....##.##.....##....##....##.....##
+.##.....##.########.....##....##.....##
+.##.....##.##...........##....##.....##
+.##.....##.##...........##....##.....##
+..#######..##...........##.....#######.
+*/
+
+bool deliver_opto = false;
+bool opto_pin_is_on = false;
+unsigned long t_last_opto_pin_on = max_future;
+
+void opto_controller() {
+
+    // switch on
+    if (deliver_opto == true){
+        digitalWrite(OPTO_PIN, HIGH);
+        log_code(OPTO_ON);
+        deliver_opto = false; // Reset the flag after delivering opto
+        opto_pin_is_on = true;
+    }
+    // switch off
+    // it spans whole interval unless there's a broken fixation
+    if ((opto_pin_is_on == true && now() - t_last_opto_pin_on > this_interval) || abort_opto == true){ 
+        digitalWrite(OPTO_PIN, LOW);
+        log_code(OPTO_OFF);
+        opto_pin_is_on = false;
+        abort_opto = false;
     }
 }
 
@@ -1089,6 +1121,7 @@ void finite_state_machine(){
                         // trial broken
                         ClearNeopixel(pokesNeopixel[0]);
                         ClearNeopixel(pokesNeopixel[1]);
+                        abort_opto = true; // abort opto if it was on
 
                         prev_trial_broken = true; // set flag to resample trial type
                         
@@ -1425,6 +1458,8 @@ void loop() {
     // Controllers
     broken_tone_controller();
     error_tone_controller();
+
+    opto_controller()
 
     reward_valve_controller();
     pump_controller();

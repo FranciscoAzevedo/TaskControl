@@ -40,3 +40,10 @@ const int SPEAKER_EAST_PIN = 49; // speaker east
 
 // SYNC
 const int CAM_SYNC_PIN = 45; // "LZR1" on diagram
+
+// EPHYS SYNC
+const int EPHYS_SYNC_PIN = 44; // soldered to PCB, not via terminals
+
+// OPTO TRIGGER
+const int OPTO_PIN = 46; // soldered to PCB, not via terminals
+

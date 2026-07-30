@@ -10,3 +10,5 @@ int use_correction_loops = 0;
 int corr_loop_entry = 3;
 float p_cued = 1.0;
 int no_intervals = 3;
+float p_opto = 0.0;
+bool is_ego_context = 1; // now can be changed by hand
