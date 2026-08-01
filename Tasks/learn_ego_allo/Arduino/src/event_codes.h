@@ -100,3 +100,6 @@ unsigned int LIGHT_SOUTH_CUE_EVENT = 56;
 unsigned int LIGHT_WEST_CUE_EVENT = 57;
 unsigned int LIGHT_EAST_CUE_EVENT = 58;
 
+// opto & ephys
+unsigned int TRIAL_OPTO_EVENT = 72;
+unsigned int EPHYS_TTL_EVENT = 73;
