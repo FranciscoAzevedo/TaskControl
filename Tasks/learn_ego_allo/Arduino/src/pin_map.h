@@ -40,3 +40,11 @@ const int SPEAKER_EAST_PIN = 49; // speaker east
 
 // SYNC
 const int CAM_SYNC_PIN = 45; // "LZR1" on diagram
+
+// EPHYS SYNC
+// Can be any HW interrupt pin (2, 3, 18, 19, 20, and 21 on the Mega)
+const int EPHYS_SYNC_PIN = 2; // soldered to PCB, not via terminals
+
+// OPTO TRIGGER
+const int OPTO_PIN = 46; // soldered to PCB, not via terminals
+

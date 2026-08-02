@@ -57,6 +57,9 @@ unsigned int ODOR1_SOUTH_VALVE_OFF = 65;
 unsigned int ODOR2_SOUTH_VALVE_ON = 66;
 unsigned int ODOR2_SOUTH_VALVE_OFF = 67;
 
+// opto
+unsigned int OPTO_ON = 70;
+unsigned int OPTO_OFF = 71;
 
 // EVENTS
 
@@ -96,3 +99,7 @@ unsigned int LIGHT_NORTH_CUE_EVENT = 55;
 unsigned int LIGHT_SOUTH_CUE_EVENT = 56;
 unsigned int LIGHT_WEST_CUE_EVENT = 57;
 unsigned int LIGHT_EAST_CUE_EVENT = 58;
+
+// opto & ephys
+unsigned int TRIAL_OPTO_EVENT = 72;
+unsigned int EPHYS_TTL_EVENT = 73;

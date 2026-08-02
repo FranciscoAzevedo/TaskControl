@@ -70,6 +70,14 @@ unsigned long broken_cue_dur = tone_dur * 1000; // to save instructions - work i
 bool trigger_broken_tone = false; // whether broken tone is active or not
 bool broken_tone_ON = false; // whether the tone is playing or not
 
+// opto
+bool opto_trial = true;
+
+// ephys
+// Variables updated inside an ISR MUST be marked 'volatile'
+volatile uint32_t syncPulseMicros = 0;
+volatile bool newSyncPulse = false;
+
 //  named variables that are easier to compare in numbers than strings
 int north = 8;
 int south = 2;
@@ -101,7 +109,6 @@ bool init_pokeout_logged = false; // flag to log INIT_POKEOUT_EVENT only once pe
 
 // context and port related
 int this_context_dur = 0;
-bool is_ego_context = 1; // random(0, 2) == 1; random version, for now its fixed to ego
 int current_context_counter = 0;
 
 int this_init_block_dur = 0;
@@ -507,6 +514,55 @@ void pump_controller() {
 }
 
 /*
+..#######..########..########..#######.
+.##.....##.##.....##....##....##.....##
+.##.....##.##.....##....##....##.....##
+.##.....##.########.....##....##.....##
+.##.....##.##...........##....##.....##
+.##.....##.##...........##....##.....##
+..#######..##...........##.....#######.
+*/
+
+bool deliver_opto = false;
+bool opto_pin_is_on = false;
+unsigned long t_last_opto_pin_on = max_future;
+
+void opto_controller() {
+
+    // switch on
+    if (deliver_opto == true){
+        digitalWrite(OPTO_PIN, HIGH);
+        log_code(OPTO_ON);
+        deliver_opto = false; // Reset the flag after delivering opto
+        opto_pin_is_on = true;
+    }
+    // switch off
+    // it spans whole interval unless there's a broken fixation
+    if ((opto_pin_is_on == true && now() - t_last_opto_pin_on > this_interval) || abort_opto == true){ 
+        digitalWrite(OPTO_PIN, LOW);
+        log_code(OPTO_OFF);
+        opto_pin_is_on = false;
+        abort_opto = false;
+    }
+}
+/*
+.########.########..##.....##.##....##..######.
+.##.......##.....##.##.....##..##..##..##....##
+.##.......##.....##.##.....##...####...##......
+.######...########..#########....##.....######.
+.##.......##........##.....##....##..........##
+.##.......##........##.....##....##....##....##
+.########.##........##.....##....##.....######.
+*/
+
+// THE INTERRUPT SERVICE ROUTINE (ISR)
+// Keeps execution under 2 microseconds!
+void onOneBoxSync() {
+  syncPulseMicros = micros(); // Grab hardware timestamp instantly
+  newSyncPulse = true;        // Set flag for the main loop
+}
+
+/*
 ..#######..########...#######..########.
 .##.....##.##.....##.##.....##.##.....##
 .##.....##.##.....##.##.....##.##.....##
@@ -609,25 +665,26 @@ void odor_valve_controller(){
  
 */
 
-bool switch_sync_pin = false;
-bool sync_pin_is_on = false;
+bool cam_sync_pin = false;
+bool cam_sync_pin_is_on = false;
 unsigned long t_last_sync_pin_on = max_future;
 unsigned long sync_pulse_dur = 100;
 
 void sync_pin_controller(){
     // switch on
-    if (switch_sync_pin == true){
+    if (cam_sync_pin == true){
         digitalWrite(CAM_SYNC_PIN, HIGH);
-        sync_pin_is_on = true;
-        switch_sync_pin = false;
+        cam_sync_pin_is_on = true;
+        cam_sync_pin = false;
         t_last_sync_pin_on = now();
     }
     // switch off
-    if (sync_pin_is_on == true && now() - t_last_sync_pin_on > sync_pulse_dur){
+    if (cam_sync_pin_is_on == true && now() - t_last_sync_pin_on > sync_pulse_dur){
         digitalWrite(CAM_SYNC_PIN, LOW);
-        sync_pin_is_on = false;
+        cam_sync_pin_is_on = false;
     }
 }
+
 
 /*
 ######## ########  ####    ###    ##          ######## ##    ## ########  ########
@@ -787,6 +844,9 @@ void get_trial_type(){
 
     // if only broken fixation - force trial again (akin to a 1-trial corr loop)
     else if (in_corr_loop == false && prev_trial_broken == true){
+
+        // unessarily verbose since I could store the previous trial's interval 
+        // and movement, but this is more explicit and easier to read
         
         // short
         if (this_interval < 1500) {
@@ -822,8 +882,17 @@ void get_trial_type(){
         }
     }
 
+    // opto
+    r = random(0,1000) / 1000.0;
+    if (r < p_opto) {
+        has_opto = true;
+    } else {
+        has_opto = false;
+    }
+
     // logging for analysis
     trial_counter++;
+    log_int('has_opto', (int) has_opto);
     log_int("trial_counter", trial_counter);
     log_ulong("this_interval", this_interval);
     log_int("in_corr_loop", (int) in_corr_loop);
@@ -990,8 +1059,6 @@ void finite_state_machine(){
                         current_init_block_counter++;
                     }
                 }
-
-
                 trial_available_cue();
             }
 
@@ -1042,13 +1109,19 @@ void finite_state_machine(){
                 sound_cue(); // first timing cue
 
                 // sync at trial entry
-                switch_sync_pin = true;
+                cam_sync_pin = true;
                 sync_pin_controller(); // and call sync controller for enhanced temp prec.
                 
                 trial_init_time = now();
 
                 // determine the type of trial:
                 get_trial_type(); // updates correct_movement and correct_side
+
+                if (has_opto == true){
+                    deliver_opto = true; // deliver opto if trial is opto
+                    log_code(TRIAL_OPTO_EVENT);
+                    opto_controller(); // and call opto controller for enhanced temp prec.
+                }
             }
 
             // doesn't update, immediately exits
@@ -1089,8 +1162,9 @@ void finite_state_machine(){
                         // trial broken
                         ClearNeopixel(pokesNeopixel[0]);
                         ClearNeopixel(pokesNeopixel[1]);
+                        abort_opto = true; // abort opto if it was on
 
-                        prev_trial_broken = true; // set flag to resample trial type
+                        prev_trial_broken = true; // set flag to resample the SAME trial type
                         
                         log_code(JITTER_OUT);
                         jittering = false;
@@ -1372,6 +1446,14 @@ void setup() {
     // TTL COM w camera
     pinMode(CAM_SYNC_PIN,OUTPUT);
 
+    // Trigger for opto
+    pinMode(OPTO_PIN,OUTPUT);
+
+    // TTL receive from OneBox
+    pinMode(EPHYS_SYNC_PIN, INPUT);
+    // Attach interrupt: fires ONLY on the rising edge of the OneBox 1Hz pulse
+    attachInterrupt(digitalPinToInterrupt(syncPin), onOneBoxSync, RISING);
+
     // ini speakers
     pinMode(SPEAKER_WEST_PIN,OUTPUT);
     tone_control_west.begin(SPEAKER_WEST_PIN);
@@ -1425,6 +1507,14 @@ void loop() {
     // Controllers
     broken_tone_controller();
     error_tone_controller();
+
+    opto_controller()
+
+    if (newSyncPulse) {
+        newSyncPulse = false; // Reset flag
+        // Log the synced microsecond timestamp
+        log_ulong("EPHYS_SYNC_MICROS", syncPulseMicros);
+    }
 
     reward_valve_controller();
     pump_controller();
