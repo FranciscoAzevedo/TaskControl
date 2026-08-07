@@ -71,7 +71,9 @@ bool trigger_broken_tone = false; // whether broken tone is active or not
 bool broken_tone_ON = false; // whether the tone is playing or not
 
 // opto
-bool opto_trial = true;
+bool has_opto = false; // whether the opto pin is connected or not
+bool opto_trial = false;
+bool abort_opto = false;
 
 // ephys
 // Variables updated inside an ISR MUST be marked 'volatile'
@@ -108,6 +110,7 @@ bool jittering = false; // whether the animal is jittering or not
 bool init_pokeout_logged = false; // flag to log INIT_POKEOUT_EVENT only once per trial
 
 // context and port related
+bool is_ego_context = true; // now can be changed by hand
 int this_context_dur = 0;
 int current_context_counter = 0;
 
@@ -164,6 +167,12 @@ void PinInit(){
     // speakers
     digitalWrite(SPEAKER_WEST_PIN, 1); // turn off west speaker
     digitalWrite(SPEAKER_EAST_PIN, 1); // turn off west speaker
+
+    // Trigger for opto
+    digitalWrite(OPTO_PIN,LOW);
+
+    // TTL receive from OneBox
+    digitalWrite(EPHYS_SYNC_PIN,LOW);
 }
 
 
@@ -523,7 +532,6 @@ void pump_controller() {
 ..#######..##...........##.....#######.
 */
 
-bool deliver_opto = false;
 bool opto_pin_is_on = false;
 unsigned long t_last_opto_pin_on = max_future;
 
@@ -535,6 +543,7 @@ void opto_controller() {
         log_code(OPTO_ON);
         deliver_opto = false; // Reset the flag after delivering opto
         opto_pin_is_on = true;
+        t_last_opto_pin_on = now();
     }
     // switch off
     // it spans whole interval unless there's a broken fixation
@@ -892,7 +901,7 @@ void get_trial_type(){
 
     // logging for analysis
     trial_counter++;
-    log_int('has_opto', (int) has_opto);
+    log_int("has_opto", (int) has_opto);
     log_int("trial_counter", trial_counter);
     log_ulong("this_interval", this_interval);
     log_int("in_corr_loop", (int) in_corr_loop);
@@ -1452,7 +1461,7 @@ void setup() {
     // TTL receive from OneBox
     pinMode(EPHYS_SYNC_PIN, INPUT);
     // Attach interrupt: fires ONLY on the rising edge of the OneBox 1Hz pulse
-    attachInterrupt(digitalPinToInterrupt(syncPin), onOneBoxSync, RISING);
+    attachInterrupt(digitalPinToInterrupt(EPHYS_SYNC_PIN), onOneBoxSync, RISING);
 
     // ini speakers
     pinMode(SPEAKER_WEST_PIN,OUTPUT);
@@ -1508,7 +1517,7 @@ void loop() {
     broken_tone_controller();
     error_tone_controller();
 
-    opto_controller()
+    opto_controller();
 
     if (newSyncPulse) {
         newSyncPulse = false; // Reset flag

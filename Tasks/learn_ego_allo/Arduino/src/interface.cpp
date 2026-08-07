@@ -21,6 +21,9 @@ bool calibrate_east = false;
 bool deliver_reward_west = false;
 bool deliver_reward_east = false;
 
+// opto
+bool deliver_opto = false;
+
 // odors
 bool deliver_odor1_north = false;
 bool deliver_odor2_north = false;
@@ -156,6 +159,10 @@ void processSerialData() {
             log_int("no_intervals", no_intervals);
         }
 
+        if (strcmp(varname,"p_opto")==0){
+            log_float("p_opto", p_opto);
+        }
+
         }
 
         // SET
@@ -230,6 +237,10 @@ void processSerialData() {
             no_intervals = atoi(varvalue);
         }
 
+        if (strcmp(varname,"p_opto")==0){
+            p_opto = atof(varvalue);
+        }
+
         }
 
         // CMD
@@ -275,6 +286,11 @@ void processSerialData() {
                 deliver_reward_east = true;
                 togglingActive = true;
                 previousMillis = millis();
+            }
+
+            // opto trigger
+            if (strcmp(CMD,"o")==0){
+                deliver_opto = true;
             }
             
             // odor trigger
