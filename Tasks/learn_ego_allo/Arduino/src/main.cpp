@@ -74,6 +74,7 @@ bool broken_tone_ON = false; // whether the tone is playing or not
 bool has_opto = false; // whether the opto pin is connected or not
 bool opto_trial = false;
 bool abort_opto = false;
+bool manual_opto_output_on = false;
 
 // ephys
 // Variables updated inside an ISR MUST be marked 'volatile'
@@ -537,6 +538,32 @@ unsigned long t_last_opto_pin_on = max_future;
 
 void opto_controller() {
 
+    if (manual_opto == true) {
+        if (manual_opto_output_on == false) {
+            if (opto_pin_is_on == false) {
+                digitalWrite(OPTO_PIN, HIGH);
+                log_code(OPTO_ON);
+            }
+            opto_pin_is_on = true;
+            manual_opto_output_on = true;
+        }
+        deliver_opto = false;
+        abort_opto = false;
+        return;
+    }
+
+    if (manual_opto_output_on == true) {
+        if (opto_pin_is_on == true) {
+            digitalWrite(OPTO_PIN, LOW);
+            log_code(OPTO_OFF);
+        }
+        opto_pin_is_on = false;
+        manual_opto_output_on = false;
+        deliver_opto = false;
+        abort_opto = false;
+        return;
+    }
+
     // switch on
     if (deliver_opto == true){
         digitalWrite(OPTO_PIN, HIGH);
@@ -717,39 +744,52 @@ void update_interval_probabilities() {
     }
 }
 
-unsigned long get_short_interval(){
-    r = random(0,1000) / 1000.0;
-    for (int i = 0; i < no_intervals; i++){
-        p_cum = 0;
-        for (int j = 0; j <= i; j++){
-            p_cum += p_short_intervals[j];
-        }
-        if (r < p_cum){
-            return short_intervals[i];
+unsigned long sample_interval(const unsigned long intervals[], const float weights[]) {
+    int active_count = no_intervals;
+    if (active_count < 1) {
+        return intervals[0];
+    }
+    if (active_count > max_no_intervals) {
+        active_count = max_no_intervals;
+    }
+
+    float total_weight = 0;
+    int last_positive_weight = -1;
+    for (int i = 0; i < active_count; i++) {
+        if (weights[i] > 0) {
+            total_weight += weights[i];
+            last_positive_weight = i;
         }
     }
-    return -1;
+
+    if (last_positive_weight < 0) {
+        return intervals[random(0, active_count)];
+    }
+
+    float draw = (random(0,1000) / 1000.0) * total_weight;
+    float cumulative_weight = 0;
+    for (int i = 0; i < active_count; i++) {
+        if (weights[i] > 0) {
+            cumulative_weight += weights[i];
+            if (draw < cumulative_weight) {
+                return intervals[i];
+            }
+        }
+    }
+
+    return intervals[last_positive_weight];
+}
+
+unsigned long get_short_interval(){
+    return sample_interval(short_intervals, p_short_intervals);
 }
 
 unsigned long get_long_interval(){
-    r = random(0,1000) / 1000.0;
-    for (int i = 0; i < no_intervals; i++){
-        p_cum = 0;
-        for (int j = 0; j <= i; j++){
-            p_cum += p_long_intervals[j];
-        }
-        if (r < p_cum){
-            return long_intervals[i];
-        }
-    }
-    return -1;
+    return sample_interval(long_intervals, p_long_intervals);
 }
 
 void set_interval(){
     // init port -> context -> movement sampled
-
-    // make sure they're updated
-    //update_interval_probabilities();
 
     if (init_port == north){ // no difference between ego and allo on north port
 
