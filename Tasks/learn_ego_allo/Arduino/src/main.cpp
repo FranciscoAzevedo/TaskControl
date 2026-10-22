@@ -733,10 +733,18 @@ void sync_pin_controller(){
 */
 
 void update_interval_probabilities() {
+    int active_count = no_intervals;
+    if (active_count < 0) {
+        active_count = 0;
+    }
+    if (active_count > max_no_intervals) {
+        active_count = max_no_intervals;
+    }
+
     for (int i = 0; i < max_no_intervals; i++) {
-        if (i < no_intervals) {
-            p_short_intervals[i] = 1.0 / no_intervals;
-            p_long_intervals[i]  = 1.0 / no_intervals;
+        if (i < active_count && active_count > 0) {
+            p_short_intervals[i] = 1.0 / active_count;
+            p_long_intervals[i]  = 1.0 / active_count;
         } else {
             p_short_intervals[i] = 0;
             p_long_intervals[i]  = 0;
@@ -790,6 +798,8 @@ unsigned long get_long_interval(){
 
 void set_interval(){
     // init port -> context -> movement sampled
+
+    update_interval_probabilities();
 
     if (init_port == north){ // no difference between ego and allo on north port
 
