@@ -111,7 +111,7 @@ bool jittering = false; // whether the animal is jittering or not
 bool init_pokeout_logged = false; // flag to log INIT_POKEOUT_EVENT only once per trial
 
 // context and port related
-bool is_ego_context = true; // now can be changed by hand
+bool is_ego_context = true; // true means it starts as ALLO
 int this_context_dur = 0;
 int current_context_counter = 0;
 

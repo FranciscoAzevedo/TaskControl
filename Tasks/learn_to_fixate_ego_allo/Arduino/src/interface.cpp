@@ -21,6 +21,10 @@ bool calibrate_east = false;
 bool deliver_reward_west = false;
 bool deliver_reward_east = false;
 
+// opto
+bool deliver_opto = false;
+bool manual_opto = false;
+
 // odors
 bool deliver_odor1_north = false;
 bool deliver_odor2_north = false;
@@ -267,6 +271,19 @@ void processSerialData() {
                 deliver_reward_east = true;
                 togglingActive = true;
                 previousMillis = millis();
+            }
+
+            // opto trigger
+            if (strcmp(CMD,"o")==0){
+                deliver_opto = true;
+            }
+
+            if (strcmp(CMD,"k")==0){
+                manual_opto = true;
+            }
+
+            if (strcmp(CMD,"l")==0){
+                manual_opto = false;
             }
             
             // odor trigger

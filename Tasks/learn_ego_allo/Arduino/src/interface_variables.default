@@ -1,0 +1,13 @@
+unsigned long ITOI_dur = 12000;
+unsigned long timeout_dur = 10000;
+unsigned long choice_dur = 8000;
+unsigned long init_port_blocks = 0;
+unsigned long port_dur_min = 15;
+unsigned long port_dur_max = 30;
+unsigned long block_dur_min = 650;
+unsigned long block_dur_max = 680;
+int use_correction_loops = 0;
+int corr_loop_entry = 3;
+float p_cued = 1.0;
+int no_intervals = 3;
+float p_opto = 0.0;

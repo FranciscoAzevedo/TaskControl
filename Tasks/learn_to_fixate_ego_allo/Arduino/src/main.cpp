@@ -127,6 +127,8 @@ void PinInit(){
     digitalWrite(ODOR1_SOUTH_VALVE_PIN, LOW); // turn off odor 1 south valve
     digitalWrite(ODOR2_SOUTH_VALVE_PIN, LOW); // turn off odor 2 south valve
 
+    // Trigger for opto
+    digitalWrite(OPTO_PIN,LOW);
 
     // lights
     digitalWrite(BCKGND_LIGHTS_PIN, HIGH); // turn on background lights
@@ -249,6 +251,16 @@ void SetNeopixelClr(Adafruit_NeoPixel &neopixel, Color c, float b) {
     neopixel.show();
 }
 
+// lights every other pixel (8 of 16) - halves LED current, which was causing speaker hiss
+// evenly spaced so it doesn't resemble the ego (left/right) or allo (up/down) patterns
+void SetPokeNeopixelClr(Adafruit_NeoPixel &neopixel, Color c, float b) {
+    neopixel.clear();
+    for (unsigned int i = 0; i < neopixel.numPixels(); i += 2) {
+      neopixel.setPixelColor(i, c.getR() * b, c.getG() * b, c.getB() * b);
+    }
+    neopixel.show();
+}
+
 void ClearNeopixel(Adafruit_NeoPixel &neopixel) {
     neopixel.clear();
     neopixel.show();
@@ -267,22 +279,22 @@ void ClearNeopixel(Adafruit_NeoPixel &neopixel) {
 void trial_available_cue(){
     // turn the respective port light ON
     if (init_port == north){
-        SetNeopixelClr(pokesNeopixel[0], whiteColor, fullBrightness);
+        SetPokeNeopixelClr(pokesNeopixel[0], whiteColor, fullBrightness);
         log_code(LIGHT_NORTH_CUE_EVENT);
     }
     else {
-        SetNeopixelClr(pokesNeopixel[1], whiteColor, fullBrightness);
+        SetPokeNeopixelClr(pokesNeopixel[1], whiteColor, fullBrightness);
         log_code(LIGHT_SOUTH_CUE_EVENT);
     }
 }
 
 void go_cue_west(){
-    SetNeopixelClr(pokesNeopixel[2], whiteColor, fullBrightness);
+    SetPokeNeopixelClr(pokesNeopixel[2], whiteColor, fullBrightness);
     log_code(LIGHT_WEST_CUE_EVENT);
 }
 
 void go_cue_east(){
-    SetNeopixelClr(pokesNeopixel[3], whiteColor, fullBrightness);
+    SetPokeNeopixelClr(pokesNeopixel[3], whiteColor, fullBrightness);
     log_code(LIGHT_EAST_CUE_EVENT);
 }
 
@@ -586,7 +598,7 @@ void finite_state_machine(){
                 // the update loop
                 if (init_port == north){
                     if (is_poking_north == true){
-                        SetNeopixelClr(pokesNeopixel[0], whiteColor, dimBrightness);
+                        SetPokeNeopixelClr(pokesNeopixel[0], whiteColor, dimBrightness);
                         log_code(TRIAL_ENTRY_NORTH_EVENT);
                         current_state = TRIAL_ENTRY_STATE;
                         break;
@@ -594,7 +606,7 @@ void finite_state_machine(){
                 }
                 else {
                     if (is_poking_south == true){
-                        SetNeopixelClr(pokesNeopixel[1], whiteColor, dimBrightness);
+                        SetPokeNeopixelClr(pokesNeopixel[1], whiteColor, dimBrightness);
                         log_code(TRIAL_ENTRY_SOUTH_EVENT);
                         current_state = TRIAL_ENTRY_STATE;
                         break;
@@ -813,7 +825,8 @@ void finite_state_machine(){
                 north_clear = (millis() - t_last_north_pokeout >= pokeout_wait_ms);
                 south_clear = (millis() - t_last_south_pokeout >= pokeout_wait_ms);
                 if (!is_poking_north && !is_poking_south && north_clear && south_clear) {
-                    current_state = TRIAL_AVAILABLE_STATE; 
+                    timeout_flag = 0; // reset timeout flag
+                    current_state = TRIAL_AVAILABLE_STATE;
                 }
 
                 break;
@@ -870,6 +883,9 @@ void setup() {
 
     // TTL COM w camera
     pinMode(CAM_SYNC_PIN,OUTPUT);
+
+    // Trigger for opto
+    pinMode(OPTO_PIN,OUTPUT);
 
     // ini speakers
     pinMode(SPEAKER_WEST_PIN,OUTPUT);
