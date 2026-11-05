@@ -17,12 +17,12 @@
   </WindowSettings>
   <WindowSettings Index="9">
     <Location>
-      <X>1485</X>
-      <Y>304</Y>
+      <X>977</X>
+      <Y>107</Y>
     </Location>
     <Size>
-      <Width>336</Width>
-      <Height>285</Height>
+      <Width>704</Width>
+      <Height>580</Height>
     </Size>
     <VisualizerTypeName>Bonsai.Vision.Design.IplImageVisualizer</VisualizerTypeName>
     <VisualizerSettings>
@@ -30,9 +30,25 @@
     </VisualizerSettings>
   </WindowSettings>
   <WindowSettings Index="13">
+    <Visible>false</Visible>
     <Location>
       <X>1209</X>
       <Y>730</Y>
+    </Location>
+    <Size>
+      <Width>336</Width>
+      <Height>65</Height>
+    </Size>
+    <VisualizerTypeName>Bonsai.Design.ObjectTextVisualizer</VisualizerTypeName>
+    <VisualizerSettings>
+      <ObjectTextVisualizer />
+    </VisualizerSettings>
+  </WindowSettings>
+  <WindowSettings Index="14">
+    <Visible>false</Visible>
+    <Location>
+      <X>182</X>
+      <Y>182</Y>
     </Location>
     <Size>
       <Width>336</Width>

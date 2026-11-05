@@ -50,7 +50,7 @@ unsigned long timing_boundary = 1500;
 unsigned long reward_valve_dur = 1500; // more than enough for pump
 unsigned long reward_pump_toggle_dur = 3; // ms
 int targetToggles = 72; // Total number of toggles to perform , double of pump steps
-unsigned long grace_period = 200; // ms to avoid poke fluctuations
+unsigned long grace_period = 100; // ms to avoid poke fluctuations
 
 // odors
 unsigned long odor_valve_dur = 1000; // will be set to this_interval in odor_valve_controller
@@ -111,7 +111,7 @@ bool jittering = false; // whether the animal is jittering or not
 bool init_pokeout_logged = false; // flag to log INIT_POKEOUT_EVENT only once per trial
 
 // context and port related
-bool is_ego_context = true; // true means it starts as ALLO
+bool is_ego_context = false; // true means it starts as ALLO
 int this_context_dur = 0;
 int current_context_counter = 0;
 
