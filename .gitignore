@@ -8,7 +8,6 @@ __pycache__/*
 local
 old
 Animals
-configs
 Boxes
 *.bonsai.layout
 
