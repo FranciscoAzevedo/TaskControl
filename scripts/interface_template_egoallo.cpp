@@ -147,6 +147,13 @@ void processSerialData() {
 
             // manually implement functions here
 
+            // random seed sent by the PC at session start (logged for reproducibility)
+            if (strncmp(CMD,"SEED ",5)==0){
+                unsigned long seed = strtoul(CMD+5,NULL,10);
+                randomSeed(seed);
+                log_ulong("random_seed", seed);
+            }
+
             // Stop and Go functionality
             if (strcmp(CMD,"RUN")==0){
                 run = true;
