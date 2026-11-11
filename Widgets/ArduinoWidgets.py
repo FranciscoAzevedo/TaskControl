@@ -537,6 +537,12 @@ class ArduinoController(QtWidgets.QWidget):
         time.sleep(3)
         self.VariableController.send_all_variables()
 
+        # send a fresh random seed (FSM only draws after CMD RUN, so this precedes all draws)
+        # Arduino echoes it back as <VAR random_seed ...> into the arduino log
+        seed = int(np.random.SeedSequence().entropy % (2**31 - 2)) + 1
+        logger.info("sending random seed: %i" % seed)
+        self.Serial.send("CMD SEED %i" % seed)
+
     def on_data(self, line):
         if not hasattr(self, "log_fH") or self.log_fH is None:
             return
