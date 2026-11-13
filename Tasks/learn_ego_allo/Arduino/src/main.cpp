@@ -75,6 +75,8 @@ bool has_opto = false; // whether the opto pin is connected or not
 bool opto_trial = false;
 bool abort_opto = false;
 bool manual_opto_output_on = false;
+unsigned long opto_post_interval_dur = 2350 + 500; // ms opto stays on after the delay period ends
+unsigned long this_opto_dur = 0; // latched at opto onset: this_interval + opto_post_interval_dur
 
 // ephys
 // Variables updated inside an ISR MUST be marked 'volatile'
@@ -571,10 +573,11 @@ void opto_controller() {
         deliver_opto = false; // Reset the flag after delivering opto
         opto_pin_is_on = true;
         t_last_opto_pin_on = now();
+        this_opto_dur = this_interval + opto_post_interval_dur; // latch so a new trial can't change it
     }
     // switch off
-    // it spans whole interval unless there's a broken fixation
-    if ((opto_pin_is_on == true && now() - t_last_opto_pin_on > this_interval) || abort_opto == true){ 
+    // spans whole delay period + opto_post_interval_dur, regardless of broken fixations
+    if ((opto_pin_is_on == true && now() - t_last_opto_pin_on > this_opto_dur) || abort_opto == true){
         digitalWrite(OPTO_PIN, LOW);
         log_code(OPTO_OFF);
         opto_pin_is_on = false;
@@ -1221,7 +1224,7 @@ void finite_state_machine(){
                         // trial broken
                         ClearNeopixel(pokesNeopixel[0]);
                         ClearNeopixel(pokesNeopixel[1]);
-                        abort_opto = true; // abort opto if it was on
+                        // opto is NOT aborted on broken fixation, it runs its full duration
 
                         prev_trial_broken = true; // set flag to resample the SAME trial type
                         
